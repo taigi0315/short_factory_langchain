@@ -1,0 +1,16 @@
+# Environments
+venv/
+__pycache__/
+
+# API keys
+.env
+
+# Media files
+*.mp4
+*.mp3
+*.png
+*.jpg
+*.jpeg
+
+# Notebook checkpoints
+.ipynb_checkpoints/

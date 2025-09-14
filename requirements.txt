@@ -1,0 +1,10 @@
+jupyter
+python-dotenv
+requests
+openai
+google-generativeai
+moviepy
+gTTS
+pydub
+Pillow
+langchain-google-genai
