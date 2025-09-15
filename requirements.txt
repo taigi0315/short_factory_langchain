@@ -7,4 +7,6 @@ moviepy
 gTTS
 pydub
 Pillow
+langchain
+langchain-core
 langchain-google-genai
