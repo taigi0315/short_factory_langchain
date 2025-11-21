@@ -41,6 +41,18 @@ class Settings(BaseSettings):
     )
     
     # ========================================
+    # Error Handling & Development Mode
+    # ========================================
+    DEV_MODE: bool = Field(
+        default=True,
+        description="Development mode: show all errors, no silent fallbacks. Set to false for production."
+    )
+    FAIL_FAST: bool = Field(
+        default=True,
+        description="Stop on first error instead of continuing with partial results"
+    )
+    
+    # ========================================
     # Application Settings
     # ========================================
     MAX_VIDEO_SCENES: int = Field(default=8, description="Maximum number of scenes per video")
@@ -59,7 +71,7 @@ class Settings(BaseSettings):
     # ========================================
     # Validators
     # ========================================
-    @field_validator('USE_REAL_LLM', 'USE_REAL_IMAGE', 'USE_REAL_VOICE', mode='before')
+    @field_validator('USE_REAL_LLM', 'USE_REAL_IMAGE', 'USE_REAL_VOICE', 'DEV_MODE', 'FAIL_FAST', mode='before')
     @classmethod
     def parse_bool(cls, v):
         """Parse boolean from string env vars."""

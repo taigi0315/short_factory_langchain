@@ -39,35 +39,37 @@ class ImageGenAgent:
         
         # Real mode - use Gemini
         if not self.api_key:
-             logger.error("GEMINI_API_KEY not set. Falling back to mock mode.")
-             return await self._generate_mock_images(scenes)
+             logger.error("GEMINI_API_KEY not set. Cannot generate images in real mode.")
+             raise ValueError(
+                 "GEMINI_API_KEY is required for real image generation. "
+                 "Set USE_REAL_IMAGE=false to use mock mode, or provide a valid API key."
+             )
 
-        try:
-            client = GeminiImageClient(self.api_key)
-            
-            # Generate all images in parallel
-            tasks = [
-                self._generate_single_image(client, scene)
-                for scene in scenes
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Process results
-            for i, result in enumerate(results):
-                scene = scenes[i]
-                if isinstance(result, Exception):
-                    logger.error("Image generation failed for scene", scene_number=scene.scene_number, error=str(result))
-                    # Fall back to placeholder
-                    image_paths[scene.scene_number] = await self._generate_placeholder(scene)
-                else:
-                    image_paths[scene.scene_number] = result
-            
-            return image_paths
-            
-        except Exception as e:
-            # If Gemini image generation completely fails, fall back to mock mode
-            logger.error("Gemini image generation failed completely. Falling back to mock mode.", error=str(e))
-            return await self._generate_mock_images(scenes)
+        client = GeminiImageClient(self.api_key)
+        
+        # Generate all images in parallel
+        tasks = [
+            self._generate_single_image(client, scene)
+            for scene in scenes
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results - fail if any image generation failed
+        for i, result in enumerate(results):
+            scene = scenes[i]
+            if isinstance(result, Exception):
+                logger.error("Image generation failed for scene", 
+                           scene_number=scene.scene_number, 
+                           error=str(result),
+                           error_type=type(result).__name__)
+                # Don't fallback - raise the error
+                raise RuntimeError(
+                    f"Image generation failed for scene {scene.scene_number}: {result}"
+                ) from result
+            else:
+                image_paths[scene.scene_number] = result
+        
+        return image_paths
 
     async def _generate_single_image(
         self, 
