@@ -41,6 +41,11 @@ class GeminiImageClient:
         """
         Generate an image using Gemini.
         
+        NOTE: Gemini 2.5 Flash Image is currently a PREVIEW model and may have
+        limited availability. This implementation assumes the model can generate
+        images directly. If the model only generates text descriptions, we'll
+        need to use a different approach (e.g., DALL-E, Stable Diffusion).
+        
         Args:
             prompt: The image generation prompt
             model: Ignored (kept for compatibility with NanoBanana interface)
@@ -57,29 +62,43 @@ class GeminiImageClient:
             logger.info("Generating image with Gemini", prompt_length=len(prompt))
             
             # Add dimension hints to prompt if specified
-            dimension_hint = f"Image dimensions: {width}x{height}. "
+            dimension_hint = f"Create a {width}x{height} image. "
             full_prompt = dimension_hint + prompt
             
             # Generate image
-            response = self.model.generate_content([
-                "Generate a high-quality image based on this description:",
-                full_prompt
-            ])
+            response = self.model.generate_content([full_prompt])
             
-            # Extract image data from response
+            logger.debug("Gemini response received", has_parts=bool(response.parts))
+            
+            # Check if response contains image data
             if not response.parts:
-                raise RuntimeError("No image generated in response")
+                raise RuntimeError("No response parts from Gemini")
             
-            # Get the first part which should contain the image
-            image_part = response.parts[0]
+            # Try to find image data in response
+            image_data = None
+            mime_type = None
             
-            if not hasattr(image_part, 'inline_data'):
-                raise RuntimeError("Response does not contain image data")
+            for part in response.parts:
+                if hasattr(part, 'inline_data') and part.inline_data:
+                    # Found inline image data
+                    image_data = part.inline_data.data
+                    mime_type = part.inline_data.mime_type
+                    logger.info("Found inline image data", mime_type=mime_type)
+                    break
+                elif hasattr(part, 'text'):
+                    # Model returned text instead of image
+                    logger.warning("Gemini returned text instead of image", text_preview=part.text[:100])
             
-            # Get base64 image data
-            image_data = image_part.inline_data.data
-            mime_type = image_part.inline_data.mime_type
+            if not image_data:
+                # Gemini 2.5 Flash Image may not be available or may only generate text
+                raise RuntimeError(
+                    "Gemini did not return image data. "
+                    "The gemini-2.5-flash-image-preview model may not be available "
+                    "or may require different API access. "
+                    "Consider using mock mode or a different image generation service."
+                )
             
+            # Image data from Gemini is already base64 encoded
             # Return as data URI
             data_uri = f"data:{mime_type};base64,{image_data}"
             
@@ -87,7 +106,7 @@ class GeminiImageClient:
             return data_uri
             
         except Exception as e:
-            logger.error("Failed to generate image with Gemini", error=str(e))
+            logger.error("Failed to generate image with Gemini", error=str(e), error_type=type(e).__name__)
             raise RuntimeError(f"Gemini image generation failed: {e}")
     
     async def download_image(self, data_uri: str, output_path: str) -> None:

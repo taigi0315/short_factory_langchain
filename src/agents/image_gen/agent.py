@@ -42,26 +42,32 @@ class ImageGenAgent:
              logger.error("GEMINI_API_KEY not set. Falling back to mock mode.")
              return await self._generate_mock_images(scenes)
 
-        client = GeminiImageClient(self.api_key)
-        
-        # Generate all images in parallel
-        tasks = [
-            self._generate_single_image(client, scene)
-            for scene in scenes
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Process results
-        for i, result in enumerate(results):
-            scene = scenes[i]
-            if isinstance(result, Exception):
-                logger.error("Image generation failed for scene", scene_number=scene.scene_number, error=str(result))
-                # Fall back to placeholder
-                image_paths[scene.scene_number] = await self._generate_placeholder(scene)
-            else:
-                image_paths[scene.scene_number] = result
-        
-        return image_paths
+        try:
+            client = GeminiImageClient(self.api_key)
+            
+            # Generate all images in parallel
+            tasks = [
+                self._generate_single_image(client, scene)
+                for scene in scenes
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Process results
+            for i, result in enumerate(results):
+                scene = scenes[i]
+                if isinstance(result, Exception):
+                    logger.error("Image generation failed for scene", scene_number=scene.scene_number, error=str(result))
+                    # Fall back to placeholder
+                    image_paths[scene.scene_number] = await self._generate_placeholder(scene)
+                else:
+                    image_paths[scene.scene_number] = result
+            
+            return image_paths
+            
+        except Exception as e:
+            # If Gemini image generation completely fails, fall back to mock mode
+            logger.error("Gemini image generation failed completely. Falling back to mock mode.", error=str(e))
+            return await self._generate_mock_images(scenes)
 
     async def _generate_single_image(
         self, 
