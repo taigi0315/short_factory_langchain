@@ -48,7 +48,7 @@ export default function DevDashboard() {
             }
 
             const data = await res.json();
-            setGeneratedImage(data.image_url);
+            setGeneratedImage(data.url);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -110,7 +110,7 @@ export default function DevDashboard() {
             }
 
             const data = await res.json();
-            setSceneImages(prev => ({ ...prev, [sceneIndex]: data.image_url }));
+            setSceneImages(prev => ({ ...prev, [sceneIndex]: data.url }));
         } catch (err) {
             console.error(err);
             alert('Failed to generate image for scene ' + (sceneIndex + 1));
@@ -224,9 +224,111 @@ export default function DevDashboard() {
 
                             {generatedScript && (
                                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                    <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700">
-                                        <h2 className="text-xl font-bold text-white mb-2">{generatedScript.title}</h2>
-                                        <p className="text-slate-400">{generatedScript.overall_style}</p>
+                                    <div className="flex justify-between items-start">
+                                        <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700 flex-1 mr-4">
+                                            <h2 className="text-xl font-bold text-white mb-2">{generatedScript.title}</h2>
+                                            <p className="text-slate-400">{generatedScript.overall_style}</p>
+                                        </div>
+
+                                        <button
+                                            onClick={async () => {
+                                                setVideoLoading(true);
+                                                setError(null);
+                                                try {
+                                                    // 1. Check for missing images and generate them
+                                                    const currentImages = { ...sceneImages };
+                                                    const missingScenes = generatedScript.scenes.filter((scene: any, idx: number) => !currentImages[idx + 1]);
+
+                                                    if (missingScenes.length > 0) {
+                                                        console.log(`Generating images for ${missingScenes.length} missing scenes...`);
+
+                                                        // Update loading state for all missing scenes
+                                                        const newLoadingState = { ...sceneLoading };
+                                                        missingScenes.forEach((scene: any, idx: number) => {
+                                                            newLoadingState[scene.scene_number] = true;
+                                                        });
+                                                        setSceneLoading(newLoadingState);
+
+                                                        // Generate images in parallel
+                                                        const imagePromises = missingScenes.map(async (scene: any) => {
+                                                            try {
+                                                                const res = await fetch('/api/dev/generate-image', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        prompt: scene.image_create_prompt,
+                                                                        scene_number: scene.scene_number
+                                                                    }),
+                                                                });
+                                                                if (res.ok) {
+                                                                    const data = await res.json();
+                                                                    return { sceneNumber: scene.scene_number, url: data.url };
+                                                                }
+                                                            } catch (e) {
+                                                                console.error(`Failed to generate image for scene ${scene.scene_number}`, e);
+                                                            }
+                                                            return null;
+                                                        });
+
+                                                        const results = await Promise.all(imagePromises);
+
+                                                        // Update local state with new images
+                                                        const updatedImages = { ...currentImages };
+                                                        const updatedLoading = { ...newLoadingState };
+
+                                                        results.forEach(result => {
+                                                            if (result) {
+                                                                updatedImages[result.sceneNumber] = result.url;
+                                                            }
+                                                            updatedLoading[result!.sceneNumber] = false;
+                                                        });
+
+                                                        setSceneImages(updatedImages);
+                                                        setSceneLoading(updatedLoading);
+
+                                                        // Use the updated map for video generation
+                                                        // Note: We use updatedImages here because setSceneImages is async/batched
+                                                        var finalImageMap = updatedImages;
+                                                    } else {
+                                                        var finalImageMap = currentImages;
+                                                    }
+
+                                                    // 2. Generate Video
+                                                    const res = await fetch('/api/dev/generate-video-from-script', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            script: generatedScript,
+                                                            image_map: finalImageMap
+                                                        }),
+                                                    });
+                                                    if (!res.ok) throw new Error('Failed to generate video');
+                                                    const data = await res.json();
+                                                    setGeneratedVideo(data.video_url);
+                                                    setActiveTab('video');
+                                                } catch (e: any) {
+                                                    setError(e.message);
+                                                } finally {
+                                                    setVideoLoading(false);
+                                                    // Ensure all loading states are cleared
+                                                    setSceneLoading({});
+                                                }
+                                            }}
+                                            disabled={videoLoading}
+                                            className="px-6 py-4 bg-green-600 hover:bg-green-500 rounded-xl font-bold shadow-lg shadow-green-900/20 flex items-center gap-2 transition-all hover:scale-105 disabled:opacity-50 disabled:scale-100"
+                                        >
+                                            {videoLoading ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                                    Rendering...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>🎬</span>
+                                                    Generate Full Video
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
 
                                     <div className="grid gap-6">
@@ -257,13 +359,13 @@ export default function DevDashboard() {
                                                 {/* Asset Generation Column */}
                                                 <div className="w-64 flex flex-col gap-4 border-l border-slate-700 pl-6">
                                                     <div className="aspect-video bg-slate-900 rounded-lg border border-slate-700 overflow-hidden flex items-center justify-center relative group">
-                                                        {sceneImages[idx] ? (
-                                                            <img src={sceneImages[idx]} alt="Generated" className="w-full h-full object-cover" />
+                                                        {sceneImages[idx + 1] ? (
+                                                            <img src={sceneImages[idx + 1]} alt="Generated" className="w-full h-full object-cover" />
                                                         ) : (
                                                             <span className="text-xs text-slate-600">No Image</span>
                                                         )}
 
-                                                        {sceneLoading[idx] && (
+                                                        {sceneLoading[idx + 1] && (
                                                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                                                                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                                             </div>
@@ -271,8 +373,8 @@ export default function DevDashboard() {
                                                     </div>
 
                                                     <button
-                                                        onClick={() => handleGenerateSceneImage(idx, scene.image_create_prompt)}
-                                                        disabled={sceneLoading[idx]}
+                                                        onClick={() => handleGenerateSceneImage(idx + 1, scene.image_create_prompt)}
+                                                        disabled={sceneLoading[idx + 1]}
                                                         className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors"
                                                     >
                                                         Generate Image 🎨

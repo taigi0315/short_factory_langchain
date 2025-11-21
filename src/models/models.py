@@ -131,6 +131,7 @@ class Scene(BaseModel):
     
     # Dialogue/narration
     dialogue: Optional[str] = Field(default=None, description="What the character will say")
+    text_overlay: Optional[str] = Field(default=None, description="Text to display on screen (e.g. key points, title)")
     voice_tone: VoiceTone
     elevenlabs_settings: ElevenLabsSettings
     

@@ -271,11 +271,83 @@ export default function Home() {
                   <button
                     onClick={() => setStep(2)}
                     className="flex-1 py-3 bg-slate-800 rounded-xl font-bold hover:bg-slate-700 transition-colors"
+                    disabled={loading}
                   >
                     Back
                   </button>
-                  <button className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-red-600 rounded-xl font-bold hover:from-pink-500 hover:to-red-500 shadow-lg">
-                    Generate Video (Coming Soon) 🚀
+                  <button
+                    onClick={async () => {
+                      setLoading(true);
+                      try {
+                        // 1. Generate images for all scenes
+                        const imageMap: Record<number, string> = {};
+
+                        // Create array of promises for parallel generation
+                        const imagePromises = script.scenes.map(async (scene: any) => {
+                          try {
+                            const res = await fetch('/api/dev/generate-image', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                prompt: scene.image_create_prompt
+                              }),
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              return { sceneNumber: scene.scene_number, url: data.url };
+                            }
+                          } catch (e) {
+                            console.error(`Failed to generate image for scene ${scene.scene_number}`, e);
+                          }
+                          return null;
+                        });
+
+                        const results = await Promise.all(imagePromises);
+                        results.forEach(result => {
+                          if (result) {
+                            imageMap[result.sceneNumber] = result.url;
+                          }
+                        });
+
+                        // 2. Generate Video
+                        const res = await fetch('/api/dev/generate-video-from-script', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            script: script,
+                            image_map: imageMap
+                          }),
+                        });
+
+                        if (!res.ok) throw new Error('Failed to generate video');
+                        const data = await res.json();
+
+                        // 3. Show Video (we'll need a new step or state for this)
+                        // For now, let's just open it or show it in an alert/modal
+                        // Better: Add a Step 4 for Video Playback
+                        window.open(data.video_url, '_blank');
+                        alert('Video Generated! Opening in new tab...');
+
+                      } catch (e) {
+                        console.error(e);
+                        alert('Failed to generate video. Check console.');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-red-600 rounded-xl font-bold hover:from-pink-500 hover:to-red-500 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Generating Magic...
+                      </>
+                    ) : (
+                      <>
+                        Generate Full Video 🚀
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

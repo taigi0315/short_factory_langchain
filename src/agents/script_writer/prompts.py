@@ -264,7 +264,8 @@ Before finalizing, ensure:
 - [ ] Animation decisions are justified
 - [ ] Transitions enhance the flow
 - [ ] Each scene serves a clear purpose
-- [ ] Total scene count is 5-8 scenes for optimal pacing
+- [ ] Total scene count MUST be between 2 and {{max_video_scenes}} scenes. (Current limit: {{max_video_scenes}})
+- [ ] You MUST generate at least 2 scenes. Do not generate fewer than 2 scenes.
 
 Remember: You are the creative mastermind. Every decision you make affects viewer engagement, learning effectiveness, and overall video success. Think like a master storyteller who happens to be creating educational content.
 

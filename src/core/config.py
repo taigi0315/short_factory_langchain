@@ -57,6 +57,13 @@ class Settings(BaseSettings):
         default="generated_assets",
         description="Root directory for generated images/audio/videos"
     )
+
+    # ========================================
+    # Video Generation Settings
+    # ========================================
+    VIDEO_RESOLUTION: str = Field(default="1080p", description="Video resolution (1080p or 720p)")
+    VIDEO_FPS: int = Field(default=30, description="Video frames per second")
+    VIDEO_QUALITY: str = Field(default="medium", description="FFmpeg preset (ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow)")
     
     # ========================================
     # Validators
