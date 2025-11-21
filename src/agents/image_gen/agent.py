@@ -25,12 +25,22 @@ class ImageGenAgent:
         # API configuration - use Gemini for image generation
         self.api_key = settings.GEMINI_API_KEY
 
-    async def generate_images(self, scenes: List[Scene]) -> Dict[int, str]:
+    async def generate_images(
+        self, 
+        scenes: List[Scene],
+        workflow_id: Optional[str] = None
+    ) -> Dict[int, str]:
         """
         Generates images for a list of scenes.
-        Returns a dictionary mapping scene_number to local_file_path.
+        
+        Args:
+            scenes: List of scenes to generate images for
+            workflow_id: Optional workflow ID for checkpoint saving
+            
+        Returns:
+            Dictionary mapping scene_number to local_file_path
         """
-        logger.info("Generating images for scenes", count=len(scenes))
+        logger.info("Generating images for scenes", count=len(scenes), workflow_id=workflow_id)
         
         image_paths = {}
         
@@ -47,27 +57,45 @@ class ImageGenAgent:
 
         client = GeminiImageClient(self.api_key)
         
-        # Generate all images in parallel
-        tasks = [
-            self._generate_single_image(client, scene)
-            for scene in scenes
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Import workflow manager if workflow_id provided
+        workflow_manager = None
+        if workflow_id:
+            from src.core.workflow_state import workflow_manager as wf_mgr
+            workflow_manager = wf_mgr
         
-        # Process results - fail if any image generation failed
-        for i, result in enumerate(results):
-            scene = scenes[i]
-            if isinstance(result, Exception):
+        # Generate images one by one to enable incremental checkpoints
+        for scene in scenes:
+            try:
+                image_path = await self._generate_single_image(client, scene)
+                image_paths[scene.scene_number] = image_path
+                
+                # Save checkpoint after each successful image
+                if workflow_manager:
+                    workflow_manager.save_image(workflow_id, scene.scene_number, image_path)
+                    logger.info("Checkpoint saved", 
+                              workflow_id=workflow_id,
+                              progress=f"{len(image_paths)}/{len(scenes)}")
+                
+            except Exception as e:
                 logger.error("Image generation failed for scene", 
                            scene_number=scene.scene_number, 
-                           error=str(result),
-                           error_type=type(result).__name__)
+                           error=str(e),
+                           error_type=type(e).__name__)
+                
+                # Save failure state if workflow tracking is enabled
+                if workflow_manager:
+                    from src.core.workflow_state import WorkflowStep
+                    workflow_manager.mark_failed(
+                        workflow_id,
+                        WorkflowStep.IMAGE_GENERATION,
+                        f"Image generation failed for scene {scene.scene_number}: {e}",
+                        type(e).__name__
+                    )
+                
                 # Don't fallback - raise the error
                 raise RuntimeError(
-                    f"Image generation failed for scene {scene.scene_number}: {result}"
-                ) from result
-            else:
-                image_paths[scene.scene_number] = result
+                    f"Image generation failed for scene {scene.scene_number}: {e}"
+                ) from e
         
         return image_paths
 
