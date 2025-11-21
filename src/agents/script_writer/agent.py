@@ -40,23 +40,6 @@ class ScriptWriterAgent:
             self.chain = None
         
     def generate_script(self, subject: str) -> VideoScript:
-        if not settings.USE_REAL_LLM:
-            logger.info("Returning mock script (Mock Mode)")
-            from src.api.mock_data import get_mock_script
-            from src.api.schemas.scripts import ScriptGenerationRequest
-            # Create a dummy request object
-            # We need to parse the subject string to get title/premise etc if possible, 
-            # or just pass dummy values since it's a mock.
-            # The subject string format in test_pipeline is "Title: ...\nPremise: ..."
-            dummy_req = ScriptGenerationRequest(
-                story_title="Mock Title",
-                story_premise="Mock Premise",
-                story_genre="Mock Genre",
-                story_audience="Mock Audience",
-                duration="30s"
-            )
-            return get_mock_script(dummy_req).script
-
         """
         Generate video script for a given subject.
         
@@ -69,6 +52,22 @@ class ScriptWriterAgent:
         Raises:
             Exception: If LLM generation fails after retries
         """
+        # Mock mode - return early
+        if not settings.USE_REAL_LLM:
+            logger.info("Returning mock script (Mock Mode)")
+            from src.api.mock_data import get_mock_script
+            from src.api.schemas.scripts import ScriptGenerationRequest
+            
+            dummy_req = ScriptGenerationRequest(
+                story_title="Mock Title",
+                story_premise="Mock Premise",
+                story_genre="Mock Genre",
+                story_audience="Mock Audience",
+                duration="30s"
+            )
+            return get_mock_script(dummy_req).script
+        
+        # Real LLM mode
         request_id = str(uuid.uuid4())[:8]
         
         logger.info(
@@ -77,9 +76,8 @@ class ScriptWriterAgent:
         )
         
         try:
-            # Build and invoke the chain with the template
-            chain = SCRIPT_WRITER_AGENT_TEMPLATE | self.llm | VIDEO_SCRIPT_PARSER
-            result = chain.invoke({
+            # Invoke the chain
+            result = self.chain.invoke({
                 "subject": subject,
                 "language": "English",
                 "max_video_scenes": settings.MAX_VIDEO_SCENES

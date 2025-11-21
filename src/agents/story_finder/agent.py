@@ -44,6 +44,20 @@ class StoryFinderAgent:
             self.chain = None
 
     def find_stories(self, subject: str, num_stories: int = 5) -> StoryList:
+        """
+        Generate story ideas for a given subject.
+        
+        Args:
+            subject: Topic to generate stories about
+            num_stories: Number of stories to generate (default: 5)
+            
+        Returns:
+            StoryList: List of generated story ideas
+            
+        Raises:
+            Exception: If LLM generation fails after retries
+        """
+        # Mock mode - return early
         if not settings.USE_REAL_LLM:
             logger.info("Returning mock stories (Mock Mode)")
             return StoryList(stories=[
@@ -60,20 +74,8 @@ class StoryFinderAgent:
                     keywords=["mock", "example"]
                 ),
             ])
-
-        """
-        Generate story ideas for a given subject.
         
-        Args:
-            subject: Topic to generate stories about
-            num_stories: Number of stories to generate (default: 5)
-            
-        Returns:
-            StoryList: List of generated story ideas
-            
-        Raises:
-            Exception: If LLM generation fails after retries
-        """
+        # Real LLM mode
         request_id = str(uuid.uuid4())[:8]
         
         logger.info(
@@ -100,5 +102,5 @@ class StoryFinderAgent:
                 f"[{request_id}] Story generation failed ({type(e).__name__}): {str(e)}",
                 exc_info=True
             )
-            # Re-raise  to allow fallback decorator to handle
+            # Re-raise to allow fallback decorator to handle
             raise
