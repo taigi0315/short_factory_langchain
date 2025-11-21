@@ -9,7 +9,7 @@ import requests
 
 from src.models.models import Scene, ImageStyle
 from src.core.config import settings
-from src.agents.image_gen.nanobanana_client import NanoBananaClient
+from src.agents.image_gen.gemini_image_client import GeminiImageClient
 
 logger = structlog.get_logger()
 
@@ -22,9 +22,8 @@ class ImageGenAgent:
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.cache_dir, exist_ok=True)
         
-        # API configuration from settings
-        self.api_key = settings.NANO_BANANA_API_KEY
-        self.api_url = settings.NANO_BANANA_API_URL
+        # API configuration - use Gemini for image generation
+        self.api_key = settings.GEMINI_API_KEY
 
     async def generate_images(self, scenes: List[Scene]) -> Dict[int, str]:
         """
@@ -38,34 +37,35 @@ class ImageGenAgent:
         if self.mock_mode:
             return await self._generate_mock_images(scenes)
         
-        # Real mode - use NanoBanana
+        # Real mode - use Gemini
         if not self.api_key:
-             logger.error("NANO_BANANA_API_KEY not set. Falling back to mock mode.")
+             logger.error("GEMINI_API_KEY not set. Falling back to mock mode.")
              return await self._generate_mock_images(scenes)
 
-        async with NanoBananaClient(self.api_key, self.api_url) as client:
-            # Generate all images in parallel
-            tasks = [
-                self._generate_single_image(client, scene)
-                for scene in scenes
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Process results
-            for i, result in enumerate(results):
-                scene = scenes[i]
-                if isinstance(result, Exception):
-                    logger.error("Image generation failed for scene", scene_number=scene.scene_number, error=str(result))
-                    # Fall back to placeholder
-                    image_paths[scene.scene_number] = await self._generate_placeholder(scene)
-                else:
-                    image_paths[scene.scene_number] = result
+        client = GeminiImageClient(self.api_key)
+        
+        # Generate all images in parallel
+        tasks = [
+            self._generate_single_image(client, scene)
+            for scene in scenes
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        for i, result in enumerate(results):
+            scene = scenes[i]
+            if isinstance(result, Exception):
+                logger.error("Image generation failed for scene", scene_number=scene.scene_number, error=str(result))
+                # Fall back to placeholder
+                image_paths[scene.scene_number] = await self._generate_placeholder(scene)
+            else:
+                image_paths[scene.scene_number] = result
         
         return image_paths
 
     async def _generate_single_image(
         self, 
-        client: NanoBananaClient, 
+        client: GeminiImageClient, 
         scene: Scene
     ) -> str:
         """Generate image for a single scene with caching."""

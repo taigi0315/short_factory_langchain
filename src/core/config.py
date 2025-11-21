@@ -20,18 +20,9 @@ class Settings(BaseSettings):
     # ========================================
     # API Keys
     # ========================================
-    GEMINI_API_KEY: Optional[str] = Field(default=None, description="Google Gemini API key")
+    GEMINI_API_KEY: Optional[str] = Field(default=None, description="Google Gemini API key (used for both text and image generation)")
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API key")
     ELEVENLABS_API_KEY: Optional[str] = Field(default=None, description="ElevenLabs voice synthesis API key")
-    NANO_BANANA_API_KEY: Optional[str] = Field(default=None, description="NanoBanana image generation API key")
-    
-    # ========================================
-    # External Service URLs
-    # ========================================
-    NANO_BANANA_API_URL: str = Field(
-        default="https://api.nanobanana.com/v1/generate",
-        description="NanoBanana API endpoint"
-    )
     
     # ========================================
     # Feature Flags (Mock vs Real mode)
@@ -82,6 +73,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False  # Allow USE_REAL_LLM or use_real_llm
+        extra = "ignore"  # Ignore deprecated env vars like NANO_BANANA_API_KEY
 
 
 settings = Settings()
