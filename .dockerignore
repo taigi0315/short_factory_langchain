@@ -1,0 +1,7 @@
+.git
+.venv
+venv
+__pycache__
+generated_assets
+.env
+.DS_Store

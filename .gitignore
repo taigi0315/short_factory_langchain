@@ -320,3 +320,5 @@ langsmith/
 wandb/
 mlruns/
 .mlflow/
+
+!docker-compose.yml

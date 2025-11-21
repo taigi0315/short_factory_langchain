@@ -10,7 +10,10 @@ interface StoryIdea {
   estimated_duration: string;
 }
 
+import DevDashboard from '../components/DevDashboard';
+
 export default function Home() {
+  const [showDevMode, setShowDevMode] = useState(false);
   const [step, setStep] = useState(1);
   const [topic, setTopic] = useState('');
   const [mood, setMood] = useState('Fun');
@@ -77,8 +80,29 @@ export default function Home() {
     }
   };
 
+  if (showDevMode) {
+    return (
+      <div>
+        <button
+          onClick={() => setShowDevMode(false)}
+          className="fixed top-4 right-4 z-50 bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-700"
+        >
+          Exit Dev Mode
+        </button>
+        <DevDashboard />
+      </div>
+    );
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center p-12 bg-slate-950 text-white font-sans">
+    <main className="flex min-h-screen flex-col items-center p-12 bg-slate-950 text-white font-sans relative">
+      <button
+        onClick={() => setShowDevMode(true)}
+        className="absolute top-4 right-4 text-slate-600 hover:text-slate-400 text-sm"
+      >
+        Dev Mode
+      </button>
+
       <div className="w-full max-w-3xl">
         <header className="mb-12 text-center">
           <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 mb-4">

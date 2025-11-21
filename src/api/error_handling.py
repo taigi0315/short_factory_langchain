@@ -32,9 +32,8 @@ def with_fallback(mock_data_fn: Callable[..., T]):
             except Exception as e:
                 # Log the error with full context
                 logger.error(
-                    f"Error in {func.__name__}: {str(e)}",
-                    exc_info=True,
-                    extra={"function": func.__name__, "args": str(args)[:200]}
+                    f"Error in {func.__name__}: {str(e)} (args: {str(args)[:100]})",
+                    exc_info=True
                 )
                 
                 # Return mock data for verification platform

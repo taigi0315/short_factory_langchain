@@ -23,21 +23,40 @@ class ScriptWriterAgent:
                     "Please set it in your .env file or environment variables."
                 )
             logger.info("✅ ScriptWriterAgent initializing with REAL Gemini LLM")
+            
+            self.llm = ChatGoogleGenerativeAI(
+                model=settings.llm_model_name,
+                google_api_key=settings.GEMINI_API_KEY,
+                temperature=0.7,
+                max_retries=3,
+                request_timeout=30.0,
+            )
+            self.chain = SCRIPT_WRITER_AGENT_TEMPLATE | self.llm | VIDEO_SCRIPT_PARSER
+            logger.info(f"ScriptWriterAgent initialized successfully. Model: {settings.llm_model_name}")
+            
         else:
             logger.info("⚠️ ScriptWriterAgent in MOCK mode (USE_REAL_LLM=false)")
+            self.llm = None
+            self.chain = None
         
-        # Initialize LLM with error handling
-        self.llm = ChatGoogleGenerativeAI(
-            model=settings.llm_model_name,
-            google_api_key=settings.GEMINI_API_KEY,
-            temperature=0.7,
-            max_retries=3,
-            request_timeout=45.0,  # Longer timeout for script generation
-        )
-        
-        logger.info(f"ScriptWriterAgent initialized successfully. Model: {settings.llm_model_name}")
-
     def generate_script(self, subject: str) -> VideoScript:
+        if not settings.USE_REAL_LLM:
+            logger.info("Returning mock script (Mock Mode)")
+            from src.api.mock_data import get_mock_script
+            from src.api.schemas.scripts import ScriptGenerationRequest
+            # Create a dummy request object
+            # We need to parse the subject string to get title/premise etc if possible, 
+            # or just pass dummy values since it's a mock.
+            # The subject string format in test_pipeline is "Title: ...\nPremise: ..."
+            dummy_req = ScriptGenerationRequest(
+                story_title="Mock Title",
+                story_premise="Mock Premise",
+                story_genre="Mock Genre",
+                story_audience="Mock Audience",
+                duration="30s"
+            )
+            return get_mock_script(dummy_req).script
+
         """
         Generate video script for a given subject.
         
@@ -53,12 +72,8 @@ class ScriptWriterAgent:
         request_id = str(uuid.uuid4())[:8]
         
         logger.info(
-            f"[{request_id}] Script generation started",
-            extra={
-                "request_id": request_id,
-                "subject_preview": subject[:100],
-                "use_real_llm": settings.USE_REAL_LLM,
-            }
+            f"[{request_id}] Script generation started - Subject: {subject[:50]}..., "
+            f"Real LLM: {settings.USE_REAL_LLM}"
         )
         
         try:
@@ -79,12 +94,8 @@ class ScriptWriterAgent:
             
         except Exception as e:
             logger.error(
-                f"[{request_id}] Script generation failed: {str(e)}",
-                exc_info=True,
-                extra={
-                    "request_id": request_id,
-                    "error_type": type(e).__name__,
-                }
+                f"[{request_id}] Script generation failed ({type(e).__name__}): {str(e)}",
+                exc_info=True
             )
             # Re-raise to allow fallback decorator to handle
             raise
