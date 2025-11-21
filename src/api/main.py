@@ -21,6 +21,11 @@ app.add_middleware(
 async def health_check():
     return {"status": "ok", "version": "1.0.0"}
 
+from src.api.routes import stories, scripts
+
+app.include_router(stories.router, prefix="/api/stories", tags=["stories"])
+app.include_router(scripts.router, prefix="/api/scripts", tags=["scripts"])
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("src.api.main:app", host="0.0.0.0", port=8001, reload=True)
