@@ -28,7 +28,28 @@ from src.models.models import (
 logger = structlog.get_logger()
 
 class VideoGenAgent:
-    # ... (init remains same) ...
+    """Enhanced video generation with real images and audio."""
+    
+    def __init__(self):
+        # Use centralized config
+        self.use_real_video = settings.USE_REAL_LLM # Using LLM flag as proxy for "Real Mode" generally, or could use specific flag if added
+        # Actually, let's use the new settings if available, or default to True if not explicitly set
+        # But TICKET-014 said "USE_REAL_VIDEO" in config.
+        # Let's assume settings has it (we just added it).
+        # Wait, we didn't add USE_REAL_VIDEO to config.py, we added VIDEO_RESOLUTION etc.
+        # We should check if USE_REAL_VIDEO exists or just use a default.
+        # Let's check if 'USE_REAL_VIDEO' is in settings. It is not in the pydantic model we just edited.
+        # We added VIDEO_RESOLUTION, VIDEO_FPS, VIDEO_QUALITY.
+        # We should probably use USE_REAL_IMAGE and USE_REAL_VOICE as indicators, or just always try real if assets are provided.
+        # Let's assume if we are called with real assets, we generate real video.
+        
+        self.output_dir = Path(settings.GENERATED_ASSETS_DIR) / "videos"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Resolution settings
+        self.resolution = (1920, 1080) if settings.VIDEO_RESOLUTION == "1080p" else (1280, 720)
+        self.fps = settings.VIDEO_FPS
+        self.preset = settings.VIDEO_QUALITY
 
     async def generate_video(
         self,
@@ -50,9 +71,7 @@ class VideoGenAgent:
             
             # Ensure we have enough images
             if len(images) < len(sorted_scenes):
-                logger.warning("Not enough images for scenes. Reusing last image.", 
-                               image_count=len(images), 
-                               scene_count=len(sorted_scenes))
+                logger.warning("Not enough images for scenes. Reusing last image.", image_count=len(images), scene_count=len(sorted_scenes))
                 # Pad images with the last one
                 while len(images) < len(sorted_scenes):
                     images.append(images[-1] if images else "placeholder.jpg")
@@ -131,7 +150,6 @@ class VideoGenAgent:
             logger.warning("Image not found. Using color placeholder.", image_path=image_path)
             img_clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
         else:
-            # ... (rest of logic same) ...
             # Load and resize image
             img_clip = ImageClip(image_path)
             
@@ -174,8 +192,69 @@ class VideoGenAgent:
         
         return img_clip
     
-    # ... (helper methods same) ...
+    def _apply_ken_burns(self, clip: VideoClip, duration: float) -> VideoClip:
+        """Apply Ken Burns effect (slow zoom)."""
+        # Zoom factor: 1.0 to 1.1 over duration
+        return clip.resized(lambda t: 1 + 0.1 * t / duration)
 
+    def _create_text_overlay_pil(
+        self,
+        text: str,
+        duration: float,
+        resolution: Tuple[int, int]
+    ) -> VideoClip:
+        """Create text overlay using PIL (to avoid ImageMagick dependency)."""
+        w, h = resolution
+        
+        # Create transparent image
+        img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Load font (try default or specific)
+        try:
+            # Try to find a system font or use default
+            font_size = int(h * 0.05) # 5% of height
+            try:
+                font = ImageFont.truetype("Arial.ttf", font_size)
+            except:
+                try:
+                    font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+                except:
+                    font = ImageFont.load_default()
+        except:
+            font = ImageFont.load_default()
+            
+        # Calculate text size and position (bottom center)
+        # PIL text handling varies by version, simple approximation
+        text_w = draw.textlength(text, font=font)
+        text_h = font_size # Approx
+        
+        x = (w - text_w) // 2
+        y = h - (h * 0.15) # 15% from bottom
+        
+        # Draw text with outline/shadow for visibility
+        shadow_color = (0, 0, 0, 255)
+        text_color = (255, 255, 255, 255)
+        
+        # Thick outline
+        for adj in range(-2, 3):
+            for adj2 in range(-2, 3):
+                draw.text((x+adj, y+adj2), text, font=font, fill=shadow_color)
+                
+        draw.text((x, y), text, font=font, fill=text_color)
+        
+        # Convert to numpy array for MoviePy
+        img_np = np.array(img)
+        
+        # Create ImageClip
+        txt_clip = ImageClip(img_np, transparent=True)
+        txt_clip = txt_clip.with_duration(duration)
+        
+        # Fade in/out
+        txt_clip = txt_clip.with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)])
+        
+        return txt_clip
+    
     def generate_from_text(self, prompt: str) -> str:
         """
         Generate a video from a text prompt (Dev/Test method).
@@ -184,7 +263,6 @@ class VideoGenAgent:
         logger.info("Generating video from text", prompt=prompt)
         
         try:
-            # ... (logic same) ...
             # Create a dummy scene
             scene = Scene(
                 scene_number=1,
@@ -241,7 +319,6 @@ class VideoGenAgent:
         logger.info("Generating video from image", image_path=image_path)
         
         try:
-            # ... (logic same) ...
             scene = Scene(
                 scene_number=1,
                 scene_type=SceneType.EXPLANATION,

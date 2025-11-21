@@ -14,7 +14,17 @@ from src.agents.image_gen.nanobanana_client import NanoBananaClient
 logger = structlog.get_logger()
 
 class ImageGenAgent:
-    # ... (init remains same) ...
+    def __init__(self):
+        # Use centralized config
+        self.mock_mode = not settings.USE_REAL_IMAGE
+        self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "images")
+        self.cache_dir = os.path.join(self.output_dir, "cache")
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.cache_dir, exist_ok=True)
+        
+        # API configuration from settings
+        self.api_key = settings.NANO_BANANA_API_KEY
+        self.api_url = settings.NANO_BANANA_API_URL
 
     async def generate_images(self, scenes: List[Scene]) -> Dict[int, str]:
         """
@@ -101,7 +111,34 @@ class ImageGenAgent:
             logger.error("Image generation failed", error=str(e))
             raise
 
-    # ... (helper methods same) ...
+    def _enhance_prompt(self, scene: Scene) -> str:
+        """Enhance the base prompt with style and quality modifiers."""
+        base_prompt = scene.image_create_prompt or "A cinematic scene"
+        
+        # Add style modifiers based on image_style
+        style_enhancers = {
+            ImageStyle.CINEMATIC: "cinematic lighting, film grain, bokeh, 4k, professional photography",
+            ImageStyle.SINGLE_CHARACTER: "character focus, detailed face, portrait style",
+            ImageStyle.INFOGRAPHIC: "clean design, informational, vector art style",
+            ImageStyle.COMIC_PANEL: "comic book style, bold lines, vibrant colors",
+        }
+        
+        # Default to cinematic if style not found or None
+        style_suffix = style_enhancers.get(scene.image_style, "high quality, detailed, cinematic")
+        
+        # Add quality modifiers
+        quality_suffix = "8k uhd, sharp focus, professional, trending on artstation"
+        
+        enhanced = f"{base_prompt}, {style_suffix}, {quality_suffix}"
+        return enhanced
+
+    def _select_model(self, scene: Scene) -> str:
+        """Select appropriate model based on scene requirements."""
+        # For now, default to stable-diffusion-xl for best quality
+        return "stable-diffusion-xl"
+
+    def _cache_key(self, prompt: str, model: str) -> str:
+        return hashlib.sha256(f"{prompt}:{model}".encode()).hexdigest()[:16]
 
     async def _generate_mock_images(self, scenes: List[Scene]) -> Dict[int, str]:
         """Generate mock images for all scenes."""
