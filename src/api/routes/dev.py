@@ -95,9 +95,9 @@ async def generate_video_from_script(request: ScriptVideoRequest):
     """
     Generate a full video from a script and optional images.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"Received request to generate video for script: {request.script.get('title', 'Untitled')}")
+    import structlog
+    logger = structlog.get_logger()
+    logger.info("Received request to generate video for script", title=request.script.get('title', 'Untitled'))
     
     agent = VideoGenAgent()
     
@@ -105,7 +105,7 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         # Parse script dict back to VideoScript model
         logger.info("Parsing script model...")
         script = VideoScript(**request.script)
-        logger.info(f"Script parsed successfully. Scenes: {len(script.scenes)}")
+        logger.info("Script parsed successfully", scene_count=len(script.scenes))
         
         # Convert image URLs back to absolute paths
         real_image_map = {}
@@ -125,10 +125,10 @@ async def generate_video_from_script(request: ScriptVideoRequest):
                 else:
                     images_list.append(img_url) # Assume it's a path or placeholder
             else:
-                logger.warning(f"No image found for scene {scene.scene_number}, using placeholder.")
+                logger.warning("No image found for scene, using placeholder", scene_number=scene.scene_number)
                 images_list.append("placeholder.jpg") # Agent will handle this
         
-        logger.info(f"Prepared {len(images_list)} images for generation.")
+        logger.info("Prepared images for generation", count=len(images_list))
         
         # Audio map - currently empty as we don't have audio gen in frontend yet
         audio_map = {} 
@@ -140,7 +140,7 @@ async def generate_video_from_script(request: ScriptVideoRequest):
             audio_map=audio_map,
             style=ImageStyle.CINEMATIC # Default
         )
-        logger.info(f"Video generation completed: {video_path}")
+        logger.info("Video generation completed", video_path=video_path)
             
         # Convert absolute path to relative URL for frontend
         relative_path = os.path.relpath(video_path, settings.GENERATED_ASSETS_DIR)
@@ -149,6 +149,5 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         return {"video_url": video_url, "video_path": video_path}
         
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.error("Video generation failed", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

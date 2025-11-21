@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from asgi_correlation_id import CorrelationIdMiddleware
 from src.core.config import settings
+from src.core.logging import configure_logging
+
+# Configure logging
+logger = configure_logging()
 
 app = FastAPI(
     title="ShortFactory API",
@@ -8,7 +13,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS
+# Middleware
+app.add_middleware(CorrelationIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, replace with specific origins
