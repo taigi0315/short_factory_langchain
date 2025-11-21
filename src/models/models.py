@@ -53,6 +53,7 @@ class VoiceTone(str, Enum):
     DRAMATIC = "dramatic"
     CALM = "calm"
     ENTHUSIASTIC = "enthusiastic"
+    SARCASTIC = "sarcastic"
 
 class TransitionType(str, Enum):
     FADE = "fade"
@@ -97,7 +98,8 @@ class ElevenLabsSettings(BaseModel):
             VoiceTone.PLAYFUL: cls(stability=0.3, similarity_boost=0.7, style=0.8, speed=1.1, loudness=0.2),
             VoiceTone.DRAMATIC: cls(stability=0.4, similarity_boost=0.8, style=0.9, speed=0.9, loudness=0.2),
             VoiceTone.CALM: cls(stability=0.8, similarity_boost=0.9, style=0.2, speed=0.85, loudness=-0.1),
-            VoiceTone.ENTHUSIASTIC: cls(stability=0.2, similarity_boost=0.8, style=0.9, speed=1.15, loudness=0.3)
+            VoiceTone.ENTHUSIASTIC: cls(stability=0.2, similarity_boost=0.8, style=0.9, speed=1.15, loudness=0.3),
+            VoiceTone.SARCASTIC: cls(stability=0.4, similarity_boost=0.6, style=0.9, speed=0.9, loudness=0.1)
         }
         return settings_map.get(tone, cls(stability=0.5, similarity_boost=0.8, style=0.5, speed=1.0, loudness=0.0))
 
