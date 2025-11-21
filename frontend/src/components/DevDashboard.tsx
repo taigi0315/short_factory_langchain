@@ -7,7 +7,7 @@ export default function DevDashboard() {
 
     // Image Gen State
     const [prompt, setPrompt] = useState('');
-    const [imageStyle, setImageStyle] = useState('Cinematic');
+    const [imageStyle, setImageStyle] = useState('cinematic');
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export default function DevDashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt,
-                    style: imageStyle.toLowerCase().replace(' ', '_')
+                    style: imageStyle
                 }),
             });
 
@@ -404,10 +404,13 @@ export default function DevDashboard() {
                                     onChange={(e) => setImageStyle(e.target.value)}
                                     className="p-3 bg-slate-800 border border-slate-700 rounded-lg outline-none"
                                 >
-                                    <option>Cinematic</option>
-                                    <option>Anime</option>
-                                    <option>Photorealistic</option>
-                                    <option>3D Render</option>
+                                    <option value="cinematic">Cinematic</option>
+                                    <option value="single_character">Single Character</option>
+                                    <option value="character_with_background">Character with Background</option>
+                                    <option value="infographic">Infographic</option>
+                                    <option value="comic_panel">Comic Panel</option>
+                                    <option value="close_up_reaction">Close-up Reaction</option>
+                                    <option value="wide_establishing_shot">Wide Establishing Shot</option>
                                 </select>
                                 <button
                                     onClick={handleGenerateImage}
