@@ -130,6 +130,7 @@ class ImageGenAgent:
                 model=model,
                 width=1920,
                 height=1080,
+                aspect_ratio=settings.IMAGE_ASPECT_RATIO,
             )
             
             # Download to cache first

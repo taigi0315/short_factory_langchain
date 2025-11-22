@@ -77,6 +77,10 @@ class Settings(BaseSettings):
         default="generated_assets",
         description="Root directory for generated images/audio/videos"
     )
+    IMAGE_ASPECT_RATIO: str = Field(
+        default="9:16",
+        description="Target aspect ratio for generated images (e.g., '9:16', '16:9', '1:1')"
+    )
 
     # ========================================
     # Video Generation Settings

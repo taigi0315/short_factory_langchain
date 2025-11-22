@@ -37,6 +37,7 @@ class GeminiImageClient:
         model: Optional[str] = None,  # Kept for compatibility, but ignored
         width: int = 1920,
         height: int = 1080,
+        aspect_ratio: str = "16:9",
     ) -> str:
         """
         Generate an image using Gemini.
@@ -51,6 +52,7 @@ class GeminiImageClient:
             model: Ignored (kept for compatibility with NanoBanana interface)
             width: Desired image width (note: Gemini may not honor exact dimensions)
             height: Desired image height (note: Gemini may not honor exact dimensions)
+            aspect_ratio: Target aspect ratio (e.g., "9:16", "16:9")
             
         Returns:
             str: Base64-encoded image data with data URI prefix
@@ -59,11 +61,13 @@ class GeminiImageClient:
             RuntimeError: If generation fails
         """
         try:
-            logger.info("Generating image with Gemini", prompt_length=len(prompt))
+            logger.info("Generating image with Gemini", prompt_length=len(prompt), aspect_ratio=aspect_ratio)
             
-            # Add dimension hints to prompt if specified
-            dimension_hint = f"Create a {width}x{height} image. "
-            full_prompt = dimension_hint + prompt
+            # Add dimension hints and aspect ratio to prompt
+            # Note: Gemini 2.5 Flash Image API might support aspect_ratio param in future,
+            # but for now we use prompt engineering as primary method.
+            dimension_hint = f"Create a {width}x{height} image with {aspect_ratio} aspect ratio. "
+            full_prompt = dimension_hint + prompt + f", vertical {aspect_ratio} format"
             
             # Generate image
             response = self.model.generate_content([full_prompt])
