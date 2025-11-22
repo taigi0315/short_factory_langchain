@@ -319,7 +319,11 @@ export default function Home() {
                           }),
                         });
 
-                        if (!res.ok) throw new Error('Failed to generate video');
+                        if (!res.ok) {
+                          const errorData = await res.json();
+                          console.error('Video generation error:', errorData);
+                          throw new Error(errorData.detail || 'Failed to generate video');
+                        }
                         const data = await res.json();
 
                         // 3. Show Video (we'll need a new step or state for this)
@@ -328,9 +332,9 @@ export default function Home() {
                         window.open(data.video_url, '_blank');
                         alert('Video Generated! Opening in new tab...');
 
-                      } catch (e) {
+                      } catch (e: any) {
                         console.error(e);
-                        alert('Failed to generate video. Check console.');
+                        alert(`Failed to generate video:\n\n${e.message || e}`);
                       } finally {
                         setLoading(false);
                       }

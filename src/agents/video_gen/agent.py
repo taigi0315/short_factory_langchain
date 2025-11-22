@@ -255,38 +255,49 @@ class VideoGenAgent:
         
         return txt_clip
     
-    def generate_from_text(self, prompt: str) -> str:
+    async def generate_from_text(self, prompt: str) -> str:
         """
         Generate a video from a text prompt (Dev/Test method).
-        Creates a simple video with text overlay on a background.
+        Generates an image from the prompt, then creates a video with text overlay.
         """
         logger.info("Generating video from text", prompt=prompt)
         
         try:
-            # Create a dummy scene
+            # Import ImageGenAgent to generate an image first
+            from src.agents.image_gen.agent import ImageGenAgent
+            
+            # Create a scene for image generation
             scene = Scene(
                 scene_number=1,
                 scene_type=SceneType.EXPLANATION,
-                visual_description="Text video",
+                visual_description=prompt,
                 dialogue=None,
                 text_overlay=prompt,
                 voice_tone=VoiceTone.CALM,
                 elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
                 image_style=ImageStyle.CINEMATIC,
-                image_create_prompt="background",
+                image_create_prompt=prompt,
                 needs_animation=False,
                 transition_to_next=TransitionType.NONE
             )
             
-            # Use a generated color image as background
-            # We don't have a handy color image, so let's create one temporarily or handle in _create_scene_clip
-            # _create_scene_clip handles missing images by creating a black color clip.
-            # So we can pass a non-existent path.
+            # Generate image
+            logger.info("Generating image for text-to-video", prompt=prompt)
+            image_agent = ImageGenAgent()
+            image_paths = await image_agent.generate_images([scene])
+            image_path = image_paths.get(1)
             
+            if not image_path or not os.path.exists(image_path):
+                logger.warning("Image generation failed, using color placeholder")
+                image_path = "placeholder_for_text_video.jpg"
+            else:
+                logger.info("Image generated successfully for text-to-video", path=image_path)
+            
+            # Create video clip
             clip = self._create_scene_clip(
                 scene,
-                "placeholder_for_text_video.jpg", # Will trigger color fallback
-                3.0, # 3 seconds
+                image_path,
+                3.0,  # 3 seconds
                 ImageStyle.CINEMATIC
             )
             
@@ -305,6 +316,7 @@ class VideoGenAgent:
             )
             
             clip.close()
+            logger.info("Text-to-video generation completed", output_path=str(output_path))
             return str(output_path)
             
         except Exception as e:

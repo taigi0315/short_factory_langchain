@@ -77,32 +77,69 @@ class GeminiImageClient:
             # Try to find image data in response
             image_data = None
             mime_type = None
+            text_parts = []
             
-            for part in response.parts:
+            for idx, part in enumerate(response.parts):
+                logger.debug(f"Examining part {idx}", 
+                           has_inline_data=hasattr(part, 'inline_data'),
+                           has_text=hasattr(part, 'text'))
+                
                 if hasattr(part, 'inline_data') and part.inline_data:
                     # Found inline image data
                     image_data = part.inline_data.data
                     mime_type = part.inline_data.mime_type
-                    logger.info("Found inline image data", mime_type=mime_type)
+                    logger.info("Found inline image data", 
+                              mime_type=mime_type,
+                              data_length=len(image_data) if image_data else 0,
+                              data_type=type(image_data).__name__)
                     break
                 elif hasattr(part, 'text'):
                     # Model returned text instead of image
-                    logger.warning("Gemini returned text instead of image", text_preview=part.text[:100])
+                    text_parts.append(part.text)
+                    logger.warning("Gemini returned text instead of image", 
+                                 text_preview=part.text[:100])
             
             if not image_data:
                 # Gemini 2.5 Flash Image may not be available or may only generate text
+                full_text = "\n".join(text_parts) if text_parts else "No response"
                 raise RuntimeError(
-                    "Gemini did not return image data. "
-                    "The gemini-2.5-flash-image-preview model may not be available "
-                    "or may require different API access. "
-                    "Consider using mock mode or a different image generation service."
+                    f"Gemini did not return image data. "
+                    f"The gemini-2.5-flash-image-preview model may not be available "
+                    f"or may require different API access. "
+                    f"Response: {full_text[:200]}... "
+                    f"Consider using mock mode or a different image generation service."
                 )
             
-            # Image data from Gemini is already base64 encoded
-            # Return as data URI
-            data_uri = f"data:{mime_type};base64,{image_data}"
+            # Validate that image_data is bytes (not base64 string)
+            if isinstance(image_data, str):
+                logger.warning("Image data is string, attempting to decode from base64")
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                except Exception as e:
+                    raise RuntimeError(f"Failed to decode base64 image data: {e}")
+            elif isinstance(image_data, bytes):
+                logger.info("Image data is already bytes")
+                image_bytes = image_data
+            else:
+                raise RuntimeError(f"Unexpected image data type: {type(image_data)}")
             
-            logger.info("Image generated successfully", mime_type=mime_type, data_size=len(image_data))
+            # Validate PNG header
+            if not image_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
+                logger.error("Invalid PNG header", 
+                           first_bytes=image_bytes[:16].hex() if len(image_bytes) >= 16 else image_bytes.hex())
+                raise RuntimeError(
+                    f"Generated image data is not a valid PNG file. "
+                    f"First bytes: {image_bytes[:16].hex() if len(image_bytes) >= 16 else image_bytes.hex()}"
+                )
+            
+            # Encode to base64 for data URI
+            base64_data = base64.b64encode(image_bytes).decode('utf-8')
+            data_uri = f"data:{mime_type};base64,{base64_data}"
+            
+            logger.info("Image generated successfully", 
+                       mime_type=mime_type, 
+                       data_size=len(image_bytes),
+                       base64_size=len(base64_data))
             return data_uri
             
         except Exception as e:

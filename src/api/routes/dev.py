@@ -69,7 +69,7 @@ async def generate_video(request: VideoGenRequest):
     
     try:
         if request.type == "text":
-            video_path = agent.generate_from_text(request.prompt)
+            video_path = await agent.generate_from_text(request.prompt)
         elif request.type == "image":
             if not request.image_url:
                 raise HTTPException(status_code=400, detail="Image URL is required for image-to-video generation")
@@ -96,6 +96,7 @@ async def generate_video_from_script(request: ScriptVideoRequest):
     Generate a full video from a script and optional images.
     """
     import structlog
+    from PIL import Image as PILImage
     logger = structlog.get_logger()
     logger.info("Received request to generate video for script", title=request.script.get('title', 'Untitled'))
     
@@ -110,6 +111,7 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         # Convert image URLs back to absolute paths
         real_image_map = {}
         images_list = []
+        validation_errors = []
         
         # Initialize images list with placeholders
         sorted_scenes = sorted(script.scenes, key=lambda s: s.scene_number)
@@ -121,14 +123,41 @@ async def generate_video_from_script(request: ScriptVideoRequest):
                 if img_url.startswith("/generated_assets/"):
                     rel_path = img_url.replace("/generated_assets/", "")
                     abs_path = os.path.join(settings.GENERATED_ASSETS_DIR, rel_path)
-                    images_list.append(abs_path)
+                    
+                    # Validate image file exists and is valid
+                    if not os.path.exists(abs_path):
+                        error_msg = f"Scene {scene.scene_number}: Image file not found at {abs_path}"
+                        logger.error(error_msg)
+                        validation_errors.append(error_msg)
+                        images_list.append("placeholder.jpg")
+                    else:
+                        # Check if it's a valid image file
+                        try:
+                            with PILImage.open(abs_path) as img:
+                                img.verify()
+                            logger.info(f"Scene {scene.scene_number}: Image validated", path=abs_path)
+                            images_list.append(abs_path)
+                        except Exception as img_error:
+                            error_msg = f"Scene {scene.scene_number}: Invalid/corrupted image file: {str(img_error)}"
+                            logger.error(error_msg, path=abs_path)
+                            validation_errors.append(error_msg)
+                            images_list.append("placeholder.jpg")
                 else:
                     images_list.append(img_url) # Assume it's a path or placeholder
             else:
                 logger.warning("No image found for scene, using placeholder", scene_number=scene.scene_number)
                 images_list.append("placeholder.jpg") # Agent will handle this
         
-        logger.info("Prepared images for generation", count=len(images_list))
+        # If there are validation errors, return them to the user
+        if validation_errors:
+            error_summary = f"Image validation failed for {len(validation_errors)} scene(s):\n" + "\n".join(validation_errors)
+            logger.error("Image validation failed", errors=validation_errors)
+            raise HTTPException(
+                status_code=400, 
+                detail=error_summary
+            )
+        
+        logger.info("Prepared images for generation", count=len(images_list), valid_images=sum(1 for img in images_list if img != "placeholder.jpg"))
         
         # Audio map - currently empty as we don't have audio gen in frontend yet
         audio_map = {} 
@@ -148,6 +177,9 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         
         return {"video_url": video_url, "video_path": video_path}
         
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
-        logger.error("Video generation failed", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Video generation failed", exc_info=True, error_type=type(e).__name__, error_message=str(e))
+        raise HTTPException(status_code=500, detail=f"Video generation failed: {str(e)}")
