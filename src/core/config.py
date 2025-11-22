@@ -55,7 +55,24 @@ class Settings(BaseSettings):
     # ========================================
     # Application Settings
     # ========================================
-    MAX_VIDEO_SCENES: int = Field(default=8, description="Maximum number of scenes per video")
+    MIN_SCENES: int = Field(
+        default=4,
+        ge=2,
+        le=20,
+        description="Minimum number of scenes in generated scripts"
+    )
+    MAX_SCENES: int = Field(
+        default=8,
+        ge=2,
+        le=20,
+        description="Maximum number of scenes in generated scripts"
+    )
+    DEFAULT_SCENE_DURATION: float = Field(
+        default=3.0,
+        ge=1.0,
+        le=10.0,
+        description="Default duration for scenes without audio (seconds)"
+    )
     GENERATED_ASSETS_DIR: str = Field(
         default="generated_assets",
         description="Root directory for generated images/audio/videos"
@@ -71,6 +88,15 @@ class Settings(BaseSettings):
     # ========================================
     # Validators
     # ========================================
+    @field_validator('MAX_SCENES')
+    @classmethod
+    def validate_scene_range(cls, v, info):
+        """Ensure MAX_SCENES >= MIN_SCENES."""
+        min_scenes = info.data.get('MIN_SCENES', 4)
+        if v < min_scenes:
+            raise ValueError(f'MAX_SCENES ({v}) must be >= MIN_SCENES ({min_scenes})')
+        return v
+    
     @field_validator('USE_REAL_LLM', 'USE_REAL_IMAGE', 'USE_REAL_VOICE', 'DEV_MODE', 'FAIL_FAST', mode='before')
     @classmethod
     def parse_bool(cls, v):
