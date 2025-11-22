@@ -80,7 +80,7 @@ class ScriptWriterAgent:
             result = self.chain.invoke({
                 "subject": subject,
                 "language": "English",
-                "max_video_scenes": settings.MAX_VIDEO_SCENES
+                "max_video_scenes": settings.MAX_SCENES
             })
             
             logger.info(
