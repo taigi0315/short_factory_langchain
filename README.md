@@ -132,7 +132,7 @@ git clone https://github.com/yourusername/ShortFactoryLangChain.git
 cd ShortFactoryLangChain
 
 # Setup environment | 환경 설정
-cp .env.example .env
+cp config/.env.example .env
 # Edit .env with your API keys | API 키로 .env 편집
 
 # Install dependencies | 의존성 설치
@@ -167,8 +167,15 @@ ShortFactoryLangChain/
 │   └── models/                   # Data models | 데이터 모델
 ├── frontend/                     # Next.js frontend | Next.js 프론트엔드
 ├── tests/                        # Test suites | 테스트 스위트
+├── docs/                         # Documentation | 문서
+│   ├── guides/                   # Developer guides | 개발자 가이드
+│   ├── knowledge/                # Knowledge transfer | 지식 이전
+│   └── API_DOCUMENTATION.md      # API reference | API 참조
+├── scripts/                      # Utility scripts | 유틸리티 스크립트
+├── docker/                       # Docker files | Docker 파일
+├── config/                       # Configuration examples | 설정 예시
 ├── generated_assets/             # Output files | 출력 파일
-└── docs/                         # Documentation | 문서
+└── tickets/                      # Feature tickets | 기능 티켓
 ```
 
 ---
