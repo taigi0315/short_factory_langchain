@@ -100,7 +100,11 @@ export default function DevDashboard() {
             const res = await fetch('/api/dev/generate-image', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, style: 'cinematic' }), // Default style for now
+                body: JSON.stringify({
+                    prompt,
+                    style: 'cinematic',
+                    scene_number: sceneIndex
+                }),
             });
 
             if (!res.ok) {
@@ -257,7 +261,7 @@ export default function DevDashboard() {
                                                                     headers: { 'Content-Type': 'application/json' },
                                                                     body: JSON.stringify({
                                                                         prompt: scene.image_create_prompt,
-                                                                        scene_number: scene.scene_number
+                                                                        scene_number: scene.scene_number || (idx + 1)
                                                                     }),
                                                                 });
                                                                 if (res.ok) {

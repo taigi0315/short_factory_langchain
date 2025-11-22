@@ -150,10 +150,11 @@ When using `FOUR_CUT_CARTOON` or `SPEECH_BUBBLE` styles:
 
 ## Voice Tone Selection & ElevenLabs Integration
 
-### Available Voice Tones:
+### Available Voice Tones (DO NOT USE SCENE TYPES HERE):
 
-**Basic Emotions**: {', '.join([f'`{t}`' for t in voice_tones])}
+**Allowed Values**: {', '.join([f'`{t}`' for t in voice_tones])}
 
+**CRITICAL**: `voice_tone` MUST be one of the emotions above. Do NOT use 'explanation', 'visual_demo', or any Scene Type here.
 **IMPORTANT**: Use the EXACT lowercase values shown above (e.g., 'excited', not 'EXCITED')
 
 ### Choose tone based on scene purpose:
