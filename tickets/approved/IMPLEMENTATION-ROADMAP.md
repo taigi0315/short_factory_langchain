@@ -38,6 +38,7 @@ Work on tickets in this order:
 
 #### Week 1
 1. **TICKET-016: Video Assembly & Audio Sync**
+   - **Status:** ✅ Complete (2025-11-22)
    - **Priority:** Critical
    - **Effort:** 2 days
    - **Why first:** Foundation for all video timing. Blocks TICKET-019.

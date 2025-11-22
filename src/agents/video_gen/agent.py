@@ -167,9 +167,53 @@ class VideoGenAgent:
         
         try:
             if not os.path.exists(image_path):
-                logger.warning("Image not found. Using color placeholder.", image_path=image_path)
-                img_clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
+                logger.warning("Image/Video not found. Using color placeholder.", image_path=image_path)
+                return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
+            
+            # Check if it's a video file
+            is_video = image_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm'))
+            
+            if is_video:
+                try:
+                    logger.debug("Loading video clip", path=image_path)
+                    clip = VideoFileClip(image_path)
+                    
+                    # Resize and crop video to fill screen
+                    w, h = clip.size
+                    target_w, target_h = self.resolution
+                    
+                    scale = max(target_w / w, target_h / h)
+                    clip = clip.resized(scale)
+                    clip = clip.cropped(
+                        x_center=clip.w/2,
+                        y_center=clip.h/2,
+                        width=target_w,
+                        height=target_h
+                    )
+                    
+                    # Sync duration
+                    if clip.duration < duration:
+                        # Freeze last frame
+                        logger.info("Video shorter than audio, freezing last frame", 
+                                  video_duration=clip.duration, 
+                                  target_duration=duration)
+                        remaining = duration - clip.duration
+                        frozen = clip.to_ImageClip(t=clip.duration - 0.05).with_duration(remaining)
+                        clip = concatenate_videoclips([clip, frozen])
+                    else:
+                        # Trim
+                        logger.info("Video longer than audio, trimming", 
+                                  video_duration=clip.duration, 
+                                  target_duration=duration)
+                        clip = clip.subclipped(0, duration)
+                        
+                except Exception as vid_error:
+                    logger.error("Failed to load/process video, falling back to placeholder",
+                               error=str(vid_error),
+                               path=image_path)
+                    return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             else:
+                # Image handling
                 try:
                     # Load and resize image
                     logger.debug("Loading image", path=image_path)
@@ -194,24 +238,23 @@ class VideoGenAgent:
                         width=target_w,
                         height=target_h
                     )
-                    logger.debug("Image processed successfully")
                     
+                    # Set duration
+                    clip = img_clip.with_duration(duration)
+                    
+                    # Apply Ken Burns effect (slow zoom)
+                    # Only if duration is reasonable (> 1s)
+                    if duration > 1.0:
+                        try:
+                            clip = self._apply_ken_burns(clip, duration)
+                        except Exception as kb_error:
+                            logger.warning("Ken Burns effect failed, skipping", error=str(kb_error))
+                            
                 except Exception as img_error:
                     logger.error("Failed to load/process image, using placeholder",
                                error=str(img_error),
                                image_path=image_path)
-                    img_clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
-            
-            # Set duration
-            img_clip = img_clip.with_duration(duration)
-            
-            # Apply Ken Burns effect (slow zoom)
-            # Only if duration is reasonable (> 1s)
-            if duration > 1.0:
-                try:
-                    img_clip = self._apply_ken_burns(img_clip, duration)
-                except Exception as kb_error:
-                    logger.warning("Ken Burns effect failed, skipping", error=str(kb_error))
+                    return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
             # Add text overlay if needed
             if scene.text_overlay:
@@ -221,12 +264,12 @@ class VideoGenAgent:
                         duration,
                         self.resolution
                     )
-                    return CompositeVideoClip([img_clip, text_clip])
+                    return CompositeVideoClip([clip, text_clip])
                 except Exception as text_error:
                     logger.warning("Failed to create text overlay, skipping", error=str(text_error))
-                    return img_clip
+                    return clip
             
-            return img_clip
+            return clip
             
         except Exception as e:
             logger.error("Scene clip creation failed", 
