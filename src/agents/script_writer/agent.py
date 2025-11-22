@@ -1,8 +1,10 @@
 import logging
 import uuid
+from typing import Optional
+from pydantic import ValidationError
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.agents.script_writer.prompts import SCRIPT_WRITER_AGENT_TEMPLATE, VIDEO_SCRIPT_PARSER
-from src.models.models import VideoScript
+from src.models.models import VideoScript, VoiceTone, SceneType
 from src.core.config import settings
 
 # Setup logging
@@ -10,6 +12,28 @@ logger = logging.getLogger(__name__)
 
 
 class ScriptWriterAgent:
+    # Mapping for common LLM mistakes
+    VOICE_TONE_FIXES = {
+        "explanation": VoiceTone.SERIOUS,
+        "narrative": VoiceTone.CALM,
+        "climax": VoiceTone.DRAMATIC,
+        "development": VoiceTone.CURIOUS,
+        "rising_action": VoiceTone.EXCITED,
+        "informative": VoiceTone.SERIOUS,
+        "conclusion": VoiceTone.CONFIDENT,
+        "hook": VoiceTone.EXCITED
+    }
+    
+    SCENE_TYPE_FIXES = {
+        "climax": SceneType.CONCLUSION,
+        "rising_action": SceneType.EXPLANATION,
+        "development": SceneType.EXPLANATION,
+        "resolution": SceneType.CONCLUSION,
+        "introduction": SceneType.HOOK,
+        "narrative": SceneType.STORY_TELLING,
+        "opening": SceneType.HOOK
+    }
+    
     def __init__(self):
         """
         Initialize ScriptWriterAgent with API validation.
@@ -38,19 +62,97 @@ class ScriptWriterAgent:
             logger.info("⚠️ ScriptWriterAgent in MOCK mode (USE_REAL_LLM=false)")
             self.llm = None
             self.chain = None
-        
-    def generate_script(self, subject: str) -> VideoScript:
+    
+    def _validate_and_fix_script(self, script: VideoScript) -> VideoScript:
         """
-        Generate video script for a given subject.
+        Validate script and attempt to fix common LLM errors.
+        
+        Fixes:
+        - Invalid voice_tone values → map to closest valid tone
+        - Invalid scene_type values → map to closest valid type
+        - Too few scenes → raise error
+        
+        Args:
+            script: VideoScript to validate and fix
+            
+        Returns:
+            VideoScript: Fixed script
+            
+        Raises:
+            ValueError: If script has too few scenes
+        """
+        # Validate scene count
+        if len(script.scenes) < settings.MIN_SCENES:
+            raise ValueError(
+                f"Script has {len(script.scenes)} scenes, "
+                f"minimum is {settings.MIN_SCENES}"
+            )
+        
+        if len(script.scenes) > settings.MAX_SCENES:
+            logger.warning(
+                f"Script has {len(script.scenes)} scenes, "
+                f"maximum is {settings.MAX_SCENES}. Truncating."
+            )
+            script.scenes = script.scenes[:settings.MAX_SCENES]
+        
+        # Fix invalid enum values
+        fixes_applied = []
+        
+        for i, scene in enumerate(script.scenes):
+            # Fix voice_tone if it's a string (shouldn't be, but LLM might output wrong)
+            if isinstance(scene.voice_tone, str):
+                original_value = scene.voice_tone
+                if original_value in self.VOICE_TONE_FIXES:
+                    scene.voice_tone = self.VOICE_TONE_FIXES[original_value]
+                    fixes_applied.append(
+                        f"Scene {i+1}: voice_tone '{original_value}' → '{scene.voice_tone.value}'"
+                    )
+                    logger.warning(
+                        f"Fixed invalid voice_tone in scene {i+1}: "
+                        f"'{original_value}' → '{scene.voice_tone.value}'"
+                    )
+            
+            # Fix scene_type if it's a string
+            if isinstance(scene.scene_type, str):
+                original_value = scene.scene_type
+                if original_value in self.SCENE_TYPE_FIXES:
+                    scene.scene_type = self.SCENE_TYPE_FIXES[original_value]
+                    fixes_applied.append(
+                        f"Scene {i+1}: scene_type '{original_value}' → '{scene.scene_type.value}'"
+                    )
+                    logger.warning(
+                        f"Fixed invalid scene_type in scene {i+1}: "
+                        f"'{original_value}' → '{scene.scene_type.value}'"
+                    )
+        
+        if fixes_applied:
+            logger.info(f"Applied {len(fixes_applied)} automatic fixes to script")
+            for fix in fixes_applied:
+                logger.info(f"  - {fix}")
+        
+        return script
+    
+    def generate_script(
+        self,
+        subject: str,
+        language: str = "English",
+        max_scenes: Optional[int] = None,
+        max_retries: int = 3
+    ) -> VideoScript:
+        """
+        Generate video script for a given subject with automatic retry on validation errors.
         
         Args:
             subject: Topic/story description to generate script for
+            language: Language for the script (default: English)
+            max_scenes: Maximum number of scenes (default: settings.MAX_SCENES)
+            max_retries: Maximum number of retry attempts (default: 3)
             
         Returns:
             VideoScript: Generated script with scenes
             
         Raises:
-            Exception: If LLM generation fails after retries
+            Exception: If LLM generation fails after all retries
         """
         # Mock mode - return early
         if not settings.USE_REAL_LLM:
@@ -67,33 +169,78 @@ class ScriptWriterAgent:
             )
             return get_mock_script(dummy_req).script
         
-        # Real LLM mode
+        # Real LLM mode with retry logic
         request_id = str(uuid.uuid4())[:8]
+        max_video_scenes = max_scenes if max_scenes is not None else settings.MAX_SCENES
         
         logger.info(
             f"[{request_id}] Script generation started - Subject: {subject[:50]}..., "
-            f"Real LLM: {settings.USE_REAL_LLM}"
+            f"Language: {language}, Min scenes: {settings.MIN_SCENES}, "
+            f"Max scenes: {max_video_scenes}"
         )
         
-        try:
-            # Invoke the chain
-            result = self.chain.invoke({
-                "subject": subject,
-                "language": "English",
-                "max_video_scenes": settings.MAX_SCENES
-            })
-            
-            logger.info(
-                f"[{request_id}] Script generation completed successfully. "
-                f"Generated script with {len(result.scenes)} scenes."
-            )
-            
-            return result
-            
-        except Exception as e:
-            logger.error(
-                f"[{request_id}] Script generation failed ({type(e).__name__}): {str(e)}",
-                exc_info=True
-            )
-            # Re-raise to allow fallback decorator to handle
-            raise
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                # Invoke the chain
+                result = self.chain.invoke({
+                    "subject": subject,
+                    "language": language,
+                    "max_video_scenes": max_video_scenes,
+                    "min_scenes": settings.MIN_SCENES
+                })
+                
+                # Validate and fix the script
+                result = self._validate_and_fix_script(result)
+                
+                logger.info(
+                    f"[{request_id}] Script generation completed successfully "
+                    f"(attempt {attempt + 1}/{max_retries}). "
+                    f"Generated script with {len(result.scenes)} scenes."
+                )
+                
+                return result
+                
+            except ValidationError as e:
+                last_error = e
+                logger.warning(
+                    f"[{request_id}] Validation error on attempt {attempt + 1}/{max_retries}: {str(e)}"
+                )
+                
+                if attempt < max_retries - 1:
+                    logger.info(f"[{request_id}] Retrying script generation...")
+                else:
+                    logger.error(
+                        f"[{request_id}] All retry attempts exhausted. "
+                        f"Script generation failed with validation errors."
+                    )
+                    
+            except ValueError as e:
+                # Scene count errors
+                last_error = e
+                logger.error(
+                    f"[{request_id}] Scene count validation failed on attempt {attempt + 1}/{max_retries}: {str(e)}"
+                )
+                
+                if attempt < max_retries - 1:
+                    logger.info(f"[{request_id}] Retrying with adjusted parameters...")
+                else:
+                    logger.error(f"[{request_id}] Failed to generate script with required scene count")
+                    
+            except Exception as e:
+                last_error = e
+                logger.error(
+                    f"[{request_id}] Script generation failed on attempt {attempt + 1}/{max_retries} "
+                    f"({type(e).__name__}): {str(e)}",
+                    exc_info=True
+                )
+                
+                if attempt < max_retries - 1:
+                    logger.info(f"[{request_id}] Retrying...")
+                else:
+                    logger.error(f"[{request_id}] All retry attempts exhausted")
+        
+        # If we get here, all retries failed
+        logger.error(f"[{request_id}] Script generation failed after {max_retries} attempts")
+        raise last_error if last_error else Exception("Script generation failed")

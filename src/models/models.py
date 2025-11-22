@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Literal, Optional
 from enum import Enum
 
@@ -194,6 +194,33 @@ class VideoScript(BaseModel):
             if scene.scene_number == scene_number:
                 return scene
         return None
+    
+    @field_validator('scenes')
+    @classmethod
+    def validate_scene_count(cls, v):
+        """
+        Validate that scene count is within MIN_SCENES and MAX_SCENES.
+        
+        This validator ensures that generated scripts meet the minimum
+        and maximum scene requirements defined in settings.
+        """
+        from src.core.config import settings
+        
+        scene_count = len(v)
+        
+        if scene_count < settings.MIN_SCENES:
+            raise ValueError(
+                f"Script must have at least {settings.MIN_SCENES} scenes, "
+                f"got {scene_count}. Please generate more scenes."
+            )
+        
+        if scene_count > settings.MAX_SCENES:
+            raise ValueError(
+                f"Script must have at most {settings.MAX_SCENES} scenes, "
+                f"got {scene_count}. Please reduce the number of scenes."
+            )
+        
+        return v
 
 # Animation decision guidelines for Agent 1
 ANIMATION_GUIDELINES = """

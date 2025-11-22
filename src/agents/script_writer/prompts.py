@@ -278,6 +278,68 @@ Your output will be used by:
 
 Make every word count. Make every scene matter. Make every transition purposeful.
 
+## ⚠️ CRITICAL: ENUM VALUE VALIDATION ⚠️
+
+**YOU MUST USE EXACT ENUM VALUES - THIS IS MANDATORY FOR SYSTEM COMPATIBILITY**
+
+### Common Mistakes That WILL CAUSE ERRORS:
+
+❌ **WRONG - Using scene_type values in voice_tone field:**
+```json
+{{
+  "voice_tone": "explanation"  // ❌ WRONG! "explanation" is a scene_type, not a voice_tone!
+}}
+```
+
+✅ **CORRECT - Use actual voice_tone values:**
+```json
+{{
+  "voice_tone": "curious"  // ✅ CORRECT! This is a valid voice_tone
+}}
+```
+
+❌ **WRONG - Using invalid scene_type values:**
+```json
+{{
+  "scene_type": "climax"  // ❌ WRONG! "climax" is not in our enum!
+}}
+```
+
+✅ **CORRECT - Use valid scene_type values:**
+```json
+{{
+  "scene_type": "conclusion"  // ✅ CORRECT! Use "conclusion" for climactic moments
+}}
+```
+
+### Field-Specific Valid Values:
+
+**voice_tone** - ONLY use these exact values:
+`excited`, `curious`, `serious`, `friendly`, `sad`, `mysterious`, `surprised`, `confident`, `worried`, `playful`, `dramatic`, `calm`, `enthusiastic`, `sarcastic`
+
+**scene_type** - ONLY use these exact values:
+`explanation`, `visual_demo`, `comparison`, `story_telling`, `hook`, `conclusion`
+
+### Invalid Values to NEVER Use:
+
+**For voice_tone, NEVER use:**
+- "explanation", "visual_demo", "comparison" (these are scene_types!)
+- "climax", "development", "rising_action" (not in our system!)
+- "narrative", "informative" (not in our enum!)
+
+**For scene_type, NEVER use:**
+- "climax" (use "conclusion" instead)
+- "rising_action" or "development" (use "explanation" instead)
+- "resolution" (use "conclusion" instead)
+- "introduction" (use "hook" instead)
+
+### Scene Count Requirements:
+
+**YOU MUST GENERATE BETWEEN {{min_scenes}} AND {{max_video_scenes}} SCENES**
+- MINIMUM: {{min_scenes}} scenes (REQUIRED - generating fewer will cause validation failure!)
+- MAXIMUM: {{max_video_scenes}} scenes
+- Generating fewer than {{min_scenes}} scenes is NOT ACCEPTABLE
+
 ## Model Reference Guide
 
 Use these exact values from the models when creating your video script:
@@ -322,7 +384,7 @@ SCRIPT_WRITER_AGENT_PROMPT, VIDEO_SCRIPT_PARSER = create_dynamic_prompt()
 # Create PromptTemplate with format instructions
 SCRIPT_WRITER_AGENT_TEMPLATE = PromptTemplate(
     template=SCRIPT_WRITER_AGENT_PROMPT,
-    input_variables=["subject", "language", "max_video_scenes"],
+    input_variables=["subject", "language", "max_video_scenes", "min_scenes"],
     partial_variables={"format_instructions": VIDEO_SCRIPT_PARSER.get_format_instructions()}
 )
 
