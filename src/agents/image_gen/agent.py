@@ -65,37 +65,78 @@ class ImageGenAgent:
         
         # Generate images one by one to enable incremental checkpoints
         for scene in scenes:
-            try:
-                image_path = await self._generate_single_image(client, scene)
-                image_paths[scene.scene_number] = image_path
-                
-                # Save checkpoint after each successful image
-                if workflow_manager:
-                    workflow_manager.save_image(workflow_id, scene.scene_number, image_path)
-                    logger.info("Checkpoint saved", 
-                              workflow_id=workflow_id,
-                              progress=f"{len(image_paths)}/{len(scenes)}")
-                
-            except Exception as e:
-                logger.error("Image generation failed for scene", 
-                           scene_number=scene.scene_number, 
-                           error=str(e),
-                           error_type=type(e).__name__)
-                
-                # Save failure state if workflow tracking is enabled
-                if workflow_manager:
-                    from src.core.workflow_state import WorkflowStep
-                    workflow_manager.mark_failed(
-                        workflow_id,
-                        WorkflowStep.IMAGE_GENERATION,
-                        f"Image generation failed for scene {scene.scene_number}: {e}",
-                        type(e).__name__
+            # Retry logic: up to 3 attempts with exponential backoff
+            max_retries = 3
+            last_error = None
+            
+            for attempt in range(1, max_retries + 1):
+                try:
+                    logger.info(
+                        "Generating image for scene (attempt {}/{})".format(attempt, max_retries),
+                        scene_number=scene.scene_number,
+                        attempt=attempt
                     )
-                
-                # Don't fallback - raise the error
-                raise RuntimeError(
-                    f"Image generation failed for scene {scene.scene_number}: {e}"
-                ) from e
+                    
+                    image_path = await self._generate_single_image(client, scene)
+                    image_paths[scene.scene_number] = image_path
+                    
+                    # Save checkpoint after each successful image
+                    if workflow_manager:
+                        workflow_manager.save_image(workflow_id, scene.scene_number, image_path)
+                        logger.info("Checkpoint saved", 
+                                  workflow_id=workflow_id,
+                                  progress=f"{len(image_paths)}/{len(scenes)}")
+                    
+                    # Success! Break out of retry loop
+                    logger.info(
+                        "Image generated successfully",
+                        scene_number=scene.scene_number,
+                        attempt=attempt
+                    )
+                    break
+                    
+                except Exception as e:
+                    last_error = e
+                    logger.warning(
+                        "Image generation failed for scene (attempt {}/{})".format(attempt, max_retries),
+                        scene_number=scene.scene_number,
+                        attempt=attempt,
+                        error=str(e),
+                        error_type=type(e).__name__
+                    )
+                    
+                    # If this was the last attempt, handle failure
+                    if attempt == max_retries:
+                        logger.error(
+                            "All retry attempts exhausted for scene",
+                            scene_number=scene.scene_number,
+                            total_attempts=max_retries,
+                            final_error=str(e)
+                        )
+                        
+                        # Save failure state if workflow tracking is enabled
+                        if workflow_manager:
+                            from src.core.workflow_state import WorkflowStep
+                            workflow_manager.mark_failed(
+                                workflow_id,
+                                WorkflowStep.IMAGE_GENERATION,
+                                f"Image generation failed for scene {scene.scene_number} after {max_retries} attempts: {e}",
+                                type(e).__name__
+                            )
+                        
+                        # Raise the error to stop video generation
+                        raise RuntimeError(
+                            f"Image generation failed for scene {scene.scene_number} after {max_retries} attempts: {e}"
+                        ) from e
+                    else:
+                        # Wait before retrying (exponential backoff: 2s, 4s)
+                        wait_time = 2 ** attempt
+                        logger.info(
+                            f"Waiting {wait_time}s before retry...",
+                            scene_number=scene.scene_number,
+                            wait_seconds=wait_time
+                        )
+                        await asyncio.sleep(wait_time)
         
         return image_paths
 
