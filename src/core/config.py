@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API key")
     ELEVENLABS_API_KEY: Optional[str] = Field(default=None, description="ElevenLabs voice synthesis API key")
     
+    VOICE_SETTINGS_OVERRIDE: str = Field(
+        default="{}",
+        description="JSON string to override voice settings per tone (e.g. {'excited': {'stability': 0.1}})"
+    )
+    
     # ========================================
     # Feature Flags (Mock vs Real mode)
     # ========================================

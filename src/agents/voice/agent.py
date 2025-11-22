@@ -88,6 +88,17 @@ class VoiceAgent:
                 voice_settings = None
                 if hasattr(scene, 'elevenlabs_settings') and scene.elevenlabs_settings:
                     voice_settings = scene.elevenlabs_settings.model_dump()
+                    
+                    # Apply overrides from config
+                    try:
+                        import json
+                        overrides = json.loads(settings.VOICE_SETTINGS_OVERRIDE)
+                        tone_overrides = overrides.get(scene.voice_tone.value, {})
+                        if tone_overrides:
+                            logger.info(f"Applying voice overrides for {scene.voice_tone}: {tone_overrides}")
+                            voice_settings.update(tone_overrides)
+                    except Exception as e:
+                        logger.warning(f"Failed to apply voice settings override: {e}")
                 
                 logger.info(f"Generating real audio for Scene {scene.scene_number} ({scene.voice_tone})...")
                 generated_path = await self.client.generate_audio(
