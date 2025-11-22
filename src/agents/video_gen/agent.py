@@ -82,7 +82,7 @@ class VideoGenAgent:
                 
                 if not audio_path or not os.path.exists(audio_path):
                     logger.warning("Missing audio for scene. Using default duration.", scene_number=scene.scene_number)
-                    duration = 3.0
+                    duration = settings.DEFAULT_SCENE_DURATION
                     audio_clip = None
                 else:
                     audio_clip = AudioFileClip(audio_path)
@@ -341,7 +341,7 @@ class VideoGenAgent:
             clip = self._create_scene_clip(
                 scene,
                 image_path,
-                3.0,  # 3 seconds
+                settings.DEFAULT_SCENE_DURATION,
                 ImageStyle.CINEMATIC
             )
             
@@ -392,7 +392,7 @@ class VideoGenAgent:
             clip = self._create_scene_clip(
                 scene,
                 image_path,
-                3.0, # 3 seconds
+                settings.DEFAULT_SCENE_DURATION,
                 ImageStyle.CINEMATIC
             )
             

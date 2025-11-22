@@ -159,8 +159,18 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         
         logger.info("Prepared images for generation", count=len(images_list), valid_images=sum(1 for img in images_list if img != "placeholder.jpg"))
         
-        # Audio map - currently empty as we don't have audio gen in frontend yet
-        audio_map = {} 
+        # Generate audio for scenes
+        logger.info("Generating audio for scenes...")
+        try:
+            from src.agents.voice.agent import VoiceAgent
+            voice_agent = VoiceAgent()
+            audio_map = await voice_agent.generate_voiceovers(script.scenes)
+            logger.info("Audio generation complete", audio_count=len(audio_map))
+        except Exception as audio_error:
+            logger.warning("Audio generation failed, continuing without audio",
+                         error=str(audio_error),
+                         error_type=type(audio_error).__name__)
+            audio_map = {}
         
         logger.info("Starting video generation agent...")
         video_path = await agent.generate_video(

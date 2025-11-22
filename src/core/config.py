@@ -86,6 +86,26 @@ class Settings(BaseSettings):
     VIDEO_QUALITY: str = Field(default="medium", description="FFmpeg preset (ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow)")
     
     # ========================================
+    # Audio Generation Settings
+    # ========================================
+    DEFAULT_VOICE_ID: str = Field(
+        default="21m00Tcm4TlvDq8ikWAM",  # Rachel voice
+        description="Default ElevenLabs voice ID"
+    )
+    VOICE_STABILITY: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Voice stability (0.0-1.0, higher = more consistent)"
+    )
+    VOICE_SIMILARITY: float = Field(
+        default=0.75,
+        ge=0.0,
+        le=1.0,
+        description="Voice similarity boost (0.0-1.0, higher = closer to original)"
+    )
+    
+    # ========================================
     # Validators
     # ========================================
     @field_validator('MAX_SCENES')
