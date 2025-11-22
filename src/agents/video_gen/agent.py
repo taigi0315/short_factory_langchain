@@ -114,27 +114,46 @@ class VideoGenAgent:
             
             # Run in thread executor to avoid blocking async loop
             import asyncio
-            await asyncio.to_thread(
-                final_video.write_videofile,
-                str(output_path),
-                fps=self.fps,
-                codec='libx264',
-                audio_codec='aac',
-                preset=self.preset,
-                threads=4,
-                logger=None 
-            )
+            try:
+                await asyncio.to_thread(
+                    final_video.write_videofile,
+                    str(output_path),
+                    fps=self.fps,
+                    codec='libx264',
+                    audio_codec='aac',
+                    preset=self.preset,
+                    threads=4,
+                    logger=None 
+                )
+                
+                # Verify the file was created
+                if not os.path.exists(output_path):
+                    raise RuntimeError(f"Video file was not created at {output_path}")
+                    
+                file_size = os.path.getsize(output_path)
+                logger.info("Video file created", path=str(output_path), size_bytes=file_size)
+                
+            except Exception as render_error:
+                logger.error("Video rendering failed", 
+                           error=str(render_error),
+                           error_type=type(render_error).__name__,
+                           output_path=str(output_path),
+                           exc_info=True)
+                raise RuntimeError(f"Failed to render video: {str(render_error)}") from render_error
             
             # Cleanup
-            final_video.close()
-            for clip in scene_clips:
-                clip.close()
+            try:
+                final_video.close()
+                for clip in scene_clips:
+                    clip.close()
+            except Exception as cleanup_error:
+                logger.warning("Error during clip cleanup", error=str(cleanup_error))
                 
             logger.info("Video generated successfully", output_path=str(output_path))
             return str(output_path)
             
         except Exception as e:
-            logger.error("Video generation failed", exc_info=True)
+            logger.error("Video generation failed", exc_info=True, error_type=type(e).__name__)
             raise
 
     def _create_scene_clip(
@@ -146,51 +165,76 @@ class VideoGenAgent:
     ) -> VideoClip:
         """Create a video clip for a single scene."""
         
-        if not os.path.exists(image_path):
-            logger.warning("Image not found. Using color placeholder.", image_path=image_path)
-            img_clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
-        else:
-            # Load and resize image
-            img_clip = ImageClip(image_path)
+        try:
+            if not os.path.exists(image_path):
+                logger.warning("Image not found. Using color placeholder.", image_path=image_path)
+                img_clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
+            else:
+                try:
+                    # Load and resize image
+                    logger.debug("Loading image", path=image_path)
+                    img_clip = ImageClip(image_path)
+                    
+                    # Resize to cover resolution (maintain aspect ratio)
+                    w, h = img_clip.size
+                    target_w, target_h = self.resolution
+                    
+                    logger.debug("Resizing image", 
+                               original_size=f"{w}x{h}",
+                               target_size=f"{target_w}x{target_h}")
+                    
+                    # Calculate scaling to cover
+                    scale = max(target_w / w, target_h / h)
+                    img_clip = img_clip.resized(scale)
+                    
+                    # Center crop
+                    img_clip = img_clip.cropped(
+                        x_center=img_clip.w/2,
+                        y_center=img_clip.h/2,
+                        width=target_w,
+                        height=target_h
+                    )
+                    logger.debug("Image processed successfully")
+                    
+                except Exception as img_error:
+                    logger.error("Failed to load/process image, using placeholder",
+                               error=str(img_error),
+                               image_path=image_path)
+                    img_clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
-            # Resize to cover resolution (maintain aspect ratio)
-            w, h = img_clip.size
-            target_w, target_h = self.resolution
+            # Set duration
+            img_clip = img_clip.with_duration(duration)
             
-            # Calculate scaling to cover
-            scale = max(target_w / w, target_h / h)
-            img_clip = img_clip.resized(scale)
+            # Apply Ken Burns effect (slow zoom)
+            # Only if duration is reasonable (> 1s)
+            if duration > 1.0:
+                try:
+                    img_clip = self._apply_ken_burns(img_clip, duration)
+                except Exception as kb_error:
+                    logger.warning("Ken Burns effect failed, skipping", error=str(kb_error))
             
-            # Center crop
-            img_clip = img_clip.cropped(
-                x_center=img_clip.w/2,
-                y_center=img_clip.h/2,
-                width=target_w,
-                height=target_h
-            )
-        
-        # Set duration
-        img_clip = img_clip.with_duration(duration)
-        
-        # Apply Ken Burns effect (slow zoom)
-        # Only if duration is reasonable (> 1s)
-        if duration > 1.0:
-            img_clip = self._apply_ken_burns(img_clip, duration)
-        
-        # Add text overlay if needed
-        if scene.text_overlay:
-            try:
-                text_clip = self._create_text_overlay_pil(
-                    scene.text_overlay,
-                    duration,
-                    self.resolution
-                )
-                return CompositeVideoClip([img_clip, text_clip])
-            except Exception as e:
-                logger.warning("Failed to create text overlay", error=str(e))
-                return img_clip
-        
-        return img_clip
+            # Add text overlay if needed
+            if scene.text_overlay:
+                try:
+                    text_clip = self._create_text_overlay_pil(
+                        scene.text_overlay,
+                        duration,
+                        self.resolution
+                    )
+                    return CompositeVideoClip([img_clip, text_clip])
+                except Exception as text_error:
+                    logger.warning("Failed to create text overlay, skipping", error=str(text_error))
+                    return img_clip
+            
+            return img_clip
+            
+        except Exception as e:
+            logger.error("Scene clip creation failed", 
+                       scene_number=scene.scene_number,
+                       error=str(e),
+                       exc_info=True)
+            # Return a simple black clip as last resort
+            return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
     
     def _apply_ken_burns(self, clip: VideoClip, duration: float) -> VideoClip:
         """Apply Ken Burns effect (slow zoom)."""
