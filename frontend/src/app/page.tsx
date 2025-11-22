@@ -278,6 +278,9 @@ export default function Home() {
                   <button
                     onClick={async () => {
                       setLoading(true);
+                      const controller = new AbortController();
+                      const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutes timeout
+
                       try {
                         // 1. Generate images for all scenes
                         const imageMap: Record<number, string> = {};
@@ -317,24 +320,44 @@ export default function Home() {
                             script: script,
                             image_map: imageMap
                           }),
+                          signal: controller.signal
                         });
 
+                        clearTimeout(timeoutId);
+
                         if (!res.ok) {
-                          const errorData = await res.json();
-                          console.error('Video generation error:', errorData);
-                          throw new Error(errorData.detail || 'Failed to generate video');
+                          let errorMessage = 'Failed to generate video';
+                          try {
+                            const contentType = res.headers.get('content-type');
+                            if (contentType && contentType.includes('application/json')) {
+                              const errorData = await res.json();
+                              errorMessage = errorData.detail || errorData.message || errorMessage;
+                            } else {
+                              const text = await res.text();
+                              console.error('Non-JSON error response:', text.substring(0, 200));
+                              errorMessage = `Server error (${res.status}): ${res.statusText}`;
+                            }
+                          } catch (parseError) {
+                            console.error('Error parsing error response:', parseError);
+                            errorMessage = `Server error (${res.status})`;
+                          }
+                          throw new Error(errorMessage);
                         }
+
                         const data = await res.json();
 
-                        // 3. Show Video (we'll need a new step or state for this)
-                        // For now, let's just open it or show it in an alert/modal
-                        // Better: Add a Step 4 for Video Playback
+                        // 3. Show Video
                         window.open(data.video_url, '_blank');
                         alert('Video Generated! Opening in new tab...');
 
                       } catch (e: any) {
+                        clearTimeout(timeoutId);
                         console.error(e);
-                        alert(`Failed to generate video:\n\n${e.message || e}`);
+                        if (e.name === 'AbortError') {
+                          alert('Video generation timed out after 3 minutes. The video might still be processing on the server.');
+                        } else {
+                          alert(`Failed to generate video:\n\n${e.message || e}`);
+                        }
                       } finally {
                         setLoading(false);
                       }
