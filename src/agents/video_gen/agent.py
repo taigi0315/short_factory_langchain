@@ -25,6 +25,10 @@ from src.models.models import (
     ElevenLabsSettings, TransitionType
 )
 
+from src.agents.video_gen.providers.base import VideoGenerationProvider
+from src.agents.video_gen.providers.mock import MockVideoProvider
+from src.agents.video_gen.providers.luma import LumaVideoProvider
+
 logger = structlog.get_logger()
 
 class VideoGenAgent:
@@ -50,6 +54,23 @@ class VideoGenAgent:
         self.resolution = (1920, 1080) if settings.VIDEO_RESOLUTION == "1080p" else (1280, 720)
         self.fps = settings.VIDEO_FPS
         self.preset = settings.VIDEO_QUALITY
+        
+        # Initialize video generation provider
+        self.video_provider = self._get_video_provider()
+
+    def _get_video_provider(self) -> VideoGenerationProvider:
+        """Get the configured video generation provider."""
+        provider_name = settings.VIDEO_GENERATION_PROVIDER.lower()
+        
+        if provider_name == "luma":
+            logger.info("Using Luma Video Provider")
+            return LumaVideoProvider()
+        elif provider_name == "runway":
+            logger.warning("Runway provider not implemented, falling back to mock")
+            return MockVideoProvider()
+        else:
+            logger.info("Using Mock Video Provider")
+            return MockVideoProvider()
 
     async def generate_video(
         self,
@@ -89,7 +110,7 @@ class VideoGenAgent:
                     duration = audio_clip.duration
                 
                 # Create visual clip
-                clip = self._create_scene_clip(
+                clip = await self._create_scene_clip(
                     scene, 
                     image_path, 
                     duration,
@@ -156,7 +177,7 @@ class VideoGenAgent:
             logger.error("Video generation failed", exc_info=True, error_type=type(e).__name__)
             raise
 
-    def _create_scene_clip(
+    async def _create_scene_clip(
         self,
         scene: Scene,
         image_path: str,
@@ -170,7 +191,31 @@ class VideoGenAgent:
                 logger.warning("Image/Video not found. Using color placeholder.", image_path=image_path)
                 return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
-            # Check if it's a video file
+            # AI Video Generation (Image-to-Video)
+            # Check if scene needs animation and we have a provider
+            if scene.needs_animation and self.video_provider:
+                try:
+                    logger.info("Generating AI video for scene", scene_number=scene.scene_number, provider=type(self.video_provider).__name__)
+                    
+                    # Generate video using provider
+                    video_path = await self.video_provider.generate_video(
+                        image_path, 
+                        scene.video_prompt or "Animate this image"
+                    )
+                    
+                    # If provider returned a valid video path, use it
+                    if video_path and os.path.exists(video_path) and video_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm')):
+                        logger.info("AI video generated successfully", path=video_path)
+                        image_path = video_path
+                        # Continue to video processing logic below
+                    else:
+                        logger.warning("Provider returned invalid video path or static image, falling back to static/Ken Burns", path=video_path)
+                        # If it returned the image path (Mock), we just fall through to static handling
+                        
+                except Exception as gen_error:
+                     logger.error("AI video generation failed, falling back to static", error=str(gen_error))
+            
+            # Check if it's a video file (either original or generated)
             is_video = image_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm'))
             
             if is_video:
@@ -381,7 +426,7 @@ class VideoGenAgent:
                 logger.info("Image generated successfully for text-to-video", path=image_path)
             
             # Create video clip
-            clip = self._create_scene_clip(
+            clip = await self._create_scene_clip(
                 scene,
                 image_path,
                 settings.DEFAULT_SCENE_DURATION,
@@ -410,7 +455,7 @@ class VideoGenAgent:
             logger.error("Failed to generate text video", exc_info=True)
             raise
 
-    def generate_from_image(self, image_path: str, prompt: str) -> str:
+    async def generate_from_image(self, image_path: str, prompt: str) -> str:
         """
         Generate a video from an image and a prompt (Dev/Test method).
         Applies Ken Burns effect to the image.
@@ -432,7 +477,7 @@ class VideoGenAgent:
                 transition_to_next=TransitionType.NONE
             )
             
-            clip = self._create_scene_clip(
+            clip = await self._create_scene_clip(
                 scene,
                 image_path,
                 settings.DEFAULT_SCENE_DURATION,

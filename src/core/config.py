@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     # ========================================
     VIDEO_RESOLUTION: str = Field(default="1080p", description="Video resolution (1080p or 720p)")
     VIDEO_FPS: int = Field(default=30, description="Video frames per second")
+    
+    # AI Video Generation
+    VIDEO_GENERATION_PROVIDER: str = Field(default="mock", description="Provider for AI video generation: 'mock', 'luma', 'runway'")
+    LUMA_API_KEY: Optional[str] = Field(default=None, description="Luma Dream Machine API key")
     VIDEO_QUALITY: str = Field(default="medium", description="FFmpeg preset (ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow)")
     
     # ========================================
