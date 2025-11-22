@@ -124,12 +124,20 @@ class ImageGenAgent:
         logger.debug("Image prompt", prompt=enhanced_prompt)
         
         try:
+            # Calculate correct dimensions based on aspect ratio
+            # 9:16 (portrait) = 1080x1920
+            # 16:9 (landscape) = 1920x1080
+            if settings.IMAGE_ASPECT_RATIO == "9:16":
+                width, height = 1080, 1920
+            else:  # Default to 16:9
+                width, height = 1920, 1080
+            
             # Generate image
             image_url = await client.generate_image(
                 prompt=enhanced_prompt,
                 model=model,
-                width=1920,
-                height=1080,
+                width=width,
+                height=height,
                 aspect_ratio=settings.IMAGE_ASPECT_RATIO,
             )
             
