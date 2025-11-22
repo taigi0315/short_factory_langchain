@@ -286,30 +286,30 @@ Make every word count. Make every scene matter. Make every transition purposeful
 
 ❌ **WRONG - Using scene_type values in voice_tone field:**
 ```json
-{{
+{{{{
   "voice_tone": "explanation"  // ❌ WRONG! "explanation" is a scene_type, not a voice_tone!
-}}
+}}}}
 ```
 
 ✅ **CORRECT - Use actual voice_tone values:**
 ```json
-{{
+{{{{
   "voice_tone": "curious"  // ✅ CORRECT! This is a valid voice_tone
-}}
+}}}}
 ```
 
 ❌ **WRONG - Using invalid scene_type values:**
 ```json
-{{
+{{{{
   "scene_type": "climax"  // ❌ WRONG! "climax" is not in our enum!
-}}
+}}}}
 ```
 
 ✅ **CORRECT - Use valid scene_type values:**
 ```json
-{{
+{{{{
   "scene_type": "conclusion"  // ✅ CORRECT! Use "conclusion" for climactic moments
-}}
+}}}}
 ```
 
 ### Field-Specific Valid Values:
