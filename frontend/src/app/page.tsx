@@ -279,7 +279,7 @@ export default function Home() {
                     onClick={async () => {
                       setLoading(true);
                       const controller = new AbortController();
-                      const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutes timeout
+                      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
 
                       try {
                         // 1. Generate images for all scenes

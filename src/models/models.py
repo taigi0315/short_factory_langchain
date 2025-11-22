@@ -30,6 +30,7 @@ class ImageStyle(str, Enum):
     CINEMATIC = "cinematic"
     CLOSE_UP_REACTION = "close_up_reaction"
     WIDE_ESTABLISHING_SHOT = "wide_establishing_shot"
+    VISUAL_SURPRISE = "visual_surprise"
     
     # Special effects
     SPLIT_SCREEN = "split_screen"
