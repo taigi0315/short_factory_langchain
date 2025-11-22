@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import ValidationError
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.agents.script_writer.prompts import SCRIPT_WRITER_AGENT_TEMPLATE, VIDEO_SCRIPT_PARSER
-from src.models.models import VideoScript, VoiceTone, SceneType
+from src.models.models import VideoScript, VoiceTone, SceneType, ImageStyle
 from src.core.config import settings
 
 # Setup logging
@@ -32,6 +32,17 @@ class ScriptWriterAgent:
         "introduction": SceneType.HOOK,
         "narrative": SceneType.STORY_TELLING,
         "opening": SceneType.HOOK
+    }
+    
+    IMAGE_STYLE_FIXES = {
+        "comparison": ImageStyle.BEFORE_AFTER_COMPARISON,
+        "split": ImageStyle.SPLIT_SCREEN,
+        "character": ImageStyle.CHARACTER_WITH_BACKGROUND,
+        "diagram": ImageStyle.DIAGRAM_EXPLANATION,
+        "infograph": ImageStyle.INFOGRAPHIC,
+        "comic": ImageStyle.COMIC_PANEL,
+        "closeup": ImageStyle.CLOSE_UP_REACTION,
+        "wide": ImageStyle.WIDE_ESTABLISHING_SHOT
     }
     
     def __init__(self):
@@ -123,6 +134,19 @@ class ScriptWriterAgent:
                     logger.warning(
                         f"Fixed invalid scene_type in scene {i+1}: "
                         f"'{original_value}' → '{scene.scene_type.value}'"
+                    )
+            
+            # Fix image_style if it's a string
+            if isinstance(scene.image_style, str):
+                original_value = scene.image_style
+                if original_value in self.IMAGE_STYLE_FIXES:
+                    scene.image_style = self.IMAGE_STYLE_FIXES[original_value]
+                    fixes_applied.append(
+                        f"Scene {i+1}: image_style '{original_value}' → '{scene.image_style.value}'"
+                    )
+                    logger.warning(
+                        f"Fixed invalid image_style in scene {i+1}: "
+                        f"'{original_value}' → '{scene.image_style.value}'"
                     )
         
         if fixes_applied:
