@@ -63,11 +63,16 @@ class GeminiImageClient:
         try:
             logger.info("Generating image with Gemini", prompt_length=len(prompt), aspect_ratio=aspect_ratio)
             
-            # Add dimension hints and aspect ratio to prompt
-            # Note: Gemini 2.5 Flash Image API might support aspect_ratio param in future,
-            # but for now we use prompt engineering as primary method.
-            dimension_hint = f"Create a {width}x{height} image with {aspect_ratio} aspect ratio. "
-            full_prompt = dimension_hint + prompt + f", vertical {aspect_ratio} format"
+            # Use ONLY aspect ratio in prompt to avoid conflicts
+            # Gemini doesn't support exact pixel dimensions, so we only specify aspect ratio
+            # The width/height params are kept for API compatibility but not used in prompt
+            aspect_hint = f"Create an image in {aspect_ratio} aspect ratio"
+            if aspect_ratio == "9:16":
+                aspect_hint += " (vertical/portrait orientation)"
+            elif aspect_ratio == "16:9":
+                aspect_hint += " (horizontal/landscape orientation)"
+            
+            full_prompt = f"{aspect_hint}. {prompt}"
             
             # Generate image
             response = self.model.generate_content([full_prompt])
