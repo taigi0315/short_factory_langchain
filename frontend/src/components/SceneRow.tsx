@@ -97,9 +97,9 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 <div className="effect-column">
                     <label className="column-label">Effect</label>
                     <EffectSelector
-                        value={state?.selectedEffect || 'ken_burns_zoom_in'}
-                        onChange={onEffectChange}
-                        disabled={!!state?.videoUrl}
+                        effect={state?.selectedEffect || 'ken_burns_zoom_in'}
+                        reasoning="AI-selected based on scene type and content"
+                        isRecommended={true}
                     />
                 </div>
 

@@ -226,7 +226,7 @@ class VideoEffectAgent:
         script: VideoScript
     ) -> str:
         """
-        Generate or enhance video prompt for AI video generation.
+        Generate detailed, actionable video prompt for AI video generation.
         
         Args:
             scene: Scene to generate prompt for
@@ -234,34 +234,58 @@ class VideoEffectAgent:
             script: Full script for context
             
         Returns:
-            Enhanced video prompt
+            Detailed video prompt for image-to-video generation
         """
-        base_prompt = scene.video_prompt or scene.image_create_prompt
+        # Get base visual description
+        base_visual = scene.video_prompt or scene.image_create_prompt
         
-        # Add effect-specific instructions
-        effect_instructions = {
-            'shake': "Add rapid shaking motion to simulate impact or震動",
-            'ken_burns_zoom_in': "Slowly zoom into the focal point",
-            'ken_burns_zoom_out': "Slowly zoom out to reveal context",
-            'pan_left': "Pan camera smoothly from right to left",
-            'pan_right': "Pan camera smoothly from left to right",
-            'tilt_up': "Tilt camera upward gradually",
-            'tilt_down': "Tilt camera downward gradually",
-            'static': "Minimal movement, focus on subject"
+        # Extract key elements from dialogue
+        dialogue = scene.dialogue or ""
+        
+        # Build effect-specific motion description
+        motion_descriptions = {
+            'shake': f"Rapid shaking motion simulating impact. The entire frame vibrates intensely for 0.5-1 second, then settles. Creates sense of shock and power.",
+            'ken_burns_zoom_in': f"Slow, smooth zoom into the main subject. Camera gradually moves closer over 5-6 seconds, building tension and focus. Ends with close-up detail.",
+            'ken_burns_zoom_out': f"Slow, smooth zoom out from subject. Camera gradually pulls back over 5-6 seconds, revealing broader context and providing closure.",
+            'pan_left': f"Smooth horizontal pan from right to left. Camera glides steadily across the scene over 5-6 seconds, revealing details progressively.",
+            'pan_right': f"Smooth horizontal pan from left to right. Camera glides steadily across the scene over 5-6 seconds, showing progression or discovery.",
+            'tilt_up': f"Gradual upward tilt. Camera tilts from lower position to upper position over 4-5 seconds, creating sense of awe or revelation.",
+            'tilt_down': f"Gradual downward tilt. Camera tilts from upper position to lower position over 4-5 seconds, grounding the view or focusing on details.",
+            'static': f"Minimal camera movement. Subtle breathing motion or slight drift to maintain life. Focus remains on subject throughout."
         }
         
-        effect_instruction = effect_instructions.get(effect, "")
+        motion = motion_descriptions.get(effect, "Smooth camera movement")
         
-        # Construct enhanced prompt
-        enhanced = f"""{base_prompt}
+        # Add scene-specific enhancements based on scene type
+        scene_enhancements = {
+            SceneType.HOOK: "High energy, attention-grabbing. Use dramatic lighting changes or particle effects if appropriate.",
+            SceneType.VISUAL_DEMO: "Clear demonstration of concept. Ensure key elements are visible and motion supports understanding.",
+            SceneType.EXPLANATION: "Calm and clear. Motion should not distract from information being conveyed.",
+            SceneType.CONCLUSION: "Satisfying closure. Motion should feel complete and final.",
+            SceneType.COMPARISON: "Balanced presentation. Show both sides clearly.",
+            SceneType.STORY_TELLING: "Engaging narrative flow. Motion should support the story being told."
+        }
+        
+        scene_enhancement = scene_enhancements.get(scene.scene_type, "")
+        
+        # Construct detailed prompt
+        prompt = f"""Starting Frame: {base_visual}
 
-Camera Motion: {effect_instruction}
-Duration: 5-8 seconds
-Aspect Ratio: 9:16 (vertical)
+Motion: {motion}
+
+Scene Context: {dialogue[:100]}...
+
 Style: {script.global_visual_style if hasattr(script, 'global_visual_style') else 'Cinematic'}
-Mood: {scene.voice_tone.value if hasattr(scene.voice_tone, 'value') else 'neutral'}"""
+Mood: {scene.voice_tone.value if hasattr(scene.voice_tone, 'value') else 'neutral'}
+{scene_enhancement}
+
+Technical Specs:
+- Duration: 5-8 seconds
+- Aspect Ratio: 9:16 (vertical)
+- Frame Rate: 24fps or 30fps
+- Quality: High definition, smooth motion"""
         
-        return enhanced.strip()
+        return prompt.strip()
     
     def select_transition(
         self,
