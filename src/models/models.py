@@ -80,7 +80,7 @@ class ElevenLabsSettings(BaseModel):
     stability: float = Field(ge=0.0, le=1.0, description="Consistency vs emotional expression")
     similarity_boost: float = Field(ge=0.0, le=1.0, description="Closeness to reference voice")
     style: float = Field(ge=0.0, le=1.0, description="Expressiveness (exaggeration)")
-    speed: float = Field(ge=0.7, le=1.2, description="Speech delivery rate")
+    speed: float = Field(ge=0.5, le=2.0, description="Speech delivery rate")
     loudness: float = Field(ge=-1.0, le=1.0, description="Audio output volume")
     
     @classmethod
