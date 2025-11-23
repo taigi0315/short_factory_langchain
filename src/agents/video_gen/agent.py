@@ -72,6 +72,47 @@ class VideoGenAgent:
             logger.info("Using Mock Video Provider")
             return MockVideoProvider()
 
+    def _select_scenes_for_ai_video(self, scenes: List[Scene]) -> set[int]:
+        """
+        Select which scenes should get AI video generation based on video_importance.
+        
+        Returns a set of scene_numbers that should use AI video generation.
+        """
+        max_ai_videos = settings.MAX_AI_VIDEOS_PER_SCRIPT
+        
+        if max_ai_videos <= 0:
+            logger.info("AI video generation disabled (MAX_AI_VIDEOS_PER_SCRIPT=0)")
+            return set()
+        
+        # Filter scenes that need animation
+        animation_scenes = [s for s in scenes if s.needs_animation]
+        
+        if not animation_scenes:
+            logger.info("No scenes marked for animation")
+            return set()
+        
+        # Sort by video_importance (descending), then by scene_number for tie-breaking
+        sorted_scenes = sorted(
+            animation_scenes,
+            key=lambda s: (s.video_importance, -s.scene_number),
+            reverse=True
+        )
+        
+        # Select top N scenes
+        selected_scenes = sorted_scenes[:max_ai_videos]
+        selected_numbers = {s.scene_number for s in selected_scenes}
+        
+        logger.info("Scene selection for AI video",
+                   total_animation_scenes=len(animation_scenes),
+                   max_allowed=max_ai_videos,
+                   selected_count=len(selected_numbers),
+                   selected_scenes=[
+                       {"scene": s.scene_number, "importance": s.video_importance}
+                       for s in selected_scenes
+                   ])
+        
+        return selected_numbers
+
     async def generate_video(
         self,
         script: VideoScript,
@@ -84,6 +125,12 @@ class VideoGenAgent:
         logger.info("Generating video for script", title=script.title)
         
         try:
+            # Determine which scenes should get AI video generation
+            ai_video_scene_numbers = self._select_scenes_for_ai_video(script.scenes)
+            logger.info("Selected scenes for AI video generation", 
+                       scene_numbers=ai_video_scene_numbers,
+                       max_allowed=settings.MAX_AI_VIDEOS_PER_SCRIPT)
+            
             # Create scene clips
             scene_clips = []
             
@@ -109,12 +156,16 @@ class VideoGenAgent:
                     audio_clip = AudioFileClip(audio_path)
                     duration = audio_clip.duration
                 
+                # Determine if this scene should use AI video generation
+                should_use_ai_video = scene.scene_number in ai_video_scene_numbers
+                
                 # Create visual clip
                 clip = await self._create_scene_clip(
                     scene, 
                     image_path, 
                     duration,
-                    style
+                    style,
+                    force_ai_video=should_use_ai_video
                 )
                 
                 # Set audio
@@ -182,9 +233,18 @@ class VideoGenAgent:
         scene: Scene,
         image_path: str,
         duration: float,
-        style: ImageStyle
+        style: ImageStyle,
+        force_ai_video: bool = False
     ) -> VideoClip:
-        """Create a video clip for a single scene."""
+        """Create a video clip for a single scene.
+        
+        Args:
+            scene: Scene configuration
+            image_path: Path to the image file
+            duration: Duration of the clip in seconds
+            style: Image style
+            force_ai_video: If True, attempt AI video generation regardless of needs_animation
+        """
         
         try:
             if not os.path.exists(image_path):
@@ -192,8 +252,8 @@ class VideoGenAgent:
                 return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
             # AI Video Generation (Image-to-Video)
-            # Check if scene needs animation and we have a provider
-            if scene.needs_animation and self.video_provider:
+            # Only generate AI video if this scene was selected based on importance
+            if force_ai_video and self.video_provider:
                 try:
                     logger.info("Generating AI video for scene", scene_number=scene.scene_number, provider=type(self.video_provider).__name__)
                     
