@@ -161,6 +161,21 @@ class Scene(BaseModel):
     # Hook technique (only for first scene)
     hook_technique: Optional[HookTechnique] = Field(default=None, description="Specific hook technique used (only for hook scenes)")
     video_importance: int = Field(default=5, ge=0, le=10, description="Importance score for video generation (0-10)")
+    
+    # Manual workflow fields (TICKET-023)
+    uploaded_video_path: Optional[str] = Field(default=None, description="Path to manually uploaded video file")
+    selected_effect: str = Field(default="ken_burns_zoom_in", description="User-selected video effect for image animation")
+    image_path: Optional[str] = Field(default=None, description="Path to generated image file")
+    audio_path: Optional[str] = Field(default=None, description="Path to generated audio file")
+
+class SceneConfig(BaseModel):
+    """Configuration for building video from a scene"""
+    scene_number: int
+    use_uploaded_video: bool = False
+    video_path: Optional[str] = None
+    effect: str = "ken_burns_zoom_in"
+    image_path: Optional[str] = None
+    audio_path: Optional[str] = None
 
 class VideoScript(BaseModel):
     """
