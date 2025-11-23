@@ -91,9 +91,13 @@ os.makedirs("generated_assets", exist_ok=True)
 # Mount static files
 app.mount("/generated_assets", StaticFiles(directory="generated_assets"), name="generated_assets")
 
+# Import routers
+from src.api.routes import stories, scripts, dev, scene_editor
+
 app.include_router(stories.router, prefix="/api/stories", tags=["stories"])
 app.include_router(scripts.router, prefix="/api/scripts", tags=["scripts"])
 app.include_router(dev.router, prefix="/api/dev", tags=["dev"])
+app.include_router(scene_editor.router)  # Already has prefix in router definition
 
 if __name__ == "__main__":
     import uvicorn

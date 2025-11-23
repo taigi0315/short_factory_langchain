@@ -564,6 +564,178 @@ class VideoGenAgent:
             logger.error("Failed to generate image video", exc_info=True)
             raise
 
+    async def build_from_scene_configs(
+        self,
+        script: VideoScript,
+        scene_configs: List['SceneConfig']  # Import from models
+    ) -> str:
+        """
+        Build video using mix of uploaded videos and image+effect.
+        
+        Args:
+            script: The video script
+            scene_configs: Configuration for each scene
+            
+        Returns:
+            Path to final video
+        """
+        from src.models.models import SceneConfig
+        import asyncio
+        
+        logger.info("Building video from scene configurations", 
+                   total_scenes=len(scene_configs),
+                   title=script.title)
+        
+        scene_clips = []
+        
+        for config in scene_configs:
+            # Find matching scene
+            scene = next((s for s in script.scenes if s.scene_number == config.scene_number), None)
+            if not scene:
+                logger.warning("Scene not found in script", scene_number=config.scene_number)
+                continue
+            
+            # Get audio duration
+            if config.audio_path and os.path.exists(config.audio_path):
+                audio_clip = AudioFileClip(config.audio_path)
+                duration = audio_clip.duration
+            else:
+                duration = settings.DEFAULT_SCENE_DURATION
+                audio_clip = None
+            
+            # Create visual clip
+            if config.use_uploaded_video and config.video_path and os.path.exists(config.video_path):
+                # Use uploaded video
+                logger.info("Using uploaded video", scene_number=config.scene_number, path=config.video_path)
+                clip = await self._load_uploaded_video(config.video_path, duration)
+            elif config.image_path and os.path.exists(config.image_path):
+                # Use image + effect
+                logger.info("Using image with effect", 
+                           scene_number=config.scene_number,
+                           effect=config.effect)
+                clip = await self._create_image_clip_with_effect(
+                    config.image_path,
+                    config.effect,
+                    duration
+                )
+            else:
+                # Fallback to black screen
+                logger.warning("No video or image found, using black screen", scene_number=config.scene_number)
+                clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
+            
+            # Add audio
+            if audio_clip:
+                clip = clip.with_audio(audio_clip)
+            
+            scene_clips.append(clip)
+        
+        if not scene_clips:
+            raise RuntimeError("No scene clips created")
+        
+        # Apply transitions and render
+        final_video = self._apply_transitions(scene_clips)
+        
+        # Render
+        timestamp = int(time.time())
+        safe_title = "".join([c for c in script.title if c.isalnum() or c in (' ', '-', '_')]).strip().replace(' ', '_')
+        output_path = self.output_dir / f"video_{safe_title}_{timestamp}.mp4"
+        
+        logger.info("Rendering final video...", output_path=str(output_path))
+        
+        await asyncio.to_thread(
+            final_video.write_videofile,
+            str(output_path),
+            fps=self.fps,
+            codec='libx264',
+            audio_codec='aac',
+            preset=self.preset,
+            threads=4,
+            logger=None
+        )
+        
+        logger.info("Video built successfully", output_path=str(output_path))
+        
+        # Cleanup
+        for clip in scene_clips:
+            clip.close()
+        final_video.close()
+        
+        return str(output_path)
+
+    async def _load_uploaded_video(self, video_path: str, target_duration: float) -> VideoClip:
+        """Load and process uploaded video"""
+        import asyncio
+        
+        def load_video():
+            clip = VideoFileClip(video_path)
+            
+            # Resize to target resolution
+            w, h = clip.size
+            target_w, target_h = self.resolution
+            scale = max(target_w / w, target_h / h)
+            clip = clip.resized(scale)
+            clip = clip.cropped(
+                x_center=clip.w/2,
+                y_center=clip.h/2,
+                width=target_w,
+                height=target_h
+            )
+            
+            # Sync duration
+            if clip.duration < target_duration:
+                # Freeze last frame
+                remaining = target_duration - clip.duration
+                frozen = clip.to_ImageClip(t=clip.duration - 0.05).with_duration(remaining)
+                clip = concatenate_videoclips([clip, frozen])
+            else:
+                # Trim
+                clip = clip.subclipped(0, target_duration)
+            
+            return clip
+        
+        return await asyncio.to_thread(load_video)
+
+    async def _create_image_clip_with_effect(
+        self,
+        image_path: str,
+        effect: str,
+        duration: float
+    ) -> VideoClip:
+        """Create video clip from image with specified effect"""
+        import asyncio
+        
+        def create_clip():
+            img_clip = ImageClip(image_path)
+            
+            # Resize to cover resolution
+            w, h = img_clip.size
+            target_w, target_h = self.resolution
+            scale = max(target_w / w, target_h / h)
+            img_clip = img_clip.resized(scale)
+            img_clip = img_clip.cropped(
+                x_center=img_clip.w/2,
+                y_center=img_clip.h/2,
+                width=target_w,
+                height=target_h
+            )
+            
+            clip = img_clip.with_duration(duration)
+            
+            # Apply effect
+            if effect == "ken_burns_zoom_in":
+                clip = clip.resized(lambda t: 1 + 0.1 * t / duration)
+            elif effect == "ken_burns_zoom_out":
+                clip = clip.resized(lambda t: 1.1 - 0.1 * t / duration)
+            elif effect == "pan_left":
+                clip = clip.with_position(lambda t: (-50 * t / duration, 0))
+            elif effect == "pan_right":
+                clip = clip.with_position(lambda t: (50 * t / duration, 0))
+            # "static" - no effect
+            
+            return clip
+        
+        return await asyncio.to_thread(create_clip)
+
     def _apply_transitions(self, clips: List[VideoClip]) -> VideoClip:
         """Apply transitions between scene clips."""
         if not clips:
