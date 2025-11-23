@@ -127,6 +127,13 @@
   gap: 10px;
 }
 
+.image-placeholder-container,
+.image-preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .image-preview img {
   width: 100%;
   border-radius: 8px;
@@ -134,9 +141,6 @@
 }
 
 .image-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 150px;
   background: #f7fafc;
   border: 2px dashed #cbd5e0;
@@ -188,26 +192,31 @@
   gap: 10px;
 }
 
-.video-preview video {
+.video-placeholder-container,
+.video-preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-video {
   width: 100%;
   max-height: 200px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.upload-placeholder {
+.video-placeholder {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 150px;
   background: #f7fafc;
   border: 2px dashed #cbd5e0;
   border-radius: 8px;
-  gap: 10px;
 }
 
-.upload-placeholder p {
+.video-placeholder p {
   margin: 0;
   color: #718096;
   font-size: 14px;
@@ -317,7 +326,12 @@
 }
 
 .copy-prompt-btn:hover {
-  background: #805ad5;
+  background: #a0aec0;
+}
+
+.copy-prompt-btn.copied {
+  background: #48bb78;
+  color: white;
 }
 
 /* Editor Footer */

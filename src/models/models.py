@@ -88,28 +88,28 @@ class ElevenLabsSettings(BaseModel):
         """Return recommended settings for each voice tone"""
         settings_map = {
             # High Energy / Expressive
-            VoiceTone.EXCITED: cls(stability=0.35, similarity_boost=0.9, style=0.65, speed=1.15, loudness=0.2),
-            VoiceTone.ENTHUSIASTIC: cls(stability=0.3, similarity_boost=0.8, style=0.7, speed=1.2, loudness=0.3),
-            VoiceTone.SURPRISED: cls(stability=0.25, similarity_boost=0.75, style=0.8, speed=1.1, loudness=0.1),
-            VoiceTone.DRAMATIC: cls(stability=0.4, similarity_boost=0.8, style=0.6, speed=0.9, loudness=0.2),
+            VoiceTone.EXCITED: cls(stability=0.35, similarity_boost=0.9, style=0.65, speed=1.25, loudness=0.2),
+            VoiceTone.ENTHUSIASTIC: cls(stability=0.3, similarity_boost=0.8, style=0.7, speed=1.3, loudness=0.3),
+            VoiceTone.SURPRISED: cls(stability=0.25, similarity_boost=0.75, style=0.8, speed=1.2, loudness=0.1),
+            VoiceTone.DRAMATIC: cls(stability=0.4, similarity_boost=0.8, style=0.6, speed=1.0, loudness=0.2),
             
             # Low Energy / Somber
-            VoiceTone.SAD: cls(stability=0.8, similarity_boost=0.7, style=0.2, speed=0.8, loudness=-0.2),
-            VoiceTone.WORRIED: cls(stability=0.5, similarity_boost=0.8, style=0.4, speed=0.9, loudness=-0.1),
+            VoiceTone.SAD: cls(stability=0.8, similarity_boost=0.7, style=0.2, speed=0.9, loudness=-0.2),
+            VoiceTone.WORRIED: cls(stability=0.5, similarity_boost=0.8, style=0.4, speed=1.0, loudness=-0.1),
             
             # Neutral / Professional
-            VoiceTone.SERIOUS: cls(stability=0.8, similarity_boost=0.8, style=0.1, speed=0.95, loudness=0.0),
-            VoiceTone.CONFIDENT: cls(stability=0.7, similarity_boost=0.9, style=0.35, speed=1.0, loudness=0.1),
-            VoiceTone.CALM: cls(stability=0.9, similarity_boost=0.9, style=0.0, speed=0.9, loudness=-0.1),
+            VoiceTone.CALM: cls(stability=0.7, similarity_boost=0.75, style=0.3, speed=1.1, loudness=0.0),
+            VoiceTone.SERIOUS: cls(stability=0.75, similarity_boost=0.8, style=0.2, speed=1.05, loudness=0.0),
+            VoiceTone.CONFIDENT: cls(stability=0.6, similarity_boost=0.85, style=0.4, speed=1.15, loudness=0.1),
             
             # Engaging / Friendly
-            VoiceTone.FRIENDLY: cls(stability=0.6, similarity_boost=0.85, style=0.4, speed=1.05, loudness=0.1),
-            VoiceTone.CURIOUS: cls(stability=0.5, similarity_boost=0.8, style=0.5, speed=1.0, loudness=0.0),
-            VoiceTone.PLAYFUL: cls(stability=0.4, similarity_boost=0.8, style=0.6, speed=1.1, loudness=0.1),
+            VoiceTone.FRIENDLY: cls(stability=0.6, similarity_boost=0.8, style=0.4, speed=1.15, loudness=0.1),
+            VoiceTone.CURIOUS: cls(stability=0.5, similarity_boost=0.7, style=0.5, speed=1.1, loudness=0.0),
+            VoiceTone.PLAYFUL: cls(stability=0.4, similarity_boost=0.8, style=0.6, speed=1.2, loudness=0.1),
             
             # Special
             VoiceTone.MYSTERIOUS: cls(stability=0.6, similarity_boost=0.6, style=0.5, speed=0.8, loudness=-0.2),
-            VoiceTone.SARCASTIC: cls(stability=0.5, similarity_boost=0.5, style=0.8, speed=0.85, loudness=0.0)
+            VoiceTone.SARCASTIC: cls(stability=0.5, similarity_boost=0.6, style=0.5, speed=1.0, loudness=0.0)
         }
         return settings_map.get(tone, cls(stability=0.5, similarity_boost=0.75, style=0.0, speed=1.0, loudness=0.0))
 

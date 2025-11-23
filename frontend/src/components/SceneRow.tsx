@@ -9,6 +9,7 @@ interface Scene {
     voice_tone: string;
     video_importance: number;
     effect_reasoning?: string;
+    video_prompt?: string;
 }
 
 interface SceneState {
@@ -26,7 +27,7 @@ interface SceneRowProps {
     onImageGenerate: () => void;
     onVideoUpload: (file: File) => void;
     onEffectChange: (effect: string) => void;
-    onCopyPrompt: () => void;
+    onCopyPrompt: () => void; // Kept for compatibility but unused
 }
 
 export const SceneRow: React.FC<SceneRowProps> = ({
@@ -34,9 +35,10 @@ export const SceneRow: React.FC<SceneRowProps> = ({
     state,
     onImageGenerate,
     onVideoUpload,
-    onEffectChange,
-    onCopyPrompt
+    onEffectChange
 }) => {
+    const [showCopied, setShowCopied] = React.useState(false);
+
     const downloadImage = (url: string) => {
         const a = document.createElement('a');
         a.href = url;
@@ -44,6 +46,18 @@ export const SceneRow: React.FC<SceneRowProps> = ({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+    };
+
+    const handleCopyPrompt = async () => {
+        if (scene.video_prompt) {
+            try {
+                await navigator.clipboard.writeText(scene.video_prompt);
+                setShowCopied(true);
+                setTimeout(() => setShowCopied(false), 2000);
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+        }
     };
 
     return (
@@ -63,8 +77,8 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 <div className="image-column">
                     <label className="column-label">Image</label>
                     {state?.imageUrl ? (
-                        <div className="image-preview">
-                            <img src={state.imageUrl} alt={`Scene ${scene.scene_number}`} />
+                        <div className="image-preview-container">
+                            <img src={state.imageUrl} alt={`Scene ${scene.scene_number}`} className="preview-image" />
                             <button
                                 className="download-btn"
                                 onClick={() => downloadImage(state.imageUrl!)}
@@ -73,7 +87,8 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                             </button>
                         </div>
                     ) : (
-                        <div className="image-placeholder">
+                        <div className="image-placeholder-container">
+                            <div className="image-placeholder"></div>
                             <button
                                 className="generate-btn"
                                 onClick={onImageGenerate}
@@ -105,8 +120,12 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 </div>
 
                 <div className="actions-column">
-                    <button className="copy-prompt-btn" onClick={onCopyPrompt}>
-                        📋 Copy Video Prompt
+                    <button
+                        className={`copy-prompt-btn ${showCopied ? 'copied' : ''}`}
+                        onClick={handleCopyPrompt}
+                        title="Copy AI-generated video prompt"
+                    >
+                        {showCopied ? '✅ Copied!' : '📋 Copy Video Prompt'}
                     </button>
                 </div>
             </div>

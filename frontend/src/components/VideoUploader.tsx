@@ -37,8 +37,8 @@ export const VideoUploader: React.FC<VideoUploaderProps> = ({
     return (
         <div className="video-uploader">
             {videoUrl ? (
-                <div className="video-preview">
-                    <video src={videoUrl} controls />
+                <div className="video-preview-container">
+                    <video src={videoUrl} controls className="preview-video" />
                     <button
                         className="replace-btn"
                         onClick={() => fileInputRef.current?.click()}
@@ -47,8 +47,10 @@ export const VideoUploader: React.FC<VideoUploaderProps> = ({
                     </button>
                 </div>
             ) : (
-                <div className="upload-placeholder">
-                    <p>No video uploaded</p>
+                <div className="video-placeholder-container">
+                    <div className="video-placeholder">
+                        <p>No video uploaded</p>
+                    </div>
                     <button
                         className="upload-btn"
                         onClick={() => fileInputRef.current?.click()}

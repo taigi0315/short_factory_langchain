@@ -580,6 +580,7 @@ class VideoGenAgent:
             Path to final video
         """
         from src.models.models import SceneConfig
+        from src.agents.voice.agent import VoiceAgent
         import asyncio
         
         logger.info("Building video from scene configurations", 
@@ -587,7 +588,24 @@ class VideoGenAgent:
                    title=script.title)
         
         scene_clips = []
+        voice_agent = VoiceAgent()
         
+        # Helper to resolve path
+        def resolve_path(path_or_url: str) -> str:
+            if not path_or_url:
+                return None
+            if path_or_url.startswith("/generated_assets/"):
+                # Convert URL to local path
+                rel_path = path_or_url.replace("/generated_assets/", "", 1)
+                return str(Path(settings.GENERATED_ASSETS_DIR) / rel_path)
+            if os.path.exists(path_or_url):
+                return path_or_url
+            # Try relative to GENERATED_ASSETS_DIR
+            try_path = Path(settings.GENERATED_ASSETS_DIR) / path_or_url
+            if try_path.exists():
+                return str(try_path)
+            return path_or_url
+
         for config in scene_configs:
             # Find matching scene
             scene = next((s for s in script.scenes if s.scene_number == config.scene_number), None)
@@ -595,32 +613,53 @@ class VideoGenAgent:
                 logger.warning("Scene not found in script", scene_number=config.scene_number)
                 continue
             
+            # Resolve paths
+            video_path = resolve_path(config.video_path)
+            image_path = resolve_path(config.image_path)
+            audio_path = resolve_path(config.audio_path)
+            
             # Get audio duration
-            if config.audio_path and os.path.exists(config.audio_path):
-                audio_clip = AudioFileClip(config.audio_path)
+            if audio_path and os.path.exists(audio_path):
+                audio_clip = AudioFileClip(audio_path)
                 duration = audio_clip.duration
             else:
-                duration = settings.DEFAULT_SCENE_DURATION
-                audio_clip = None
+                # Generate audio if missing
+                logger.info("Generating missing audio for scene", scene_number=config.scene_number)
+                try:
+                    _, audio_path = await voice_agent._generate_single_voiceover(scene)
+                    if audio_path and os.path.exists(audio_path):
+                        audio_clip = AudioFileClip(audio_path)
+                        duration = audio_clip.duration
+                    else:
+                        logger.warning("Failed to generate audio, using default duration")
+                        duration = settings.DEFAULT_SCENE_DURATION
+                        audio_clip = None
+                except Exception as e:
+                    logger.error("Error generating audio", error=str(e))
+                    duration = settings.DEFAULT_SCENE_DURATION
+                    audio_clip = None
             
             # Create visual clip
-            if config.use_uploaded_video and config.video_path and os.path.exists(config.video_path):
+            if config.use_uploaded_video and video_path and os.path.exists(video_path):
                 # Use uploaded video
-                logger.info("Using uploaded video", scene_number=config.scene_number, path=config.video_path)
-                clip = await self._load_uploaded_video(config.video_path, duration)
-            elif config.image_path and os.path.exists(config.image_path):
+                logger.info("Using uploaded video", scene_number=config.scene_number, path=video_path)
+                clip = await self._load_uploaded_video(video_path, duration)
+            elif image_path and os.path.exists(image_path):
                 # Use image + effect
                 logger.info("Using image with effect", 
                            scene_number=config.scene_number,
                            effect=config.effect)
                 clip = await self._create_image_clip_with_effect(
-                    config.image_path,
+                    image_path,
                     config.effect,
                     duration
                 )
             else:
                 # Fallback to black screen
-                logger.warning("No video or image found, using black screen", scene_number=config.scene_number)
+                logger.warning("No video or image found, using black screen", 
+                             scene_number=config.scene_number,
+                             image_path=image_path,
+                             video_path=video_path)
                 clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
             # Add audio
