@@ -179,28 +179,17 @@ async def get_video_prompt(script_id: str, scene_number: int):
                    script_id=script_id)
         
         # TODO: Load actual script from storage/database
-        # For now, return a template
-        prompt = f"""Scene {scene_number}: Create an engaging video animation
-
-Instructions for manual video creation:
-1. Use the downloaded image as the starting frame
-2. Add subtle animations (character movements, background effects)
-3. Keep duration around 5-8 seconds
-4. Maintain 9:16 aspect ratio (vertical)
-5. Export as MP4, MOV, or WebM
-
-Suggested animation:
-- Character gestures or expressions
-- Background particle effects
-- Smooth camera movements
-- Text animations (if applicable)
-
-Upload the generated video back to this scene when ready."""
+        # For now, return a simple template
+        # In production, this should return scene.video_prompt from the actual script
+        prompt = f"""Animate this scene with smooth camera movements and subtle effects.
+Duration: 5-8 seconds
+Aspect Ratio: 9:16 (vertical)
+Style: Cinematic with natural motion"""
         
         return {
             "scene_number": scene_number,
             "video_prompt": prompt,
-            "visual_description": "Animation prompt for manual video creation",
+            "visual_description": "Video generation prompt",
             "duration": 5.0
         }
         
