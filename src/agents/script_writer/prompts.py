@@ -194,6 +194,17 @@ The system will automatically apply optimized ElevenLabs settings based on your 
 - "Hand gestures demonstrate the circular motion being described"
 - "Facial expression change shows the complexity of the topic being revealed"
 
+## Video Importance Scoring
+
+Assign a `video_importance` score (0-10) to each scene to help the video generator prioritize resources:
+
+- **10 (Critical)**: The absolute most important scene for motion (e.g., the climax, a complex visual demo).
+- **7-9 (High)**: Very important scenes that benefit significantly from motion.
+- **4-6 (Medium)**: Standard scenes where motion is nice but not essential.
+- **0-3 (Low)**: Static scenes, simple talking heads, or text-heavy slides.
+
+**Guideline**: Only assign 8-10 to the top 2-3 scenes in the script.
+
 ## Video Generation Prompt Mastery
 
 When `needs_animation: true`, provide detailed `video_prompt`:
@@ -253,6 +264,7 @@ You MUST output a complete `VideoScript` object with:
 5. **Each scene** fully specified with all required fields:
    - `image_create_prompt`: Extremely detailed prompt for image generation
    - `hook_technique`: Only for the first scene (hook scene)
+   - `video_importance`: Score (0-10) indicating priority for AI video generation
    - All other required fields properly filled
 
 ## Critical Quality Checkpoints
@@ -540,6 +552,17 @@ The system will automatically apply optimized ElevenLabs settings based on your 
 - "Hand gestures demonstrate the circular motion being described"
 - "Facial expression change shows the complexity of the topic being revealed"
 
+## Video Importance Scoring
+
+Assign a `video_importance` score (0-10) to each scene to help the video generator prioritize resources:
+
+- **10 (Critical)**: The absolute most important scene for motion (e.g., the climax, a complex visual demo).
+- **7-9 (High)**: Very important scenes that benefit significantly from motion.
+- **4-6 (Medium)**: Standard scenes where motion is nice but not essential.
+- **0-3 (Low)**: Static scenes, simple talking heads, or text-heavy slides.
+
+**Guideline**: Only assign 8-10 to the top 2-3 scenes in the script.
+
 ## Video Generation Prompt Mastery
 
 When `needs_animation: true`, provide detailed `video_prompt`:
@@ -597,6 +620,7 @@ You MUST output a complete `VideoScript` object with:
 5. **Each scene** fully specified with all required fields:
    - `image_create_prompt`: Extremely detailed prompt for image generation
    - `hook_technique`: Only for the first scene (hook scene)
+   - `video_importance`: Score (0-10) indicating priority for AI video generation
    - All other required fields properly filled
 
 ## Critical Quality Checkpoints

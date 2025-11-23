@@ -159,7 +159,8 @@ class Scene(BaseModel):
     transition_to_next: TransitionType = Field(description="How to transition to the next scene")
     
     # Hook technique (only for first scene)
-    hook_technique: Optional[HookTechnique] = Field(default=None, description="Hook technique used if this is the first scene")
+    hook_technique: Optional[HookTechnique] = Field(default=None, description="Specific hook technique used (only for hook scenes)")
+    video_importance: int = Field(default=5, ge=0, le=10, description="Importance score for video generation (0-10)")
 
 class VideoScript(BaseModel):
     """

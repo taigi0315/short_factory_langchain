@@ -288,29 +288,38 @@ export default function Home() {
                         // Create array of promises for parallel generation
                         const imagePromises = script.scenes.map(async (scene: any) => {
                           try {
+                            console.log(`Generating image for scene ${scene.scene_number}...`);
                             const res = await fetch('/api/dev/generate-image', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
-                                prompt: scene.image_create_prompt
+                                scene_number: scene.scene_number,
+                                prompt: scene.image_create_prompt,
+                                style: scene.image_style
                               }),
                             });
                             if (res.ok) {
                               const data = await res.json();
+                              console.log(`✓ Image generated for scene ${scene.scene_number}:`, data.url);
                               return { sceneNumber: scene.scene_number, url: data.url };
+                            } else {
+                              const errorText = await res.text();
+                              console.error(`✗ Failed to generate image for scene ${scene.scene_number}: ${res.status} ${res.statusText}`, errorText);
                             }
                           } catch (e) {
-                            console.error(`Failed to generate image for scene ${scene.scene_number}`, e);
+                            console.error(`✗ Exception generating image for scene ${scene.scene_number}:`, e);
                           }
                           return null;
                         });
 
                         const results = await Promise.all(imagePromises);
+                        console.log('Image generation results:', results);
                         results.forEach(result => {
                           if (result) {
                             imageMap[result.sceneNumber] = result.url;
                           }
                         });
+                        console.log('Final imageMap:', imageMap);
 
                         // 2. Generate Video
                         const res = await fetch('/api/dev/generate-video-from-script', {

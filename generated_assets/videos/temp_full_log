@@ -1,0 +1,337 @@
+for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [8917]
+INFO:     Started server process [9007]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'src/agents/video_gen/agent.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9007]
+INFO:     Started server process [9025]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'src/agents/video_gen/agent.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9025]
+INFO:     Started server process [9028]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'src/agents/video_gen/agent.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9028]
+INFO:     Started server process [9044]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'scripts/test_ticket_022.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9044]
+INFO:     Started server process [9338]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+^CINFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9338]
+INFO:     Stopping reloader process [5832]
+
+(venv) ➜  ShortFactoryLangChain git:(feature/ticket-022-ai-video-logic) ✗ ./start_dev.sh 
+🚀 Starting ShortFactory Development Environment...
+✅ Environment ready!
+🖥️  Detected macOS. Opening Frontend in a new terminal tab...
+tab 1 of window id 5353
+🐍 Starting Backend (Port 8001)...
+. venv/bin/activate; PYTHONPATH=. python src/api/main.py
+INFO:     Will watch for changes in these directories: ['/Users/changikchoi/Documents/Github/ShortFactoryLangChain']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [9808] using StatReload
+INFO:     Started server process [9951]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2025-11-23T03:00:43.052714Z [info     ] ✅ StoryFinderAgent initializing with REAL Gemini LLM [src.agents.story_finder.agent] request_id=ec269373b62448f5b2739e050c5068cd
+2025-11-23T03:00:43.111787Z [info     ] StoryFinderAgent initialized successfully. Model: gemini-2.0-flash [src.agents.story_finder.agent] request_id=ec269373b62448f5b2739e050c5068cd
+2025-11-23T03:00:43.111918Z [info     ] [0c377f59] Story generation started - Subject: 케이팝 데몬헌터스 , 한국문화 (Mood: Educational, Category: Exp..., Num stories: 5, Real LLM: True [src.agents.story_finder.agent] request_id=ec269373b62448f5b2739e050c5068cd
+2025-11-23T03:00:49.458631Z [info     ] [0c377f59] Story generation completed successfully. Generated 5 stories. [src.agents.story_finder.agent] request_id=ec269373b62448f5b2739e050c5068cd
+2025-11-23T03:01:55.038775Z [info     ] ✅ ScriptWriterAgent initializing with REAL Gemini LLM [src.agents.script_writer.agent] request_id=e49c6e80bff44bd7bde59755d4e46754
+2025-11-23T03:01:55.047803Z [info     ] ScriptWriterAgent initialized successfully. Model: gemini-2.0-flash [src.agents.script_writer.agent] request_id=e49c6e80bff44bd7bde59755d4e46754
+2025-11-23T03:01:55.048024Z [info     ] [be81f526] Script generation started - Subject: Title: The Secret Charms of K-Pop Demon Hunters: H..., Language: English, Min scenes: 4, Max scenes: 8 [src.agents.script_writer.agent] request_id=e49c6e80bff44bd7bde59755d4e46754
+2025-11-23T03:02:07.554201Z [info     ] [be81f526] Script generation completed successfully (attempt 1/3). Generated script with 7 scenes. [src.agents.script_writer.agent] request_id=e49c6e80bff44bd7bde59755d4e46754
+2025-11-23T03:02:11.236652Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=801d299c82454803a76d1f565a3316db workflow_id=None
+2025-11-23T03:02:11.237061Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=801d299c82454803a76d1f565a3316db
+2025-11-23T03:02:11.237137Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=801d299c82454803a76d1f565a3316db scene_number=1
+2025-11-23T03:02:11.238195Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=801d299c82454803a76d1f565a3316db scene_number=1
+2025-11-23T03:02:11.238312Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 prompt_length=400 request_id=801d299c82454803a76d1f565a3316db
+2025-11-23T03:02:18.254130Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=801d299c82454803a76d1f565a3316db text_preview="Here's your image! "
+2025-11-23T03:02:18.254520Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1599654 data_type=bytes mime_type=image/png request_id=801d299c82454803a76d1f565a3316db
+2025-11-23T03:02:18.254591Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=801d299c82454803a76d1f565a3316db
+2025-11-23T03:02:18.257195Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2132872 data_size=1599654 mime_type=image/png request_id=801d299c82454803a76d1f565a3316db
+2025-11-23T03:02:18.263254Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/3c631d4cf161adcf.png request_id=801d299c82454803a76d1f565a3316db size_bytes=1599654
+2025-11-23T03:02:18.265433Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_1_91605ab6.png request_id=801d299c82454803a76d1f565a3316db
+2025-11-23T03:02:18.265731Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=801d299c82454803a76d1f565a3316db scene_number=1
+2025-11-23T03:02:18.266694Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=2bf482d6902a4b978e06fcd65860b644 workflow_id=None
+2025-11-23T03:02:18.266874Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=2bf482d6902a4b978e06fcd65860b644
+2025-11-23T03:02:18.266944Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=2bf482d6902a4b978e06fcd65860b644 scene_number=2
+2025-11-23T03:02:18.267060Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=2bf482d6902a4b978e06fcd65860b644 scene_number=2
+2025-11-23T03:02:18.267118Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 prompt_length=417 request_id=2bf482d6902a4b978e06fcd65860b644
+2025-11-23T03:02:25.396448Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1907506 data_type=bytes mime_type=image/png request_id=2bf482d6902a4b978e06fcd65860b644
+2025-11-23T03:02:25.397075Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=2bf482d6902a4b978e06fcd65860b644
+2025-11-23T03:02:25.400499Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2543344 data_size=1907506 mime_type=image/png request_id=2bf482d6902a4b978e06fcd65860b644
+2025-11-23T03:02:25.407291Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/4983f4c5325a3a45.png request_id=2bf482d6902a4b978e06fcd65860b644 size_bytes=1907506
+2025-11-23T03:02:25.410162Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_2_a38c53c4.png request_id=2bf482d6902a4b978e06fcd65860b644
+2025-11-23T03:02:25.410350Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=2bf482d6902a4b978e06fcd65860b644 scene_number=2
+2025-11-23T03:02:25.414595Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=b80edcfd22d44057acafe97af1d30335 workflow_id=None
+2025-11-23T03:02:25.415156Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=b80edcfd22d44057acafe97af1d30335
+2025-11-23T03:02:25.415210Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=b80edcfd22d44057acafe97af1d30335 scene_number=3
+2025-11-23T03:02:25.415404Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=b80edcfd22d44057acafe97af1d30335 scene_number=3
+2025-11-23T03:02:25.415457Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 prompt_length=347 request_id=b80edcfd22d44057acafe97af1d30335
+2025-11-23T03:02:32.893756Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=b80edcfd22d44057acafe97af1d30335 text_preview="Sure, here's an image with traditional Korean talismans and K-Pop symbols in a split-screen format, "
+2025-11-23T03:02:32.894306Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1747531 data_type=bytes mime_type=image/png request_id=b80edcfd22d44057acafe97af1d30335
+2025-11-23T03:02:32.894394Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=b80edcfd22d44057acafe97af1d30335
+2025-11-23T03:02:32.898045Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2330044 data_size=1747531 mime_type=image/png request_id=b80edcfd22d44057acafe97af1d30335
+2025-11-23T03:02:32.907408Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/17c522c5dafdfe7d.png request_id=b80edcfd22d44057acafe97af1d30335 size_bytes=1747531
+2025-11-23T03:02:32.910065Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_3_fe1b3d7f.png request_id=b80edcfd22d44057acafe97af1d30335
+2025-11-23T03:02:32.910198Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=b80edcfd22d44057acafe97af1d30335 scene_number=3
+2025-11-23T03:02:32.911050Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=3db4a2fa98094fc49519785cac54655a workflow_id=None
+2025-11-23T03:02:32.911212Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=3db4a2fa98094fc49519785cac54655a
+2025-11-23T03:02:32.911261Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=3db4a2fa98094fc49519785cac54655a scene_number=4
+2025-11-23T03:02:32.911401Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=3db4a2fa98094fc49519785cac54655a scene_number=4
+2025-11-23T03:02:32.911452Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 prompt_length=379 request_id=3db4a2fa98094fc49519785cac54655a
+2025-11-23T03:02:40.774805Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=3db4a2fa98094fc49519785cac54655a text_preview="Here's an infographic-style image in a 9:16 aspect ratio, showcasing the color red and various geome"
+2025-11-23T03:02:40.775039Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1315843 data_type=bytes mime_type=image/png request_id=3db4a2fa98094fc49519785cac54655a
+2025-11-23T03:02:40.775099Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=3db4a2fa98094fc49519785cac54655a
+2025-11-23T03:02:40.777295Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=1754460 data_size=1315843 mime_type=image/png request_id=3db4a2fa98094fc49519785cac54655a
+2025-11-23T03:02:40.783420Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/00e2e7b59ba1c635.png request_id=3db4a2fa98094fc49519785cac54655a size_bytes=1315843
+2025-11-23T03:02:40.785909Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_4_fb87037c.png request_id=3db4a2fa98094fc49519785cac54655a
+2025-11-23T03:02:40.786036Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=3db4a2fa98094fc49519785cac54655a scene_number=4
+2025-11-23T03:02:40.786523Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=d9ba96a56ca04614963c0aad06c973cc workflow_id=None
+2025-11-23T03:02:40.786628Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=d9ba96a56ca04614963c0aad06c973cc
+2025-11-23T03:02:40.786676Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=d9ba96a56ca04614963c0aad06c973cc scene_number=5
+2025-11-23T03:02:40.786774Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=d9ba96a56ca04614963c0aad06c973cc scene_number=5
+2025-11-23T03:02:40.786827Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 prompt_length=397 request_id=d9ba96a56ca04614963c0aad06c973cc
+2025-11-23T03:02:47.428579Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=d9ba96a56ca04614963c0aad06c973cc text_preview="Here's that image for you! "
+2025-11-23T03:02:47.428927Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1620951 data_type=bytes mime_type=image/png request_id=d9ba96a56ca04614963c0aad06c973cc
+2025-11-23T03:02:47.428986Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=d9ba96a56ca04614963c0aad06c973cc
+2025-11-23T03:02:47.431590Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2161268 data_size=1620951 mime_type=image/png request_id=d9ba96a56ca04614963c0aad06c973cc
+2025-11-23T03:02:47.437294Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/b360902b35f0df16.png request_id=d9ba96a56ca04614963c0aad06c973cc size_bytes=1620951
+2025-11-23T03:02:47.440871Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_5_a8d204bf.png request_id=d9ba96a56ca04614963c0aad06c973cc
+2025-11-23T03:02:47.440992Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=d9ba96a56ca04614963c0aad06c973cc scene_number=5
+2025-11-23T03:02:47.441469Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=adf83464f5a346e2b902eb1db22e3975 workflow_id=None
+2025-11-23T03:02:47.441575Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=adf83464f5a346e2b902eb1db22e3975
+2025-11-23T03:02:47.441657Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=adf83464f5a346e2b902eb1db22e3975 scene_number=6
+2025-11-23T03:02:47.441755Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=adf83464f5a346e2b902eb1db22e3975 scene_number=6
+2025-11-23T03:02:47.441813Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 prompt_length=426 request_id=adf83464f5a346e2b902eb1db22e3975
+2025-11-23T03:02:54.045147Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=adf83464f5a346e2b902eb1db22e3975 text_preview="Here's that split-screen image for you: "
+2025-11-23T03:02:54.045704Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1610317 data_type=bytes mime_type=image/png request_id=adf83464f5a346e2b902eb1db22e3975
+2025-11-23T03:02:54.045868Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=adf83464f5a346e2b902eb1db22e3975
+2025-11-23T03:02:54.048710Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2147092 data_size=1610317 mime_type=image/png request_id=adf83464f5a346e2b902eb1db22e3975
+2025-11-23T03:02:54.053996Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/4b519b5e7b8e2b71.png request_id=adf83464f5a346e2b902eb1db22e3975 size_bytes=1610317
+2025-11-23T03:02:54.056878Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_6_56e578d4.png request_id=adf83464f5a346e2b902eb1db22e3975
+2025-11-23T03:02:54.056967Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=adf83464f5a346e2b902eb1db22e3975 scene_number=6
+2025-11-23T03:02:54.058138Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=98bc706a61a84d7cb2d8162f069dcdae workflow_id=None
+2025-11-23T03:02:54.058255Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=98bc706a61a84d7cb2d8162f069dcdae
+2025-11-23T03:02:54.058306Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=98bc706a61a84d7cb2d8162f069dcdae scene_number=7
+2025-11-23T03:02:54.058403Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=98bc706a61a84d7cb2d8162f069dcdae scene_number=7
+2025-11-23T03:02:54.058459Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 prompt_length=356 request_id=98bc706a61a84d7cb2d8162f069dcdae
+2025-11-23T03:03:00.750090Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=2018987 data_type=bytes mime_type=image/png request_id=98bc706a61a84d7cb2d8162f069dcdae
+2025-11-23T03:03:00.750503Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=98bc706a61a84d7cb2d8162f069dcdae
+2025-11-23T03:03:00.762182Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2691984 data_size=2018987 mime_type=image/png request_id=98bc706a61a84d7cb2d8162f069dcdae
+2025-11-23T03:03:00.769231Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/69f5cc1665361234.png request_id=98bc706a61a84d7cb2d8162f069dcdae size_bytes=2018987
+2025-11-23T03:03:00.770522Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_7_6e64257b.png request_id=98bc706a61a84d7cb2d8162f069dcdae
+2025-11-23T03:03:00.770736Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=98bc706a61a84d7cb2d8162f069dcdae scene_number=7
+2025-11-23T03:03:00.772151Z [info     ] Received request to generate video for script [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6 title='K-Pop Charms: Decoding Ancient Magic in Music Videos!'
+2025-11-23T03:03:00.773131Z [info     ] Using Mock Video Provider      [src.agents.video_gen.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.773563Z [info     ] Parsing script model...        [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.774930Z [info     ] Script parsed successfully     [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6 scene_count=7
+2025-11-23T03:03:00.792080Z [info     ] Scene 1: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_1_91605ab6.png request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.795132Z [info     ] Scene 2: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_2_a38c53c4.png request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.798234Z [info     ] Scene 3: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_3_fe1b3d7f.png request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.800842Z [info     ] Scene 4: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_4_fb87037c.png request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.800905Z [warning  ] No image found for scene, using placeholder [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6 scene_number=5
+2025-11-23T03:03:00.800951Z [warning  ] No image found for scene, using placeholder [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6 scene_number=6
+2025-11-23T03:03:00.800989Z [warning  ] No image found for scene, using placeholder [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6 scene_number=7
+2025-11-23T03:03:00.801028Z [info     ] Prepared images for generation [src.api.routes.dev] count=7 request_id=82afed4fe6af4a95a912b4d7a3eb46f6 valid_images=4
+2025-11-23T03:03:00.801069Z [info     ] Generating audio for scenes... [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.807526Z [warning  ] USE_REAL_VOICE is True but ELEVENLABS_API_KEY is missing. Falling back to mock. [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.807590Z [info     ] Generating voiceovers for 7 scenes... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.807739Z [info     ]   [Mock] Generating audio for Scene 1 using gTTS... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.808103Z [info     ]   [Mock] Generating audio for Scene 2 using gTTS... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.808238Z [info     ]   [Mock] Generating audio for Scene 3 using gTTS... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.808445Z [info     ]   [Mock] Generating audio for Scene 4 using gTTS... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.810362Z [info     ]   [Mock] Generating audio for Scene 5 using gTTS... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.810574Z [info     ]   [Mock] Generating audio for Scene 6 using gTTS... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:00.811013Z [info     ]   [Mock] Generating audio for Scene 7 using gTTS... [src.agents.voice.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:01.567946Z [info     ] Audio generation complete      [src.api.routes.dev] audio_count=7 request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:01.568206Z [info     ] Starting video generation agent... [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:01.568329Z [info     ] Generating video for script    [src.agents.video_gen.agent] request_id=82afed4fe6af4a95a912b4d7a3eb46f6 title='K-Pop Charms: Decoding Ancient Magic in Music Videos!'
+2025-11-23T03:03:01.568437Z [info     ] Scene selection for AI video   [src.agents.video_gen.agent] max_allowed=2 request_id=82afed4fe6af4a95a912b4d7a3eb46f6 selected_count=2 selected_scenes=[{'scene': 1, 'importance': 10}, {'scene': 6, 'importance': 9}] total_animation_scenes=5
+2025-11-23T03:03:01.568541Z [info     ] Selected scenes for AI video generation [src.agents.video_gen.agent] max_allowed=2 request_id=82afed4fe6af4a95a912b4d7a3eb46f6 scene_numbers={1, 6}
+2025-11-23T03:03:01.712563Z [info     ] Generating AI video for scene  [src.agents.video_gen.agent] provider=MockVideoProvider request_id=82afed4fe6af4a95a912b4d7a3eb46f6 scene_number=1
+2025-11-23T03:03:01.712898Z [info     ] Mock generating video          [src.agents.video_gen.providers.mock] image_path=generated_assets/images/scene_1_91605ab6.png prompt="Character's eyes widen slightly as the ancient symbols shimmer and fade, revealing the K-Pop video scene behind them." request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:01.712987Z [warning  ] Provider returned invalid video path or static image, falling back to static/Ken Burns [src.agents.video_gen.agent] path=generated_assets/images/scene_1_91605ab6.png request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:02.623684Z [warning  ] Image/Video not found. Using color placeholder. [src.agents.video_gen.agent] image_path=placeholder.jpg request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:02.662658Z [warning  ] Image/Video not found. Using color placeholder. [src.agents.video_gen.agent] image_path=placeholder.jpg request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:02.697341Z [warning  ] Image/Video not found. Using color placeholder. [src.agents.video_gen.agent] image_path=placeholder.jpg request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:03:02.740015Z [info     ] Rendering video...             [src.agents.video_gen.agent] output_path=generated_assets/videos/video_K-Pop_Charms_Decoding_Ancient_Magic_in_Music_Videos_1763866982.mp4 request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:06:27.362451Z [info     ] Video file created             [src.agents.video_gen.agent] path=generated_assets/videos/video_K-Pop_Charms_Decoding_Ancient_Magic_in_Music_Videos_1763866982.mp4 request_id=82afed4fe6af4a95a912b4d7a3eb46f6 size_bytes=10077987
+2025-11-23T03:06:27.365561Z [info     ] Video generated successfully   [src.agents.video_gen.agent] output_path=generated_assets/videos/video_K-Pop_Charms_Decoding_Ancient_Magic_in_Music_Videos_1763866982.mp4 request_id=82afed4fe6af4a95a912b4d7a3eb46f6
+2025-11-23T03:06:27.379908Z [info     ] Video generation completed     [src.api.routes.dev] request_id=82afed4fe6af4a95a912b4d7a3eb46f6 video_path=generated_assets/videos/video_K-Pop_Charms_Decoding_Ancient_Magic_in_Music_Videos_1763866982.mp4
+WARNING:  StatReload detected changes in 'src/agents/image_gen/gemini_image_client.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [9951]
+INFO:     Started server process [10819]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2025-11-23T03:18:30.104539Z [info     ] Using Mock Video Provider      [src.agents.video_gen.agent] request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:30.105157Z [info     ] Generating video from text     [src.agents.video_gen.agent] prompt='Video of k-pop demon hunters ! ' request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:30.105993Z [info     ] Generating image for text-to-video [src.agents.video_gen.agent] prompt='Video of k-pop demon hunters ! ' request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:30.106559Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=9e30ef9e7ecd49eba148344f351b28cf workflow_id=None
+2025-11-23T03:18:30.107673Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:30.107779Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=9e30ef9e7ecd49eba148344f351b28cf scene_number=1
+2025-11-23T03:18:30.110800Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=9e30ef9e7ecd49eba148344f351b28cf scene_number=1
+2025-11-23T03:18:30.110924Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 attempt=1 max_retries=3 prompt_length=159 request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:37.539639Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=9e30ef9e7ecd49eba148344f351b28cf text_preview="Here's your image: "
+2025-11-23T03:18:37.540215Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1927407 data_type=bytes mime_type=image/png request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:37.540302Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:37.544237Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2569876 data_size=1927407 mime_type=image/png request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:37.551140Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/86e8d1c14f260db9.png request_id=9e30ef9e7ecd49eba148344f351b28cf size_bytes=1927407
+2025-11-23T03:18:37.554001Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_1_ee13f717.png request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:37.554161Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=9e30ef9e7ecd49eba148344f351b28cf scene_number=1
+2025-11-23T03:18:37.554239Z [info     ] Image generated successfully for text-to-video [src.agents.video_gen.agent] path=generated_assets/images/scene_1_ee13f717.png request_id=9e30ef9e7ecd49eba148344f351b28cf
+2025-11-23T03:18:53.259687Z [info     ] Text-to-video generation completed [src.agents.video_gen.agent] output_path=generated_assets/videos/text_gen_1763867917.mp4 request_id=9e30ef9e7ecd49eba148344f351b28cf
+^CINFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [10819]
+INFO:     Stopping reloader process [9808]
+
+(venv) ➜  ShortFactoryLangChain git:(feature/ticket-022-ai-video-logic) ✗ ./start_dev.sh
+🚀 Starting ShortFactory Development Environment...
+✅ Environment ready!
+🖥️  Detected macOS. Opening Frontend in a new terminal tab...
+tab 1 of window id 5583
+🐍 Starting Backend (Port 8001)...
+. venv/bin/activate; PYTHONPATH=. python src/api/main.py
+INFO:     Will watch for changes in these directories: ['/Users/changikchoi/Documents/Github/ShortFactoryLangChain']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [11315] using StatReload
+INFO:     Started server process [11428]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2025-11-23T03:20:32.069866Z [info     ] ✅ StoryFinderAgent initializing with REAL Gemini LLM [src.agents.story_finder.agent] request_id=b960dd20448440aeb55d52cd4e73a312
+2025-11-23T03:20:32.138756Z [info     ] StoryFinderAgent initialized successfully. Model: gemini-2.0-flash [src.agents.story_finder.agent] request_id=b960dd20448440aeb55d52cd4e73a312
+2025-11-23T03:20:32.139106Z [info     ] [2a22b22e] Story generation started - Subject: Minecraft, the sky is the limit (Mood: Inspiration..., Num stories: 5, Real LLM: True [src.agents.story_finder.agent] request_id=b960dd20448440aeb55d52cd4e73a312
+2025-11-23T03:20:38.078553Z [info     ] [2a22b22e] Story generation completed successfully. Generated 5 stories. [src.agents.story_finder.agent] request_id=b960dd20448440aeb55d52cd4e73a312
+2025-11-23T03:20:55.958313Z [info     ] ✅ ScriptWriterAgent initializing with REAL Gemini LLM [src.agents.script_writer.agent] request_id=2306f95d19b243fa84b87a20b19e040b
+2025-11-23T03:20:55.972065Z [info     ] ScriptWriterAgent initialized successfully. Model: gemini-2.0-flash [src.agents.script_writer.agent] request_id=2306f95d19b243fa84b87a20b19e040b
+2025-11-23T03:20:55.972283Z [info     ] [0c8f0e2c] Script generation started - Subject: Title: The Minecraft-Powered Therapy for Children ..., Language: English, Min scenes: 4, Max scenes: 8 [src.agents.script_writer.agent] request_id=2306f95d19b243fa84b87a20b19e040b
+2025-11-23T03:21:06.389734Z [info     ] [0c8f0e2c] Script generation completed successfully (attempt 1/3). Generated script with 6 scenes. [src.agents.script_writer.agent] request_id=2306f95d19b243fa84b87a20b19e040b
+2025-11-23T03:21:23.014245Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=74bdb2330c77453bbf68e9347dd87a5f workflow_id=None
+2025-11-23T03:21:23.015283Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=74bdb2330c77453bbf68e9347dd87a5f
+2025-11-23T03:21:23.015432Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=74bdb2330c77453bbf68e9347dd87a5f scene_number=1
+2025-11-23T03:21:23.016719Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=74bdb2330c77453bbf68e9347dd87a5f scene_number=1
+2025-11-23T03:21:23.016851Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 attempt=1 max_retries=3 prompt_length=368 request_id=74bdb2330c77453bbf68e9347dd87a5f
+2025-11-23T03:21:29.754071Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=74bdb2330c77453bbf68e9347dd87a5f text_preview='Here is the image you requested: '
+2025-11-23T03:21:29.754728Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1118293 data_type=bytes mime_type=image/png request_id=74bdb2330c77453bbf68e9347dd87a5f
+2025-11-23T03:21:29.754890Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=74bdb2330c77453bbf68e9347dd87a5f
+2025-11-23T03:21:29.758905Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=1491060 data_size=1118293 mime_type=image/png request_id=74bdb2330c77453bbf68e9347dd87a5f
+2025-11-23T03:21:29.765127Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/cc6b79e3b459c384.png request_id=74bdb2330c77453bbf68e9347dd87a5f size_bytes=1118293
+2025-11-23T03:21:29.769057Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_1_902b5577.png request_id=74bdb2330c77453bbf68e9347dd87a5f
+2025-11-23T03:21:29.769189Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=74bdb2330c77453bbf68e9347dd87a5f scene_number=1
+2025-11-23T03:21:29.770651Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=18ba76fc52614f808b73295b1d702bf1 workflow_id=None
+2025-11-23T03:21:29.770975Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=18ba76fc52614f808b73295b1d702bf1
+2025-11-23T03:21:29.771072Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=18ba76fc52614f808b73295b1d702bf1 scene_number=2
+2025-11-23T03:21:29.771167Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=18ba76fc52614f808b73295b1d702bf1 scene_number=2
+2025-11-23T03:21:29.771239Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 attempt=1 max_retries=3 prompt_length=306 request_id=18ba76fc52614f808b73295b1d702bf1
+2025-11-23T03:21:35.907031Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1683560 data_type=bytes mime_type=image/png request_id=18ba76fc52614f808b73295b1d702bf1
+2025-11-23T03:21:35.907186Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=18ba76fc52614f808b73295b1d702bf1
+2025-11-23T03:21:35.912407Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2244748 data_size=1683560 mime_type=image/png request_id=18ba76fc52614f808b73295b1d702bf1
+2025-11-23T03:21:35.921429Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/68b268de5853e19e.png request_id=18ba76fc52614f808b73295b1d702bf1 size_bytes=1683560
+2025-11-23T03:21:35.925830Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_2_250977c2.png request_id=18ba76fc52614f808b73295b1d702bf1
+2025-11-23T03:21:35.926091Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=18ba76fc52614f808b73295b1d702bf1 scene_number=2
+2025-11-23T03:21:35.928331Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=7ef008a8f86c405ea87d24d20275f9e0 workflow_id=None
+2025-11-23T03:21:35.928479Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=7ef008a8f86c405ea87d24d20275f9e0
+2025-11-23T03:21:35.928541Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=7ef008a8f86c405ea87d24d20275f9e0 scene_number=3
+2025-11-23T03:21:35.928685Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=7ef008a8f86c405ea87d24d20275f9e0 scene_number=3
+2025-11-23T03:21:35.928893Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 attempt=1 max_retries=3 prompt_length=367 request_id=7ef008a8f86c405ea87d24d20275f9e0
+2025-11-23T03:21:42.574615Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=7ef008a8f86c405ea87d24d20275f9e0 text_preview='Here is your split-screen image, designed to your specifications: '
+2025-11-23T03:21:42.575512Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1635221 data_type=bytes mime_type=image/png request_id=7ef008a8f86c405ea87d24d20275f9e0
+2025-11-23T03:21:42.575611Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=7ef008a8f86c405ea87d24d20275f9e0
+2025-11-23T03:21:42.578879Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2180296 data_size=1635221 mime_type=image/png request_id=7ef008a8f86c405ea87d24d20275f9e0
+2025-11-23T03:21:42.591335Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/aa399ac3fd5d09f9.png request_id=7ef008a8f86c405ea87d24d20275f9e0 size_bytes=1635221
+2025-11-23T03:21:42.596946Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_3_18da8aeb.png request_id=7ef008a8f86c405ea87d24d20275f9e0
+2025-11-23T03:21:42.597508Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=7ef008a8f86c405ea87d24d20275f9e0 scene_number=3
+2025-11-23T03:21:42.609416Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=70eb9a1a11cb43bc963c1fb67ebaea68 workflow_id=None
+2025-11-23T03:21:42.609892Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=70eb9a1a11cb43bc963c1fb67ebaea68
+2025-11-23T03:21:42.609977Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=70eb9a1a11cb43bc963c1fb67ebaea68 scene_number=4
+2025-11-23T03:21:42.610109Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=70eb9a1a11cb43bc963c1fb67ebaea68 scene_number=4
+2025-11-23T03:21:42.611051Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 attempt=1 max_retries=3 prompt_length=410 request_id=70eb9a1a11cb43bc963c1fb67ebaea68
+2025-11-23T03:21:49.522640Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=70eb9a1a11cb43bc963c1fb67ebaea68 text_preview="Here's a diagram explaining the connection between predictability in Minecraft and emotional regulat"
+2025-11-23T03:21:49.523060Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1091054 data_type=bytes mime_type=image/png request_id=70eb9a1a11cb43bc963c1fb67ebaea68
+2025-11-23T03:21:49.523210Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=70eb9a1a11cb43bc963c1fb67ebaea68
+2025-11-23T03:21:49.525719Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=1454740 data_size=1091054 mime_type=image/png request_id=70eb9a1a11cb43bc963c1fb67ebaea68
+2025-11-23T03:21:49.530102Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/afd7d4c9c503772f.png request_id=70eb9a1a11cb43bc963c1fb67ebaea68 size_bytes=1091054
+2025-11-23T03:21:49.531161Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_4_dab618b0.png request_id=70eb9a1a11cb43bc963c1fb67ebaea68
+2025-11-23T03:21:49.531260Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=70eb9a1a11cb43bc963c1fb67ebaea68 scene_number=4
+2025-11-23T03:21:49.531911Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=60018da64e7942aba88412f273fe8598 workflow_id=None
+2025-11-23T03:21:49.532075Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=60018da64e7942aba88412f273fe8598
+2025-11-23T03:21:49.532135Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=60018da64e7942aba88412f273fe8598 scene_number=5
+2025-11-23T03:21:49.532217Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=60018da64e7942aba88412f273fe8598 scene_number=5
+2025-11-23T03:21:49.532288Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 attempt=1 max_retries=3 prompt_length=298 request_id=60018da64e7942aba88412f273fe8598
+2025-11-23T03:21:55.076245Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1620446 data_type=bytes mime_type=image/png request_id=60018da64e7942aba88412f273fe8598
+2025-11-23T03:21:55.076544Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=60018da64e7942aba88412f273fe8598
+2025-11-23T03:21:55.080450Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2160596 data_size=1620446 mime_type=image/png request_id=60018da64e7942aba88412f273fe8598
+2025-11-23T03:21:55.088530Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/9f256dcef8a426c9.png request_id=60018da64e7942aba88412f273fe8598 size_bytes=1620446
+2025-11-23T03:21:55.090236Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_5_180cf254.png request_id=60018da64e7942aba88412f273fe8598
+2025-11-23T03:21:55.090492Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=60018da64e7942aba88412f273fe8598 scene_number=5
+2025-11-23T03:21:55.091474Z [info     ] Generating images for scenes   [src.agents.image_gen.agent] count=1 request_id=e1392775211e436e86eb24cd836113b9 workflow_id=None
+2025-11-23T03:21:55.091695Z [info     ] Gemini image client initialized [src.agents.image_gen.gemini_image_client] model=gemini-2.5-flash-image-preview request_id=e1392775211e436e86eb24cd836113b9
+2025-11-23T03:21:55.091760Z [info     ] Generating image for scene (attempt 1/3) [src.agents.image_gen.agent] attempt=1 request_id=e1392775211e436e86eb24cd836113b9 scene_number=6
+2025-11-23T03:21:55.091917Z [info     ] Generating image for scene     [src.agents.image_gen.agent] request_id=e1392775211e436e86eb24cd836113b9 scene_number=6
+2025-11-23T03:21:55.091995Z [info     ] Generating image with Gemini   [src.agents.image_gen.gemini_image_client] aspect_ratio=9:16 attempt=1 max_retries=3 prompt_length=386 request_id=e1392775211e436e86eb24cd836113b9
+2025-11-23T03:22:01.644593Z [warning  ] Gemini returned text instead of image [src.agents.image_gen.gemini_image_client] request_id=e1392775211e436e86eb24cd836113b9 text_preview="Absolutely! Here's the image you requested: "
+2025-11-23T03:22:01.645047Z [info     ] Found inline image data        [src.agents.image_gen.gemini_image_client] data_length=1980007 data_type=bytes mime_type=image/png request_id=e1392775211e436e86eb24cd836113b9
+2025-11-23T03:22:01.645127Z [info     ] Image data is already bytes    [src.agents.image_gen.gemini_image_client] request_id=e1392775211e436e86eb24cd836113b9
+2025-11-23T03:22:01.648462Z [info     ] Image generated successfully   [src.agents.image_gen.gemini_image_client] base64_size=2640012 data_size=1980007 mime_type=image/png request_id=e1392775211e436e86eb24cd836113b9
+2025-11-23T03:22:01.654761Z [info     ] Image saved                    [src.agents.image_gen.gemini_image_client] path=generated_assets/images/cache/d55da6cafac2649c.png request_id=e1392775211e436e86eb24cd836113b9 size_bytes=1980007
+2025-11-23T03:22:01.656516Z [info     ] Image saved                    [src.agents.image_gen.agent] filepath=generated_assets/images/scene_6_1510c91a.png request_id=e1392775211e436e86eb24cd836113b9
+2025-11-23T03:22:01.656757Z [info     ] Image generated successfully   [src.agents.image_gen.agent] attempt=1 request_id=e1392775211e436e86eb24cd836113b9 scene_number=6
+2025-11-23T03:22:01.658690Z [info     ] Received request to generate video for script [src.api.routes.dev] request_id=7590b1e20b824e4da9358e4a7f1ae559 title='Minecraft Therapy: Building Social Skills Block by Block'
+2025-11-23T03:22:01.658914Z [info     ] Using Mock Video Provider      [src.agents.video_gen.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.658977Z [info     ] Parsing script model...        [src.api.routes.dev] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.659186Z [info     ] Script parsed successfully     [src.api.routes.dev] request_id=7590b1e20b824e4da9358e4a7f1ae559 scene_count=6
+2025-11-23T03:22:01.684999Z [info     ] Scene 1: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_1_902b5577.png request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.687971Z [info     ] Scene 2: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_2_250977c2.png request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.691098Z [info     ] Scene 3: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_3_18da8aeb.png request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.693286Z [info     ] Scene 4: Image validated       [src.api.routes.dev] path=generated_assets/images/scene_4_dab618b0.png request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.693354Z [warning  ] No image found for scene, using placeholder [src.api.routes.dev] request_id=7590b1e20b824e4da9358e4a7f1ae559 scene_number=5
+2025-11-23T03:22:01.693402Z [warning  ] No image found for scene, using placeholder [src.api.routes.dev] request_id=7590b1e20b824e4da9358e4a7f1ae559 scene_number=6
+2025-11-23T03:22:01.693448Z [info     ] Prepared images for generation [src.api.routes.dev] count=6 request_id=7590b1e20b824e4da9358e4a7f1ae559 valid_images=4
+2025-11-23T03:22:01.693508Z [info     ] Generating audio for scenes... [src.api.routes.dev] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.698864Z [warning  ] USE_REAL_VOICE is True but ELEVENLABS_API_KEY is missing. Falling back to mock. [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.698925Z [info     ] Generating voiceovers for 6 scenes... [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.699150Z [info     ]   [Mock] Generating audio for Scene 1 using gTTS... [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.700735Z [info     ]   [Mock] Generating audio for Scene 2 using gTTS... [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.700970Z [info     ]   [Mock] Generating audio for Scene 3 using gTTS... [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.702162Z [info     ]   [Mock] Generating audio for Scene 4 using gTTS... [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.702346Z [info     ]   [Mock] Generating audio for Scene 5 using gTTS... [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:01.702598Z [info     ]   [Mock] Generating audio for Scene 6 using gTTS... [src.agents.voice.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:02.614417Z [info     ] Audio generation complete      [src.api.routes.dev] audio_count=6 request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:02.614736Z [info     ] Starting video generation agent... [src.api.routes.dev] request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:02.614959Z [info     ] Generating video for script    [src.agents.video_gen.agent] request_id=7590b1e20b824e4da9358e4a7f1ae559 title='Minecraft Therapy: Building Social Skills Block by Block'
+2025-11-23T03:22:02.615154Z [info     ] Scene selection for AI video   [src.agents.video_gen.agent] max_allowed=2 request_id=7590b1e20b824e4da9358e4a7f1ae559 selected_count=2 selected_scenes=[{'scene': 6, 'importance': 10}, {'scene': 3, 'importance': 8}] total_animation_scenes=2
+2025-11-23T03:22:02.615284Z [info     ] Selected scenes for AI video generation [src.agents.video_gen.agent] max_allowed=2 request_id=7590b1e20b824e4da9358e4a7f1ae559 scene_numbers={3, 6}
+2025-11-23T03:22:03.260693Z [info     ] Generating AI video for scene  [src.agents.video_gen.agent] provider=MockVideoProvider request_id=7590b1e20b824e4da9358e4a7f1ae559 scene_number=3
+2025-11-23T03:22:03.261241Z [info     ] Mock generating video          [src.agents.video_gen.providers.mock] image_path=generated_assets/images/scene_3_18da8aeb.png prompt='The Minecraft side of the split screen shows blocks being placed and structures growing. The therapist side shows a gentle nod of approval.' request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:03.261329Z [warning  ] Provider returned invalid video path or static image, falling back to static/Ken Burns [src.agents.video_gen.agent] path=generated_assets/images/scene_3_18da8aeb.png request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:04.005499Z [warning  ] Image/Video not found. Using color placeholder. [src.agents.video_gen.agent] image_path=placeholder.jpg request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:04.107299Z [warning  ] Image/Video not found. Using color placeholder. [src.agents.video_gen.agent] image_path=placeholder.jpg request_id=7590b1e20b824e4da9358e4a7f1ae559
+2025-11-23T03:22:04.166414Z [info     ] Rendering video...             [src.agents.video_gen.agent] output_path=generated_assets/videos/video_Minecraft_Therapy_Building_Social_Skills_Block_by_Block_1763868124.mp4 request_id=7590b1e20b824e4da9358e4a7f1ae559

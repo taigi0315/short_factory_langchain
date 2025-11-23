@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     VIDEO_GENERATION_PROVIDER: str = Field(default="mock", description="Provider for AI video generation: 'mock', 'luma', 'runway'")
     LUMA_API_KEY: Optional[str] = Field(default=None, description="Luma Dream Machine API key")
     VIDEO_QUALITY: str = Field(default="medium", description="FFmpeg preset (ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow)")
+    MAX_AI_VIDEOS_PER_SCRIPT: int = Field(default=2, ge=0, le=10, description="Maximum number of AI videos to generate per script")
     
     # ========================================
     # Audio Generation Settings
