@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { SceneEditor } from '../components/SceneEditor';
+import '../styles/scene-editor.css';
 
 interface StoryIdea {
   title: string;
@@ -22,6 +24,8 @@ export default function Home() {
   const [stories, setStories] = useState<StoryIdea[]>([]);
   const [selectedStory, setSelectedStory] = useState<StoryIdea | null>(null);
   const [script, setScript] = useState<any>(null);
+  const [workflowMode, setWorkflowMode] = useState<'auto' | 'manual'>('auto');
+  const [showSceneEditor, setShowSceneEditor] = useState(false);
 
   const generateStories = async () => {
     setLoading(true);
@@ -69,12 +73,46 @@ export default function Home() {
       const data = await res.json();
       if (data.script) {
         setScript(data.script);
+
+        // Check workflow mode
+        if (workflowMode === 'manual') {
+          // Show scene editor
+          setShowSceneEditor(true);
+        }
+        // Auto mode continues with existing flow
       } else {
         throw new Error('No script returned');
       }
     } catch (error) {
       console.error('Failed to generate script', error);
       alert('Failed to generate script. Using mock data for demo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const buildVideoFromScenes = async (sceneConfigs: any[]) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/scene-editor/build-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          script: script,
+          scene_configs: sceneConfigs
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to build video');
+      }
+
+      const data = await res.json();
+      window.open(data.video_url, '_blank');
+      alert('Video built successfully! Opening in new tab...');
+    } catch (error) {
+      console.error('Failed to build video:', error);
+      alert('Failed to build video. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -205,6 +243,33 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Workflow Mode Selector */}
+            <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
+              <h3 className="text-lg font-bold mb-4">Workflow Mode</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setWorkflowMode('auto')}
+                  className={`p-4 rounded-lg border-2 transition-all ${workflowMode === 'auto'
+                    ? 'bg-blue-900/20 border-blue-500 text-white'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                >
+                  <div className="font-bold mb-1">🚀 Auto Mode</div>
+                  <div className="text-sm opacity-75">Fully automated video generation</div>
+                </button>
+                <button
+                  onClick={() => setWorkflowMode('manual')}
+                  className={`p-4 rounded-lg border-2 transition-all ${workflowMode === 'manual'
+                    ? 'bg-purple-900/20 border-purple-500 text-white'
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                >
+                  <div className="font-bold mb-1">✋ Manual Mode</div>
+                  <div className="text-sm opacity-75">Scene-by-scene editor with uploads</div>
+                </button>
+              </div>
             </div>
 
             <button
@@ -388,6 +453,22 @@ export default function Home() {
                 </div>
               </div>
             ) : null}
+          </div>
+        )}
+
+        {/* Scene Editor (Manual Mode) */}
+        {showSceneEditor && script && (
+          <div className="mt-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Scene Editor</h2>
+              <button
+                onClick={() => setShowSceneEditor(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                ← Back to Script
+              </button>
+            </div>
+            <SceneEditor script={script} onBuildVideo={buildVideoFromScenes} />
           </div>
         )}
       </div>
