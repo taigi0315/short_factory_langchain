@@ -185,6 +185,7 @@ class VideoScript(BaseModel):
     title: str
     main_character_description: str = Field(description="Consistent character description for all scenes")
     overall_style: str = Field(description="Overall video style: 'educational', 'entertaining', 'documentary'")
+    global_visual_style: str = Field(description="Consistent visual style for all images (e.g., 'Pixar-style 3D', 'Cinematic lighting', 'Watercolor')")
     
     # All scenes in order
     scenes: List[Scene] = Field(description="All scenes in order, first scene is always the hook scene")

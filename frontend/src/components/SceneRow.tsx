@@ -60,6 +60,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 </div>
 
                 <div className="image-column">
+                    <label className="column-label">Image</label>
                     {state?.imageUrl ? (
                         <div className="image-preview">
                             <img src={state.imageUrl} alt={`Scene ${scene.scene_number}`} />
@@ -84,6 +85,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 </div>
 
                 <div className="video-column">
+                    <label className="column-label">Video</label>
                     <VideoUploader
                         sceneNumber={scene.scene_number}
                         videoUrl={state?.videoUrl}
@@ -93,6 +95,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                 </div>
 
                 <div className="effect-column">
+                    <label className="column-label">Effect</label>
                     <EffectSelector
                         value={state?.selectedEffect || 'ken_burns_zoom_in'}
                         onChange={onEffectChange}

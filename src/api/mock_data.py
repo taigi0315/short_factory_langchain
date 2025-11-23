@@ -102,6 +102,7 @@ def get_mock_script(request: ScriptGenerationRequest) -> ScriptGenerationRespons
             title=request.story_title,
             main_character_description=f"Character representing {request.story_audience}",
             overall_style=request.story_genre,
+            global_visual_style="Mock Visual Style (e.g. 3D Pixar)",
             scenes=mock_scenes
         )
     )

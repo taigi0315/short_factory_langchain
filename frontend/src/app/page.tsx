@@ -18,8 +18,9 @@ export default function Home() {
   const [showDevMode, setShowDevMode] = useState(false);
   const [step, setStep] = useState(1);
   const [topic, setTopic] = useState('');
-  const [mood, setMood] = useState('Fun');
-  const [category, setCategory] = useState('Real Story');
+  const [mood, setMood] = useState('Auto');
+  const [category, setCategory] = useState('Auto');
+
   const [loading, setLoading] = useState(false);
   const [stories, setStories] = useState<StoryIdea[]>([]);
   const [selectedStory, setSelectedStory] = useState<StoryIdea | null>(null);
@@ -174,6 +175,7 @@ export default function Home() {
                     onChange={(e) => setMood(e.target.value)}
                     className="w-full p-4 bg-slate-800 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
                   >
+                    <option>Auto</option>
                     <option>Fun</option>
                     <option>Serious</option>
                     <option>Inspirational</option>
@@ -188,6 +190,7 @@ export default function Home() {
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full p-4 bg-slate-800 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
                   >
+                    <option>Auto</option>
                     <option>Real Story</option>
                     <option>Explainer</option>
                     <option>Fiction</option>

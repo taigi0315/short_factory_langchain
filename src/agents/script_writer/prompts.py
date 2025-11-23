@@ -113,7 +113,7 @@ The `image_create_prompt` field is CRITICAL for generating high-quality images. 
 2. **Background/Setting**: Specific location, environment, atmosphere
 3. **Lighting**: Type of lighting (natural, artificial, dramatic, soft), direction, intensity
 4. **Composition**: Camera angle, framing, focal point
-5. **Style**: Art style, mood, color palette
+5. **Style**: Art style, mood, color palette (MUST match `global_visual_style`)
 6. **Details**: Specific objects, textures, materials, effects
 
 ### Example Quality Image Prompts:
@@ -124,6 +124,7 @@ The `image_create_prompt` field is CRITICAL for generating high-quality images. 
 ```
 
 ### Image Prompt Writing Rules:
+- **ALWAYS start with the global visual style**: "In a [global_visual_style] style..."
 - Use "our fixed character" or "the character" - do NOT describe physical appearance
 - Focus on clothing/accessories that fit the subject matter
 - Be VERY specific about visual details (lighting, composition, style)
@@ -260,9 +261,10 @@ You MUST output a complete `VideoScript` object with:
 1. **Compelling title** that would make someone click
 2. **Consistent main_character_description** for visual continuity
 3. **Overall_style** that matches the topic and audience
-4. **Scenes array** with all scenes in order (first scene is always hook scene)
-5. **Each scene** fully specified with all required fields:
-   - `image_create_prompt`: Extremely detailed prompt for image generation
+4. **Global_visual_style** that defines the consistent artistic look (e.g., "Pixar-style 3D", "Watercolor", "Cyberpunk")
+5. **Scenes array** with all scenes in order (first scene is always hook scene)
+6. **Each scene** fully specified with all required fields:
+   - `image_create_prompt`: Extremely detailed prompt STARTING with the global style
    - `hook_technique`: Only for the first scene (hook scene)
    - `video_importance`: Score (0-10) indicating priority for AI video generation
    - All other required fields properly filled
