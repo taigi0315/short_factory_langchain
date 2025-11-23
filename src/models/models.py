@@ -167,6 +167,11 @@ class Scene(BaseModel):
     selected_effect: str = Field(default="ken_burns_zoom_in", description="User-selected video effect for image animation")
     image_path: Optional[str] = Field(default=None, description="Path to generated image file")
     audio_path: Optional[str] = Field(default=None, description="Path to generated audio file")
+    
+    # VideoEffectAgent recommendations (TICKET-025)
+    recommended_effect: Optional[str] = Field(default=None, description="AI-recommended video effect")
+    recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
+    effect_reasoning: Optional[str] = Field(default=None, description="Reasoning for effect recommendation")
 
 class SceneConfig(BaseModel):
     """Configuration for building video from a scene"""

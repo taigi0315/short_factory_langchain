@@ -8,6 +8,7 @@ interface Scene {
     dialogue: string;
     voice_tone: string;
     video_importance: number;
+    effect_reasoning?: string;
 }
 
 interface SceneState {
@@ -98,7 +99,7 @@ export const SceneRow: React.FC<SceneRowProps> = ({
                     <label className="column-label">Effect</label>
                     <EffectSelector
                         effect={state?.selectedEffect || 'ken_burns_zoom_in'}
-                        reasoning="AI-selected based on scene type and content"
+                        reasoning={(scene as any).effect_reasoning || "AI-selected based on scene type and content"}
                         isRecommended={true}
                     />
                 </div>

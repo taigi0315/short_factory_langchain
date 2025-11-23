@@ -42,7 +42,7 @@ export const SceneEditor: React.FC<SceneEditorProps> = ({ script, onBuildVideo }
         script.scenes.forEach(scene => {
             initialStates.set(scene.scene_number, {
                 sceneNumber: scene.scene_number,
-                selectedEffect: 'ken_burns_zoom_in',
+                selectedEffect: (scene as any).recommended_effect || 'ken_burns_zoom_in',
                 isGeneratingImage: false,
                 isUploadingVideo: false,
             });
