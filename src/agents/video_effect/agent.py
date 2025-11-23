@@ -168,7 +168,12 @@ class VideoEffectAgent:
         # Scene type based selection (primary logic)
         if scene.scene_type == SceneType.HOOK:
             # Hook scenes need attention-grabbing effects
-            # Check for action keywords first
+            # Check for vertical movement keywords first
+            if any(word in combined_text for word in ['look up', 'rise', 'ascend', 'sky', 'tall', 'tower', 'tilt up']):
+                return 'tilt_up'
+            if any(word in combined_text for word in ['look down', 'descend', 'ground', 'below', 'tilt down']):
+                return 'tilt_down'
+            # Check for action keywords
             if any(word in combined_text for word in ['strike', 'hit', 'crash', 'shake', 'earthquake', 'impact', 'explode']):
                 return 'shake'
             if scene.video_importance >= 8:
@@ -180,7 +185,12 @@ class VideoEffectAgent:
             return 'ken_burns_zoom_out'
         
         elif scene.scene_type == SceneType.VISUAL_DEMO:
-            # Check for specific action keywords in visual demos
+            # Check for vertical movement keywords first
+            if any(word in combined_text for word in ['look up', 'rise', 'ascend', 'sky', 'tall', 'tower', 'tilt up']):
+                return 'tilt_up'
+            if any(word in combined_text for word in ['look down', 'descend', 'ground', 'below', 'tilt down']):
+                return 'tilt_down'
+            # Check for specific action keywords
             if any(word in combined_text for word in ['strike', 'hit', 'crash', 'shake', 'impact']):
                 return 'shake'
             # Visual demos benefit from panning to show details
