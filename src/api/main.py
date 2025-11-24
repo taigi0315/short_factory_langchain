@@ -101,12 +101,24 @@ app.include_router(scene_editor.router)  # Already has prefix in router definiti
 
 if __name__ == "__main__":
     import uvicorn
-    # Increase timeout for long-running video generation (10 minutes)
-    # timeout_keep_alive: How long to keep connections alive when idle
-    uvicorn.run(
-        "src.api.main:app", 
-        host="0.0.0.0", 
-        port=8001, 
+    from uvicorn.config import Config
+    
+    # Configure Uvicorn with proper timeouts for long video generation
+    # timeout_keep_alive: How long to keep idle connections alive (10 min)
+    # timeout_graceful_shutdown: How long to wait for requests to complete during shutdown (10 min)
+    # The key is that there's no built-in "request timeout" in Uvicorn - it relies on the client
+    # So we need to ensure the connection stays alive during the entire request
+    
+    config = Config(
+        app="src.api.main:app",
+        host="0.0.0.0",
+        port=8001,
         reload=True,
-        timeout_keep_alive=600  # 10 minutes (600 seconds)
+        timeout_keep_alive=600,  # 10 minutes - keeps connection alive
+        timeout_graceful_shutdown=600,  # 10 minutes - allows long requests to complete
+        limit_concurrency=None,  # No limit on concurrent requests
+        limit_max_requests=None,  # No limit on total requests
     )
+    
+    server = uvicorn.Server(config)
+    server.run()
