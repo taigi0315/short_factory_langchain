@@ -99,6 +99,26 @@ class Settings(BaseSettings):
     VIDEO_QUALITY: str = Field(default="medium", description="FFmpeg preset (ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow)")
     MAX_AI_VIDEOS_PER_SCRIPT: int = Field(default=2, ge=0, le=10, description="Maximum number of AI videos to generate per script")
     
+    # ========================================
+    # Image Generation Retry Settings
+    # ========================================
+    IMAGE_GENERATION_MAX_RETRIES: int = Field(
+        default=5,
+        ge=1,
+        le=10,
+        description="Maximum number of retry attempts for image generation per scene"
+    )
+    IMAGE_GENERATION_RETRY_DELAYS: List[int] = Field(
+        default=[5, 15, 30, 60],
+        description="Retry delay sequence in seconds (e.g., [5, 15, 30, 60] means: 1st retry after 5s, 2nd after 15s, etc.)"
+    )
+    IMAGE_GENERATION_SCENE_DELAY: int = Field(
+        default=5,
+        ge=1,
+        le=60,
+        description="Delay in seconds between successful scene image generations to prevent rate limiting"
+    )
+    
     # Video Upload Settings (TICKET-023)
     MAX_VIDEO_UPLOAD_SIZE_MB: int = Field(default=100, description="Maximum video upload size in MB")
     ALLOWED_VIDEO_FORMATS: List[str] = Field(default=[".mp4", ".mov", ".webm"], description="Allowed video formats")

@@ -350,12 +350,24 @@ export default function Home() {
                       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
 
                       try {
+                        // Fetch retry configuration from backend
+                        const configRes = await fetch('/api/dev/retry-config');
+                        const retryConfig = configRes.ok ? await configRes.json() : {
+                          max_retries: 5,
+                          retry_delays_seconds: [5, 15, 30, 60],
+                          scene_delay_seconds: 5
+                        };
+
+                        console.log('Using retry configuration:', retryConfig);
+
                         // 1. Generate images for all scenes SEQUENTIALLY with exponential backoff
                         const imageMap: Record<number, string> = {};
-                        const MAX_RETRIES = 3;
-                        const DELAYS = [2000, 5000, 10000]; // 2s, 5s, 10s
+                        const MAX_RETRIES = retryConfig.max_retries;
+                        const DELAYS = retryConfig.retry_delays_seconds.map((s: number) => s * 1000); // Convert to ms
+                        const SCENE_DELAY = retryConfig.scene_delay_seconds * 1000; // Convert to ms
 
                         console.log(`Starting sequential image generation for ${script.scenes.length} scenes...`);
+                        console.log(`Max retries: ${MAX_RETRIES}, Delays: ${retryConfig.retry_delays_seconds}s, Scene spacing: ${retryConfig.scene_delay_seconds}s`);
 
                         for (let i = 0; i < script.scenes.length; i++) {
                           const scene = script.scenes[i];
@@ -390,7 +402,7 @@ export default function Home() {
 
                                 // If not the last retry, wait with exponential backoff
                                 if (attempt < MAX_RETRIES - 1) {
-                                  const retryDelay = DELAYS[attempt];
+                                  const retryDelay = DELAYS[Math.min(attempt, DELAYS.length - 1)];
                                   console.log(`Waiting ${retryDelay / 1000}s before retry...`);
                                   await new Promise(resolve => setTimeout(resolve, retryDelay));
                                 }
@@ -401,7 +413,7 @@ export default function Home() {
 
                               // If not the last retry, wait with exponential backoff
                               if (attempt < MAX_RETRIES - 1) {
-                                const retryDelay = DELAYS[attempt];
+                                const retryDelay = DELAYS[Math.min(attempt, DELAYS.length - 1)];
                                 console.log(`Waiting ${retryDelay / 1000}s before retry...`);
                                 await new Promise(resolve => setTimeout(resolve, retryDelay));
                               }
@@ -415,10 +427,9 @@ export default function Home() {
                           }
 
                           // Add delay between scenes (except after the last one)
-                          // Use first delay (2s) for normal spacing between successful requests
                           if (i < script.scenes.length - 1 && success) {
-                            console.log('Waiting 2 seconds before next scene...');
-                            await new Promise(resolve => setTimeout(resolve, DELAYS[0]));
+                            console.log(`Waiting ${SCENE_DELAY / 1000}s before next scene...`);
+                            await new Promise(resolve => setTimeout(resolve, SCENE_DELAY));
                           }
                         }
 
