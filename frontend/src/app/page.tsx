@@ -95,6 +95,11 @@ export default function Home() {
   const buildVideoFromScenes = async (sceneConfigs: any[]) => {
     setLoading(true);
     try {
+      // Create abort controller with 10-minute timeout (TICKET-027 Issue 1)
+      // Video generation can take 5-8 minutes, so we need a longer timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minutes
+
       const res = await fetch('/api/scene-editor/build-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -102,7 +107,10 @@ export default function Home() {
           script: script,
           scene_configs: sceneConfigs
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId); // Clear timeout if request completes
 
       if (!res.ok) {
         throw new Error('Failed to build video');
@@ -111,9 +119,13 @@ export default function Home() {
       const data = await res.json();
       window.open(data.video_url, '_blank');
       alert('Video built successfully! Opening in new tab...');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to build video:', error);
-      alert('Failed to build video. Please try again.');
+      if (error.name === 'AbortError') {
+        alert('Video generation timed out after 10 minutes. The video may still be processing on the server.');
+      } else {
+        alert('Failed to build video. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
