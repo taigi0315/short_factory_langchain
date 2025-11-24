@@ -23,12 +23,14 @@ graph TD
         
         subgraph "AI Agents / AI 에이전트"
             ScriptAgent[ScriptWriter Agent]
+            DirectorAgent[Director Agent]
             ImageAgent[ImageGen Agent]
             VoiceAgent[Voice Agent]
             VideoAgent[VideoGen Agent]
         end
         
         Agents --> ScriptAgent
+        Agents --> DirectorAgent
         Agents --> ImageAgent
         Agents --> VoiceAgent
         Agents --> VideoAgent
