@@ -69,7 +69,7 @@ class VideoGenAgent:
             logger.warning("Runway provider not implemented, falling back to mock")
             return MockVideoProvider()
         else:
-            logger.info("Using Mock Video Provider")
+            logger.info("Using Mock Video Provider (Simple Animation)")
             return MockVideoProvider()
 
     def _select_scenes_for_ai_video(self, scenes: List[Scene]) -> set[int]:
@@ -194,7 +194,6 @@ class VideoGenAgent:
                     codec='libx264',
                     audio_codec='aac',
                     preset=self.preset,
-                    threads=4,
                     logger=None 
                 )
                 
@@ -503,7 +502,6 @@ class VideoGenAgent:
                 codec='libx264',
                 audio_codec='aac',
                 preset=self.preset,
-                threads=4,
                 logger=None
             )
             
@@ -553,7 +551,6 @@ class VideoGenAgent:
                 codec='libx264',
                 audio_codec='aac',
                 preset=self.preset,
-                threads=4,
                 logger=None
             )
             
@@ -681,16 +678,19 @@ class VideoGenAgent:
         
         logger.info("Rendering final video...", output_path=str(output_path))
         
-        await asyncio.to_thread(
-            final_video.write_videofile,
-            str(output_path),
-            fps=self.fps,
-            codec='libx264',
-            audio_codec='aac',
-            preset=self.preset,
-            threads=4,
-            logger=None
-        )
+        try:
+            await asyncio.to_thread(
+                final_video.write_videofile,
+                str(output_path),
+                fps=self.fps,
+                codec='libx264',
+                audio_codec='aac',
+                preset=self.preset,
+                logger=None
+            )
+        except Exception as e:
+            logger.error("Failed to render video file", error=str(e), output_path=str(output_path))
+            raise
         
         logger.info("Video built successfully", output_path=str(output_path))
         

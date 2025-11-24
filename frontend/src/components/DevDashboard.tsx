@@ -241,14 +241,15 @@ export default function DevDashboard() {
                                                 try {
                                                     // 1. Check for missing images and generate them
                                                     const currentImages = { ...sceneImages };
-                                                    const missingScenes = generatedScript.scenes.filter((scene: any, idx: number) => !currentImages[idx + 1]);
+                                                    // Use scene_number for reliable mapping
+                                                    const missingScenes = generatedScript.scenes.filter((scene: any) => !currentImages[scene.scene_number]);
 
                                                     if (missingScenes.length > 0) {
                                                         console.log(`Generating images for ${missingScenes.length} missing scenes...`);
 
                                                         // Update loading state for all missing scenes
                                                         const newLoadingState = { ...sceneLoading };
-                                                        missingScenes.forEach((scene: any, idx: number) => {
+                                                        missingScenes.forEach((scene: any) => {
                                                             newLoadingState[scene.scene_number] = true;
                                                         });
                                                         setSceneLoading(newLoadingState);
@@ -261,7 +262,7 @@ export default function DevDashboard() {
                                                                     headers: { 'Content-Type': 'application/json' },
                                                                     body: JSON.stringify({
                                                                         prompt: scene.image_create_prompt,
-                                                                        scene_number: scene.scene_number || (idx + 1)
+                                                                        scene_number: scene.scene_number
                                                                     }),
                                                                 });
                                                                 if (res.ok) {
@@ -284,14 +285,17 @@ export default function DevDashboard() {
                                                             if (result) {
                                                                 updatedImages[result.sceneNumber] = result.url;
                                                             }
-                                                            updatedLoading[result!.sceneNumber] = false;
+                                                        });
+
+                                                        // Clear loading flags
+                                                        missingScenes.forEach((scene: any) => {
+                                                            updatedLoading[scene.scene_number] = false;
                                                         });
 
                                                         setSceneImages(updatedImages);
                                                         setSceneLoading(updatedLoading);
 
                                                         // Use the updated map for video generation
-                                                        // Note: We use updatedImages here because setSceneImages is async/batched
                                                         var finalImageMap = updatedImages;
                                                     } else {
                                                         var finalImageMap = currentImages;
@@ -306,7 +310,12 @@ export default function DevDashboard() {
                                                             image_map: finalImageMap
                                                         }),
                                                     });
-                                                    if (!res.ok) throw new Error('Failed to generate video');
+
+                                                    if (!res.ok) {
+                                                        const errData = await res.json();
+                                                        throw new Error(errData.detail || 'Failed to generate video');
+                                                    }
+
                                                     const data = await res.json();
                                                     setGeneratedVideo(data.video_url);
                                                     setActiveTab('video');
@@ -314,7 +323,6 @@ export default function DevDashboard() {
                                                     setError(e.message);
                                                 } finally {
                                                     setVideoLoading(false);
-                                                    // Ensure all loading states are cleared
                                                     setSceneLoading({});
                                                 }
                                             }}

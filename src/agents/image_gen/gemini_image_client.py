@@ -60,7 +60,7 @@ class GeminiImageClient:
         Raises:
             RuntimeError: If generation fails after all retries
         """
-        import time
+        import asyncio
         from google.api_core import exceptions as google_exceptions
         
         max_retries = 3
@@ -86,7 +86,7 @@ class GeminiImageClient:
                 full_prompt = f"{aspect_hint}. {prompt}"
                 
                 # Generate image
-                response = self.model.generate_content([full_prompt])
+                response = await self.model.generate_content_async([full_prompt])
                 
                 logger.debug("Gemini response received", has_parts=bool(response.parts))
                 
@@ -172,7 +172,7 @@ class GeminiImageClient:
                         f"Retrying in {delay}s... (attempt {attempt + 1}/{max_retries})",
                         error=str(e)
                     )
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
                 else:
                     logger.error("Gemini API rate limit exceeded after all retries", error=str(e))
                     raise RuntimeError(f"Gemini API rate limit exceeded: {str(e)}")
@@ -188,7 +188,7 @@ class GeminiImageClient:
                             f"Retrying in {delay}s... (attempt {attempt + 1}/{max_retries})",
                             error=str(e)
                         )
-                        time.sleep(delay)
+                        await asyncio.sleep(delay)
                     else:
                         logger.error("Gemini API rate limit exceeded after all retries", error=str(e))
                         raise RuntimeError(f"Gemini API rate limit exceeded: {str(e)}")
