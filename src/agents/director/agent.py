@@ -8,8 +8,7 @@ narrative flow, and emotional impact.
 import structlog
 from typing import List, Optional
 import json
-from google import genai
-from google.genai import types
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.core.config import settings
 from src.models.models import VideoScript, Scene, SceneType, TransitionType
@@ -60,7 +59,11 @@ class DirectorAgent:
     
     def __init__(self):
         """Initialize the Director Agent"""
-        self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+        self.llm = ChatGoogleGenerativeAI(
+            model=settings.llm_model_name,
+            temperature=0.7,
+            google_api_key=settings.GOOGLE_API_KEY
+        )
         logger.info("DirectorAgent initialized")
     
     async def analyze_script(self, script: VideoScript) -> DirectedScript:
@@ -217,18 +220,14 @@ class DirectorAgent:
         prompt = self._create_director_prompt(scene, beat_name, beat_emotion, prev_scene, next_scene, is_peak)
         
         try:
-            # Call Gemini
-            response = self.client.models.generate_content(
-                model=settings.llm_model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.7,
-                    response_mime_type="application/json"
-                )
+            # Call LLM with JSON mode
+            response = self.llm.invoke(
+                prompt,
+                response_format={"type": "json_object"}
             )
             
             # Parse response
-            direction_data = json.loads(response.text)
+            direction_data = json.loads(response.content)
             
             # Create CinematicDirection object
             direction = CinematicDirection(
