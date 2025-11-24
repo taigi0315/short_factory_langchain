@@ -62,7 +62,7 @@ class DirectorAgent:
         self.llm = ChatGoogleGenerativeAI(
             model=settings.llm_model_name,
             temperature=0.7,
-            google_api_key=settings.GOOGLE_API_KEY
+            google_api_key=settings.GEMINI_API_KEY
         )
         logger.info("DirectorAgent initialized")
     
