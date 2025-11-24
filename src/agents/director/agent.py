@@ -12,7 +12,7 @@ from google import genai
 from google.genai import types
 
 from src.core.config import settings
-from src.models.models import VideoScript, Scene, SceneType
+from src.models.models import VideoScript, Scene, SceneType, TransitionType
 from src.agents.director.models import (
     CinematicDirection,
     DirectedScene,
@@ -26,6 +26,24 @@ from src.agents.director.cinematic_language import (
 )
 
 logger = structlog.get_logger()
+
+
+# Mapping from camera movements to legacy effect names for backward compatibility
+CAMERA_MOVEMENT_TO_EFFECT = {
+    CameraMovement.SLOW_PUSH_IN: "ken_burns_zoom_in",
+    CameraMovement.FAST_PUSH_IN: "ken_burns_zoom_in",
+    CameraMovement.PULL_BACK: "ken_burns_zoom_out",
+    CameraMovement.PAN_LEFT: "pan_left",
+    CameraMovement.PAN_RIGHT: "pan_right",
+    CameraMovement.TILT_UP: "tilt_up",
+    CameraMovement.TILT_DOWN: "tilt_down",
+    CameraMovement.HANDHELD: "shake",
+    CameraMovement.STATIC: "static",
+    CameraMovement.DOLLY_ZOOM: "dolly_zoom",
+    CameraMovement.CRANE_UP: "crane_up",
+    CameraMovement.CRANE_DOWN: "crane_down",
+    CameraMovement.ORBIT: "orbit"
+}
 
 
 class DirectorAgent:
@@ -368,3 +386,100 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
             pacing_notes="Standard pacing",
             director_vision="Standard cinematic approach"
         )
+    
+    def select_transition(
+        self,
+        current_scene: DirectedScene,
+        next_scene: Optional[DirectedScene]
+    ) -> TransitionType:
+        """
+        Select optimal transition between scenes.
+        
+        Args:
+            current_scene: Current directed scene
+            next_scene: Next directed scene (if any)
+            
+        Returns:
+            TransitionType
+        """
+        if not next_scene:
+            return TransitionType.FADE
+        
+        current = current_scene.original_scene
+        next_s = next_scene.original_scene
+        
+        # Fast-paced content uses cuts
+        if current.voice_tone.value in ['excited', 'dramatic'] and \
+           next_s.voice_tone.value in ['excited', 'dramatic']:
+            return TransitionType.NONE  # Direct cut
+        
+        # Comparison scenes use slides
+        if current.scene_type == SceneType.COMPARISON or \
+           next_s.scene_type == SceneType.COMPARISON:
+            return TransitionType.SLIDE_LEFT
+        
+        # Visual demos to conclusions use dissolve
+        if current.scene_type == SceneType.VISUAL_DEMO and \
+           next_s.scene_type == SceneType.CONCLUSION:
+            return TransitionType.DISSOLVE
+        
+        # Hook to explanation uses zoom
+        if current.scene_type == SceneType.HOOK and \
+           next_s.scene_type == SceneType.EXPLANATION:
+            return TransitionType.ZOOM_IN
+        
+        # Default: fade (smooth and safe)
+        return TransitionType.FADE
+    
+    def recommend_ai_video(
+        self,
+        directed_scene: DirectedScene
+    ) -> bool:
+        """
+        Decide if scene should use AI video generation vs. image+effect.
+        
+        Args:
+            directed_scene: Directed scene to evaluate
+            
+        Returns:
+            True if AI video is recommended
+        """
+        scene = directed_scene.original_scene
+        direction = directed_scene.direction
+        
+        # High importance scenes are strong candidates
+        if hasattr(scene, 'video_importance') and scene.video_importance >= 9:
+            return True
+        
+        # Complex camera movements benefit from AI video
+        complex_movements = [
+            CameraMovement.HANDHELD,
+            CameraMovement.DOLLY_ZOOM,
+            CameraMovement.CRANE_UP,
+            CameraMovement.CRANE_DOWN,
+            CameraMovement.ORBIT
+        ]
+        if direction.camera_movement in complex_movements:
+            if hasattr(scene, 'video_importance') and scene.video_importance >= 7:
+                return True
+        
+        # Scenes marked as needing animation with detailed prompts
+        if scene.needs_animation and scene.video_prompt and len(scene.video_prompt) > 100:
+            if hasattr(scene, 'video_importance') and scene.video_importance >= 7:
+                return True
+        
+        # Simple effects work fine with image+effect
+        return False
+    
+    def get_effect_name(self, camera_movement: CameraMovement) -> str:
+        """
+        Get legacy effect name from camera movement for backward compatibility.
+        
+        Args:
+            camera_movement: Camera movement enum
+            
+        Returns:
+            Legacy effect name string
+        """
+        return CAMERA_MOVEMENT_TO_EFFECT.get(camera_movement, "static")
+
