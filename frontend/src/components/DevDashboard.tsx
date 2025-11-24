@@ -530,6 +530,9 @@ export default function DevDashboard() {
                                     <div className="flex flex-col items-center gap-4">
                                         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                                         <p className="text-slate-400 animate-pulse">Rendering video...</p>
+                                        <p className="text-yellow-500 text-xs font-medium bg-yellow-900/20 px-3 py-1 rounded-full">
+                                            ⚠️ May take 10-15 mins
+                                        </p>
                                     </div>
                                 ) : generatedVideo ? (
                                     <video controls src={generatedVideo} className="max-w-full max-h-[600px]" />

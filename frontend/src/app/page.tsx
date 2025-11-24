@@ -95,10 +95,10 @@ export default function Home() {
   const buildVideoFromScenes = async (sceneConfigs: any[]) => {
     setLoading(true);
     try {
-      // Create abort controller with 10-minute timeout (TICKET-027 Issue 1)
-      // Video generation can take 5-8 minutes, so we need a longer timeout
+      // Create abort controller with 30-minute timeout (TICKET-028)
+      // Video generation involves rendering high-quality assets and can take 10-15 minutes.
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000); // 10 minutes
+      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutes
 
       const res = await fetch('/api/scene-editor/build-video', {
         method: 'POST',
@@ -122,7 +122,7 @@ export default function Home() {
     } catch (error: any) {
       console.error('Failed to build video:', error);
       if (error.name === 'AbortError') {
-        alert('Video generation timed out after 10 minutes. The video may still be processing on the server.');
+        alert('Video generation timed out after 30 minutes. The video involves complex rendering and may still be processing on the server. Please check the "Generated Assets" folder later.');
       } else {
         alert('Failed to build video. Please try again.');
       }
@@ -307,7 +307,10 @@ export default function Home() {
               <div className="bg-slate-900 p-12 rounded-2xl border border-slate-800 text-center">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
                 <h2 className="text-3xl font-bold mb-4">Generating your video...</h2>
-                <p className="text-slate-400">Creating images, voiceovers, and rendering your masterpiece.</p>
+                <p className="text-slate-400 mb-2">Creating images, voiceovers, and rendering your masterpiece.</p>
+                <p className="text-yellow-500 text-sm font-medium bg-yellow-900/20 inline-block px-4 py-2 rounded-full">
+                  ⚠️ This process involves high-quality rendering and may take 10-15 minutes. Please do not close this tab.
+                </p>
               </div>
             ) : script ? (
               <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800">
@@ -359,7 +362,7 @@ export default function Home() {
                     onClick={async () => {
                       setLoading(true);
                       const controller = new AbortController();
-                      const timeoutId = setTimeout(() => controller.abort(), 1200000); // 20 minutes timeout (increased from 10)
+                      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutes timeout (increased from 20)
 
                       try {
                         // Fetch retry configuration from backend

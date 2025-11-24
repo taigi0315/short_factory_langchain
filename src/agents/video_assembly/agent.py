@@ -1,8 +1,11 @@
 import os
 from typing import List, Dict
-from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip
+from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, TextClip, ColorClip
 from src.models.models import Scene, VideoScript
 from src.core.config import settings
+import structlog
+
+logger = structlog.get_logger()
 
 class VideoAssemblyAgent:
     def __init__(self):
@@ -56,6 +59,38 @@ class VideoAssemblyAgent:
             
         # Concatenate all clips
         final_video = concatenate_videoclips(clips, method="compose")
+        
+        # Add Title Overlay (TICKET-029)
+        try:
+            # Create a text clip for the title
+            # We use a try-catch block because TextClip requires ImageMagick
+            print(f"Adding title overlay: {script.title}")
+            
+            # Create text clip
+            # Using a default font, white color, and some padding
+            txt_clip = (TextClip(
+                text=script.title,
+                font="Arial-Bold", 
+                font_size=70, 
+                color='white',
+                stroke_color='black',
+                stroke_width=2,
+                method='caption',
+                size=(final_video.w * 0.8, None), # 80% width, auto height
+                text_align='center'
+            )
+            .with_position(('center', 50)) # Top center, 50px margin
+            .with_duration(3) # Show for 3 seconds
+            .with_effects([]) # Add fadein/fadeout if needed
+            )
+            
+            # Composite the title over the video
+            final_video = CompositeVideoClip([final_video, txt_clip])
+            
+        except Exception as e:
+            logger.warning("Failed to add title overlay. Is ImageMagick installed?", error=str(e))
+            print(f"WARNING: Could not add title overlay: {e}")
+            # Continue without title
         
         # Write output file
         output_filename = f"{script.title.replace(' ', '_')}_final.mp4"
