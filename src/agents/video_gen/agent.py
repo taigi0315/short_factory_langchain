@@ -155,6 +155,10 @@ class VideoGenAgent:
                     audio_clip = None
                 else:
                     audio_clip = AudioFileClip(audio_path)
+                    
+                    # Speed up audio by 10% (TICKET-027 Issue 6)
+                    audio_clip = audio_clip.with_effects([vfx.MultiplySpeed(1.1)])
+                    
                     duration = audio_clip.duration
                 
                 # Determine if this scene should use AI video generation
@@ -410,13 +414,13 @@ class VideoGenAgent:
             return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
     
     def _create_title_card(self, title: str, duration: float = 3.0) -> VideoClip:
-        """Create a title card with black background and centered text."""
+        """Create a title card with black background and colorful centered text."""
         w, h = self.resolution
         
         # Black background
         bg = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
         
-        # Create title text
+        # Create title text with gradient
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
@@ -443,21 +447,31 @@ class VideoGenAgent:
         total_height = len(lines) * line_height
         start_y = (h - total_height) // 2
         
-        # Draw title with outline
-        text_color = (255, 255, 255, 255)
-        shadow_color = (50, 50, 50, 255)
+        # Colorful gradient colors (vibrant pink to orange)
+        colors = [
+            (255, 100, 150, 255),  # Pink
+            (255, 150, 100, 255),  # Coral
+            (255, 200, 100, 255),  # Orange-yellow
+        ]
         
+        # Draw title with colorful gradient effect
         for i, line in enumerate(lines):
             line_w = draw.textlength(line, font=font)
             x = (w - line_w) // 2
             y = start_y + (i * line_height)
             
-            # Subtle outline
-            for adj in range(-2, 3):
-                for adj2 in range(-2, 3):
+            # Choose color based on line index
+            color_idx = i % len(colors)
+            text_color = colors[color_idx]
+            
+            # Shadow for depth
+            shadow_color = (30, 30, 30, 255)
+            for adj in range(-3, 4):
+                for adj2 in range(-3, 4):
                     if adj != 0 or adj2 != 0:
                         draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
             
+            # Main colorful text
             draw.text((x, y), line, font=font, fill=text_color)
         
         # Convert to clip
@@ -608,7 +622,7 @@ class VideoGenAgent:
         line_height = int(font_size * 1.2)  # 20% line spacing
         total_text_height = len(lines) * line_height
         
-        # Position at 80% from top (20% from bottom)
+        # Position at 80% from top (user requested)
         start_y = int(h * 0.80) - (total_text_height // 2)
         
         # Draw text with outline/shadow for visibility
@@ -821,10 +835,17 @@ class VideoGenAgent:
                 try:
                     _, audio_path = await voice_agent._generate_single_voiceover(scene)
                     if audio_path and os.path.exists(audio_path):
+                        logger.debug("Loading audio", path=audio_path)
                         audio_clip = AudioFileClip(audio_path)
+                        
+                        # Speed up audio by 10% (TICKET-027 Issue 6)
+                        # 1.1x speed makes narration 10% faster
+                        audio_clip = audio_clip.with_effects([vfx.MultiplySpeed(1.1)])
+                        
                         duration = audio_clip.duration
+                        logger.debug("Audio loaded", duration=duration)
                     else:
-                        logger.warning("Failed to generate audio, using default duration")
+                        logger.warning("No audio for scene", scene_number=scene.scene_number)
                         duration = settings.DEFAULT_SCENE_DURATION
                         audio_clip = None
                 except Exception as e:
