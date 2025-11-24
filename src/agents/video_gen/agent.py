@@ -50,8 +50,9 @@ class VideoGenAgent:
         self.output_dir = Path(settings.GENERATED_ASSETS_DIR) / "videos"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Resolution settings
-        self.resolution = (1920, 1080) if settings.VIDEO_RESOLUTION == "1080p" else (1280, 720)
+        # Resolution settings - VERTICAL for YouTube Shorts (9:16 aspect ratio)
+        # Format: (width, height) - portrait orientation
+        self.resolution = (1080, 1920) if settings.VIDEO_RESOLUTION == "1080p" else (720, 1280)
         self.fps = settings.VIDEO_FPS
         self.preset = settings.VIDEO_QUALITY
         

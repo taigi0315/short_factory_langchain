@@ -347,7 +347,7 @@ export default function Home() {
                     onClick={async () => {
                       setLoading(true);
                       const controller = new AbortController();
-                      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
+                      const timeoutId = setTimeout(() => controller.abort(), 1200000); // 20 minutes timeout (increased from 10)
 
                       try {
                         // Fetch retry configuration from backend
