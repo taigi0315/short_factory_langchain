@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # LLM Configuration
     # ========================================
     llm_model_name: str = Field(
-        default="gemini-2.0-flash",
+        default="gemini-2.5-flash",
         description="LLM model to use for text generation"
     )
     
