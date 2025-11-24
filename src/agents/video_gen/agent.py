@@ -181,16 +181,31 @@ class VideoGenAgent:
             
             # Overlay title card on top of first scene (first 3 seconds)
             if scene_clips:
-                title_overlay = self._create_title_card(script.title, duration=3.0)
-                first_scene = scene_clips[0]
-                
-                # Ensure title doesn't exceed first scene duration
-                title_duration = min(3.0, first_scene.duration)
-                title_overlay = title_overlay.with_duration(title_duration)
-                
-                # Composite title on top of first scene
-                scene_clips[0] = CompositeVideoClip([first_scene, title_overlay])
-                logger.info("Title card overlaid on first scene", duration=title_duration)
+                try:
+                    title_overlay = self._create_title_card(script.title, duration=3.0)
+                    first_scene = scene_clips[0]
+                    
+                    # Ensure title doesn't exceed first scene duration
+                    title_duration = min(3.0, first_scene.duration)
+                    title_overlay = title_overlay.with_duration(title_duration)
+                    
+                    # Preserve audio from first scene
+                    first_scene_audio = first_scene.audio if hasattr(first_scene, 'audio') else None
+                    
+                    # Composite title on top of first scene
+                    composited = CompositeVideoClip([first_scene.without_audio(), title_overlay])
+                    
+                    # Re-attach audio if it existed
+                    if first_scene_audio:
+                        composited = composited.with_audio(first_scene_audio)
+                    
+                    scene_clips[0] = composited
+                    logger.info("Title card overlaid on first scene", duration=title_duration)
+                except Exception as title_error:
+                    logger.error("Failed to overlay title card, skipping", 
+                                error=str(title_error),
+                                exc_info=True)
+                    # Continue without title card if it fails
             
             # Apply transitions
             final_video = self._apply_transitions(scene_clips)
