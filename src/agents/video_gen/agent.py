@@ -351,13 +351,27 @@ class VideoGenAgent:
                     # Set duration
                     clip = img_clip.with_duration(duration)
                     
-                    # Apply Ken Burns effect (slow zoom)
-                    # Only if duration is reasonable (> 1s)
+                    # Apply effect based on scene settings
+                    # Priority: selected_effect > recommended_effect > default (ken_burns)
+                    effect = scene.selected_effect
+                    if not effect and hasattr(scene, 'recommended_effect') and scene.recommended_effect:
+                        effect = scene.recommended_effect
+                    if not effect:
+                        effect = "ken_burns_zoom_in"  # Default
+                    
+                    logger.debug("Applying effect to image", 
+                               scene_number=scene.scene_number,
+                               effect=effect)
+                    
+                    # Apply the selected effect (only if duration is reasonable)
                     if duration > 1.0:
                         try:
-                            clip = self._apply_ken_burns(clip, duration)
-                        except Exception as kb_error:
-                            logger.warning("Ken Burns effect failed, skipping", error=str(kb_error))
+                            clip = self._apply_effect_to_clip(clip, effect, duration)
+                        except Exception as effect_error:
+                            logger.warning("Effect application failed, using static", 
+                                         effect=effect,
+                                         error=str(effect_error))
+                            
                             
                 except Exception as img_error:
                     logger.error("Failed to load/process image, using placeholder",
@@ -452,6 +466,81 @@ class VideoGenAgent:
         """Apply Ken Burns effect (slow zoom)."""
         # Zoom factor: 1.0 to 1.1 over duration
         return clip.resized(lambda t: 1 + 0.1 * t / duration)
+    
+    def _apply_effect_to_clip(self, clip: VideoClip, effect: str, duration: float) -> VideoClip:
+        """
+        Apply the specified effect to a video clip.
+        
+        Args:
+            clip: The video clip to apply effect to
+            effect: Effect name (ken_burns_zoom_in, pan_left, tilt_up, etc.)
+            duration: Duration of the clip
+            
+        Returns:
+            Clip with effect applied
+        """
+        if effect == "ken_burns_zoom_in":
+            # Zoom in: 1.0 to 1.2 over duration
+            return clip.resized(lambda t: 1 + 0.2 * t / duration)
+        
+        elif effect == "ken_burns_zoom_out":
+            # Zoom out: 1.2 to 1.0 over duration
+            return clip.resized(lambda t: 1.2 - 0.2 * t / duration)
+        
+        elif effect == "pan_left":
+            # Pan left: move from right to left
+            return clip.with_position(lambda t: (-100 * t / duration, 0))
+        
+        elif effect == "pan_right":
+            # Pan right: move from left to right
+            return clip.with_position(lambda t: (100 * t / duration, 0))
+        
+        elif effect == "tilt_up":
+            # Tilt up: move from bottom to top
+            return clip.with_position(lambda t: (0, -100 * t / duration))
+        
+        elif effect == "tilt_down":
+            # Tilt down: move from top to bottom
+            return clip.with_position(lambda t: (0, 100 * t / duration))
+        
+        elif effect == "shake":
+            # Shake effect: random small movements
+            import random
+            def shake_pos(t):
+                x = random.randint(-10, 10)
+                y = random.randint(-10, 10)
+                return (x, y)
+            return clip.with_position(shake_pos)
+        
+        elif effect == "dolly_zoom":
+            # Dolly zoom (Vertigo effect): zoom in while moving back
+            return clip.resized(lambda t: 1 + 0.3 * t / duration)
+        
+        elif effect == "crane_up":
+            # Crane up: zoom out while moving up
+            def crane_transform(t):
+                scale = 1.1 - 0.1 * t / duration
+                y_pos = -50 * t / duration
+                return scale
+            return clip.resized(crane_transform).with_position(lambda t: (0, -50 * t / duration))
+        
+        elif effect == "crane_down":
+            # Crane down: zoom in while moving down
+            return clip.resized(lambda t: 1 + 0.1 * t / duration).with_position(lambda t: (0, 50 * t / duration))
+        
+        elif effect == "orbit":
+            # Orbit: slow rotation
+            return clip.rotated(lambda t: 5 * t / duration)
+        
+        elif effect == "static" or effect == "none":
+            # No effect
+            return clip
+        
+        else:
+            # Unknown effect, log warning and return static
+            logger.warning(f"Unknown effect '{effect}', using static")
+            return clip
+
 
 
     def _wrap_text(self, text: str, font, max_width: int, draw) -> List[str]:
