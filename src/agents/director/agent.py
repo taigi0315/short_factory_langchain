@@ -291,6 +291,12 @@ Create detailed cinematic direction for this scene that:
 - Lighting Moods: bright, dramatic, soft, harsh, golden_hour, silhouette, chiaroscuro
 - Composition Rules: rule_of_thirds, centered, symmetry, leading_lines, frame_within_frame, negative_space, diagonal
 
+**Guidelines:**
+1. Avoid 'handheld' (shake) camera movement unless absolutely necessary for a chaotic scene. It can be dizzying.
+2. Prefer stable, smooth movements like 'slow_push_in' or 'pan_left'.
+3. For calm scenes, use 'static' or very slow movements.
+4. Ensure visual continuity between shots.
+
 **Output JSON Format:**
 {{
     "shot_type": "medium_close_up",

@@ -1,77 +1,98 @@
-# [TICKET-031] Improve Script Writer (Prompt Switching & Quality)
+Here is a comprehensive and detailed technical ticket designed for an AI coding assistant (or a human developer). It uses standard engineering terminology and clearly outlines the architecture changes required for your LangChain backend.
 
-## Priority
-- [ ] High (Performance issues, significant tech debt)
-- [x] Medium (Code quality, maintainability improvements)
-- [ ] Low (Nice-to-have refactorings)
+-----
 
-## Type
-- [ ] Refactoring
-- [ ] Performance Optimization
-- [ ] Test Coverage
-- [ ] Bug Fix
-- [ ] Security Issue
-- [ ] Technical Debt
-- [ ] Code Duplication
-- [x] Feature Implementation
+# Feature Request: Implement Dynamic Prompt Routing and Web Search for "Story Finder" Agent
 
-## Impact Assessment
-**Business Impact:**
-- **MEDIUM**: Users are unsatisfied with the current story quality. Tailoring prompts to specific story types (tags) will improve engagement.
+**Priority:** High
+**Component:** Backend / Story Finder Agent
+**Tech Stack:** Python, LangChain, Tavily API (or Google Search API)
 
-**Technical Impact:**
-- Affects: `src/agents/story_finder/agent.py`, `src/agents/script_writer/agent.py`, `src/agents/script_writer/prompts.py`
-- Requires: Schema updates and dynamic prompt selection logic.
+## 1\. Context & Problem Statement
 
-**Effort Estimate:**
-- Medium (1-2 days)
+Currently, the **Story Finder Agent** uses a static, "one-size-fits-all" prompt regardless of the user's selected category. This results in generic, Wikipedia-style summaries (e.g., "Capital One is a large bank...") rather than engaging, viral, or "corner" stories.
 
----
+To fix this, we need to transform the agent into a context-aware system that:
 
-## Problem Description
+1.  Actively searches the web for fresh/niche data when necessary.
+2.  Changes its "Persona" and "Prompt Strategy" based on the user's selected `Category` (News, Real Story, Educational, Fiction).
 
-### Current State
-**Status:** Feature Request
-**What's happening:**
-The script writer produces generic or low-quality stories. It uses a single prompt for all story types.
+## 2\. Technical Objectives
 
-**Desired State:**
-- The `StoryFinder` should tag stories (e.g., "Educational", "News", "Fiction").
-- The `ScriptWriter` should use a specific, optimized prompt based on the assigned tag to generate higher quality, more relevant scripts.
+Implement a **Dynamic Router** using LangChain (either `RunnableBranch`, `RouterChain`, or functional routing logic) to select the correct execution path based on the input `category`.
 
----
+### The Routing Logic
 
-## Requirements
+The system must handle the following inputs: `subject`, `category`, `mood`.
 
-### Functional Requirements
-**FR-1: Story Tagging**
-- `StoryFinderAgent` MUST identify and assign a `tag` or `style` to each generated story idea.
+| Category Input | Agent Persona | Web Search Required? | Objective |
+| :--- | :--- | :--- | :--- |
+| **`NEWS`** | **The Tabloid Journalist** | **YES** | Find viral controversies, recent hacks, stock crashes, or weird PR moves from the last 1-12 months. |
+| **`REAL_STORY`** | **The Investigative Historian** | **YES** | Find obscure origins, founder feuds, "butterfly effect" moments, or specific irony in the entity's history. |
+| **`EDUCATIONAL`** | **The Analogy Master (Tutor)** | **OPTIONAL** (Default: No) | Explain complex mechanics using simple metaphors. Focus on "How it works" rather than "What happened." |
+| **`FICTION`** | **The Thriller Novelist** | **NO** | Invent a hypothetical scenario or thriller plot featuring the subject as a central plot device. |
+| **`DEFAULT/AUTO`** | **The Trivia Hunter** | **YES** | General interesting facts (fallback logic). |
 
-**FR-2: Dynamic Prompting**
-- `ScriptWriterAgent` MUST select the appropriate system prompt based on the story's tag.
-- Create distinct prompts for at least: Educational, News, and General/Fiction.
+## 3\. Implementation Details
 
-**FR-3: Quality Improvements**
-- Update prompts to encourage "hooking" stories, specific details, and better narrative structure.
+### Step A: Integrate Search Tool
 
----
+  * Install and configure a search tool (Recommended: `tavily-python` for optimized LLM results, or `langchain_google_community`).
+  * Create a tool definition that allows the LLM to generate its own *optimized search queries* (e.g., input "Capital One" -\> converts to query "Capital One weird founder stories controversy").
 
-## Implementation Plan
+### Step B: Define Prompt Templates
 
-### Phase 1: Schema & Story Finder
-1.  **Update Models**: Add `tags` or `style` field to `StoryIdea` in `src/agents/story_finder/models.py`.
-2.  **Update Story Finder**: Modify prompt in `src/agents/story_finder/prompts.py` to generate these tags.
+Create distinct `PromptTemplate` objects for each category.
 
-### Phase 2: Script Writer
-1.  **Create Prompts**: In `src/agents/script_writer/prompts.py`, create dictionary of prompts keyed by tag.
-2.  **Update Agent**: In `src/agents/script_writer/agent.py`, implement logic to select the prompt based on the input story's tag.
+**1. Template: `NEWS_PROMPT`**
 
----
+> "You are a Viral News Reporter. Do not summarize history. Search for the most recent controversy, lawsuit, or shocking event regarding {subject}. Focus on specific numbers, dates, and conflict."
 
-## Verification Plan
+**2. Template: `REAL_STORY_PROMPT`**
 
-### Manual Verification
-1.  Generate stories and verify they have tags.
-2.  Select an "Educational" story and generate a script.
-3.  Verify the script reflects the educational style/structure.
-4.  Select a "News" story and verify the script reflects a news reporting style.
+> "You are a Documentary Researcher. Find the 'Corner Story'—the obscure detail no one knows. Look for 'The Underdog' angle, 'The Villain' angle, or 'The Accidental Success' angle regarding {subject}. Use the search tool to verify specific details."
+
+**3. Template: `EDUCATIONAL_PROMPT`**
+
+> "You are a Master Tutor. Your goal is to explain {subject} using a perfect analogy. Do not give dry facts. Explain it as if teaching a 5-year-old, then a 15-year-old."
+
+### Step C: Implement the Router Chain
+
+Refactor the current `Story Finder` chain. Instead of a linear chain, implement a routing mechanism.
+
+**Suggested Pseudocode (LangChain Expression Language style):**
+
+```python
+# 1. Define Branching Logic
+branch = RunnableBranch(
+    (lambda x: x["category"] == "news", news_chain),
+    (lambda x: x["category"] == "real_story", real_story_chain),
+    (lambda x: x["category"] == "fiction", fiction_chain),
+    default_chain
+)
+
+# 2. Build the Full Chain
+story_finder_chain = (
+    {
+        "subject": itemgetter("subject"),
+        "category": itemgetter("category"),
+        "mood": itemgetter("mood")
+    }
+    | branch
+)
+```
+
+## 4\. Acceptance Criteria
+
+1.  **Search Activation:** When `category="news"` or `category="real_story"` is selected, the console logs must show a search API call being made (e.g., to Tavily).
+2.  **Search Dormancy:** When `category="fiction"` is selected, NO search API call should be made.
+3.  **Persona Consistency:**
+      * Input: `Subject="Capital One"`, `Category="News"` -\> Output must mention a recent event, lawsuit, or specific financial figure.
+      * Input: `Subject="Capital One"`, `Category="Fiction"` -\> Output must be a made-up story (e.g., "The bank heist that never happened").
+4.  **Format:** The output must still adhere to the JSON structure required by the `Script Writer` agent (list of story ideas).
+
+## 5\. Example Constraints for the AI Coder
+
+  * Use `langchain_core` runnables (`RunnablePassthrough`, `RunnableBranch`) if possible.
+  * Ensure environment variables for search APIs (e.g., `TAVILY_API_KEY`) are handled securely.
+  * Keep the prompt templates modular (separate file) so they can be easily edited later.

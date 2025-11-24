@@ -48,6 +48,7 @@ async def generate_script(request: ScriptGenerationRequest):
         
         # Store recommendations in scene
         scene.recommended_effect = director.get_effect_name(direction.camera_movement)
+        scene.selected_effect = scene.recommended_effect # Apply recommendation as selection (TICKET-030)
         scene.recommended_ai_video = director.recommend_ai_video(directed_scene)
         scene.effect_reasoning = direction.director_notes
         

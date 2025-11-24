@@ -43,7 +43,9 @@ class VideoAssemblyAgent:
             # Set duration to match audio
             img_clip = ImageClip(image_path).with_duration(duration)
             
-            # Optional: Add simple zoom effect or transition here later
+            # Apply Effect (TICKET-030)
+            effect_name = getattr(scene, 'selected_effect', 'ken_burns_zoom_in')
+            img_clip = self._apply_effect(img_clip, effect_name, duration)
             
             # Combine Image + Audio
             video_clip = img_clip.with_audio(audio_clip)
@@ -68,6 +70,8 @@ class VideoAssemblyAgent:
             
             # Create text clip
             # Using a default font, white color, and some padding
+            # Remove bg_color='transparent' as it might cause issues with some IM versions
+            # Use None for transparent background
             txt_clip = (TextClip(
                 text=script.title,
                 font="Arial-Bold", 
@@ -79,7 +83,7 @@ class VideoAssemblyAgent:
                 size=(final_video.w * 0.8, None), # 80% width, auto height
                 text_align='center'
             )
-            .with_position(('center', 50)) # Top center, 50px margin
+            .with_position(('center', 80)) # Center horizontally, 80px from top
             .with_duration(3) # Show for 3 seconds
             .with_effects([]) # Add fadein/fadeout if needed
             )
@@ -100,3 +104,92 @@ class VideoAssemblyAgent:
         final_video.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac')
         
         return output_path
+
+    def _apply_effect(self, clip: ImageClip, effect_name: str, duration: float) -> ImageClip:
+        """
+        Apply visual effect to the image clip.
+        """
+        w, h = clip.size
+        
+        # Map complex/unimplemented effects to simple zoom to avoid static images
+        # and avoid "dizzying" shake effects
+        if effect_name in ["shake", "handheld", "crane_up", "crane_down", "orbit", "dolly_zoom"]:
+            effect_name = "ken_burns_zoom_in"
+        
+        if effect_name == "ken_burns_zoom_in":
+            # Zoom from 1.0 to 1.3
+            return clip.with_effects([
+                lambda c: c.resized(lambda t: 1 + 0.3 * t / duration)
+                           .with_position('center')
+            ])
+            
+        elif effect_name == "ken_burns_zoom_out":
+            # Zoom from 1.3 to 1.0
+            # Start zoomed in (1.3) and shrink
+            return clip.with_effects([
+                lambda c: c.resized(lambda t: 1.3 - 0.3 * t / duration)
+                           .with_position('center')
+            ])
+            
+        elif effect_name == "pan_left":
+            # Pan from right to left
+            # We need to zoom in slightly first to have room to pan
+            zoom_factor = 1.2
+            new_w = w * zoom_factor
+            new_h = h * zoom_factor
+            
+            # Resize first
+            enlarged = clip.resized(zoom_factor)
+            
+            # Calculate x positions
+            # Start: Right edge aligned (x = -(new_w - w))
+            # End: Left edge aligned (x = 0)
+            start_x = -(new_w - w)
+            end_x = 0
+            
+            return enlarged.with_position(lambda t: (start_x + (end_x - start_x) * t / duration, 'center'))
+            
+        elif effect_name == "pan_right":
+            # Pan from left to right
+            zoom_factor = 1.2
+            new_w = w * zoom_factor
+            
+            enlarged = clip.resized(zoom_factor)
+            
+            # Start: Left edge aligned (x = 0)
+            # End: Right edge aligned (x = -(new_w - w))
+            start_x = 0
+            end_x = -(new_w - w)
+            
+            return enlarged.with_position(lambda t: (start_x + (end_x - start_x) * t / duration, 'center'))
+            
+        elif effect_name == "tilt_up":
+             # Pan from bottom to top
+            zoom_factor = 1.2
+            new_h = h * zoom_factor
+            
+            enlarged = clip.resized(zoom_factor)
+            
+            # Start: Bottom edge aligned (y = -(new_h - h))
+            # End: Top edge aligned (y = 0)
+            start_y = -(new_h - h)
+            end_y = 0
+            
+            return enlarged.with_position(lambda t: ('center', start_y + (end_y - start_y) * t / duration))
+
+        elif effect_name == "tilt_down":
+             # Pan from top to bottom
+            zoom_factor = 1.2
+            new_h = h * zoom_factor
+            
+            enlarged = clip.resized(zoom_factor)
+            
+            # Start: Top edge aligned (y = 0)
+            # End: Bottom edge aligned (y = -(new_h - h))
+            start_y = 0
+            end_y = -(new_h - h)
+            
+            return enlarged.with_position(lambda t: ('center', start_y + (end_y - start_y) * t / duration))
+            
+        # Default / Static
+        return clip
