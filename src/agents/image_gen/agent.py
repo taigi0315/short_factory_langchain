@@ -198,22 +198,32 @@ class ImageGenAgent:
             raise
 
     def _enhance_prompt(self, scene: Scene) -> str:
-        """Enhance the base prompt with style and quality modifiers."""
+        """Enhance the base prompt with photorealistic style and quality modifiers."""
         base_prompt = scene.image_create_prompt or "A cinematic scene"
         
-        # Add style modifiers based on image_style
+        # Add style modifiers based on image_style - emphasize photorealism
         style_enhancers = {
-            ImageStyle.CINEMATIC: "cinematic lighting, film grain, bokeh, 4k, professional photography",
-            ImageStyle.SINGLE_CHARACTER: "character focus, detailed face, portrait style",
-            ImageStyle.INFOGRAPHIC: "clean design, informational, vector art style",
-            ImageStyle.COMIC_PANEL: "comic book style, bold lines, vibrant colors",
+            ImageStyle.CINEMATIC: "photorealistic, cinematic lighting, professional photography, realistic textures, film grain, bokeh, 4k",
+            ImageStyle.SINGLE_CHARACTER: "photorealistic portrait, professional photography, detailed face, realistic skin texture, studio lighting",
+            ImageStyle.CHARACTER_WITH_BACKGROUND: "photorealistic, professional photography, realistic environment, natural lighting",
+            ImageStyle.INFOGRAPHIC: "clean infographic overlay on photorealistic background, professional design, data visualization, modern graphics",
+            ImageStyle.DIAGRAM_EXPLANATION: "photorealistic scene with clean diagram overlay, professional photography, educational graphics",
+            ImageStyle.BEFORE_AFTER_COMPARISON: "photorealistic split-screen comparison, professional photography, realistic before and after",
+            ImageStyle.STEP_BY_STEP_VISUAL: "photorealistic step-by-step sequence, professional photography, realistic demonstration",
+            ImageStyle.COMIC_PANEL: "photorealistic scene with comic-style framing, professional photography, cinematic composition",
+            ImageStyle.CLOSE_UP_REACTION: "photorealistic close-up, professional portrait photography, detailed facial features, emotional expression",
+            ImageStyle.WIDE_ESTABLISHING_SHOT: "photorealistic wide shot, professional landscape photography, cinematic establishing shot, realistic environment",
+            ImageStyle.SPLIT_SCREEN: "photorealistic split-screen, professional photography, realistic dual perspective",
         }
         
-        # Default to cinematic if style not found or None
-        style_suffix = style_enhancers.get(scene.image_style, "high quality, detailed, cinematic")
+        # Default to photorealistic cinematic if style not found
+        style_suffix = style_enhancers.get(
+            scene.image_style, 
+            "photorealistic, high quality, professional photography, realistic lighting and textures, cinematic"
+        )
         
-        # Add quality modifiers
-        quality_suffix = "8k uhd, sharp focus, professional, trending on artstation"
+        # Add quality modifiers emphasizing realism
+        quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting"
         
         enhanced = f"{base_prompt}, {style_suffix}, {quality_suffix}"
         return enhanced

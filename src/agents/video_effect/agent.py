@@ -147,7 +147,7 @@ class VideoEffectAgent:
         script: VideoScript
     ) -> str:
         """
-        Select optimal effect based on scene context using rule-based logic.
+        Select optimal effect based on scene context using rule-based logic with variety.
         
         Args:
             scene: Current scene
@@ -165,6 +165,9 @@ class VideoEffectAgent:
         
         combined_text = f"{dialogue_lower} {prompt_lower} {video_prompt_lower}"
         
+        # Ensure variety by rotating effects based on scene number
+        scene_rotation = scene.scene_number % 6
+        
         # Scene type based selection (primary logic)
         if scene.scene_type == SceneType.HOOK:
             # Hook scenes need attention-grabbing effects
@@ -176,13 +179,20 @@ class VideoEffectAgent:
             # Check for action keywords
             if any(word in combined_text for word in ['strike', 'hit', 'crash', 'shake', 'earthquake', 'impact', 'explode']):
                 return 'shake'
-            if scene.video_importance >= 8:
-                return 'ken_burns_zoom_in'  # Build tension
-            return 'ken_burns_zoom_in'
+            # Vary hook effects
+            if scene_rotation == 0:
+                return 'ken_burns_zoom_in'
+            elif scene_rotation == 1:
+                return 'shake'
+            else:
+                return 'tilt_up'
         
         elif scene.scene_type == SceneType.CONCLUSION:
             # Conclusions often benefit from zoom out (perspective)
-            return 'ken_burns_zoom_out'
+            if scene_rotation % 2 == 0:
+                return 'ken_burns_zoom_out'
+            else:
+                return 'tilt_down'
         
         elif scene.scene_type == SceneType.VISUAL_DEMO:
             # Check for vertical movement keywords first
@@ -193,18 +203,24 @@ class VideoEffectAgent:
             # Check for specific action keywords
             if any(word in combined_text for word in ['strike', 'hit', 'crash', 'shake', 'impact']):
                 return 'shake'
-            # Visual demos benefit from panning to show details
+            # Visual demos benefit from panning to show details - vary the direction
             if 'left' in combined_text or 'before' in combined_text:
                 return 'pan_left'
             elif 'right' in combined_text or 'after' in combined_text:
                 return 'pan_right'
-            return 'pan_right'  # Default for demos
+            # Rotate between different pan effects
+            pan_effects = ['pan_right', 'pan_left', 'tilt_up', 'tilt_down']
+            return pan_effects[scene_rotation % len(pan_effects)]
         
         elif scene.scene_type == SceneType.EXPLANATION:
-            # Explanations work best with static or subtle effects
+            # Explanations work best with subtle effects - but vary them
             if scene.video_importance >= 7:
-                return 'ken_burns_zoom_in'  # Add some interest
-            return 'static'
+                # Rotate between zoom in and pan effects for high importance
+                dynamic_effects = ['ken_burns_zoom_in', 'pan_right', 'pan_left', 'tilt_up']
+                return dynamic_effects[scene_rotation % len(dynamic_effects)]
+            # For lower importance, rotate between static and subtle movement
+            subtle_effects = ['static', 'ken_burns_zoom_in', 'pan_right']
+            return subtle_effects[scene_rotation % len(subtle_effects)]
         
         # Check for vertical movement keywords (secondary logic)
         if any(word in combined_text for word in ['look up', 'rise', 'ascend', 'sky', 'tall', 'tower']):
@@ -213,11 +229,24 @@ class VideoEffectAgent:
         if any(word in combined_text for word in ['look down', 'descend', 'ground', 'below', 'detail']):
             return 'tilt_down'
         
-        # Default based on importance
+        # Avoid using the same effect as previous scene
+        prev_effect = None
+        if prev_scene and hasattr(prev_scene, 'selected_effect'):
+            prev_effect = prev_scene.selected_effect
+        
+        # Default based on importance with variety
         if scene.video_importance >= 7:
+            # High importance - use dynamic effects, avoid repeating previous
+            dynamic_effects = ['ken_burns_zoom_in', 'tilt_up', 'pan_right', 'shake']
+            for effect in dynamic_effects:
+                if effect != prev_effect:
+                    return effect
             return 'ken_burns_zoom_in'
         
-        return 'static'
+        # Medium/low importance - rotate between subtle effects
+        subtle_effects = ['static', 'ken_burns_zoom_in', 'pan_right', 'pan_left']
+        return subtle_effects[scene_rotation % len(subtle_effects)]
+
     
     def enhance_video_prompt(
         self,

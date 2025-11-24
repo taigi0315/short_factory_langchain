@@ -189,12 +189,22 @@ async def generate_video_from_script(request: ScriptVideoRequest):
             style=ImageStyle.CINEMATIC # Default
         )
         logger.info("Video generation completed", video_path=video_path)
-            
-        # Convert absolute path to relative URL for frontend
-        relative_path = os.path.relpath(video_path, settings.GENERATED_ASSETS_DIR)
-        video_url = f"/generated_assets/{relative_path}"
         
-        return {"video_url": video_url, "video_path": video_path}
+        # Prepare response - wrap in try-catch to ensure we return success even if path conversion has issues
+        try:
+            # Convert absolute path to relative URL for frontend
+            relative_path = os.path.relpath(video_path, settings.GENERATED_ASSETS_DIR)
+            video_url = f"/generated_assets/{relative_path}"
+            
+            response_data = {"video_url": video_url, "video_path": video_path}
+            logger.info("Sending success response to frontend", response=response_data)
+            
+            return response_data
+            
+        except Exception as path_error:
+            # If path conversion fails, still return the absolute path
+            logger.warning("Path conversion failed, using absolute path", error=str(path_error))
+            return {"video_url": f"/generated_assets/videos/{os.path.basename(video_path)}", "video_path": video_path}
         
     except HTTPException:
         # Re-raise HTTP exceptions as-is

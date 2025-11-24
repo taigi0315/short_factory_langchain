@@ -175,6 +175,10 @@ class VideoGenAgent:
                     
                 scene_clips.append(clip)
             
+            # Add title card at the beginning
+            title_card = self._create_title_card(script.title, duration=3.0)
+            scene_clips.insert(0, title_card)
+            
             # Apply transitions
             final_video = self._apply_transitions(scene_clips)
             
@@ -384,28 +388,21 @@ class VideoGenAgent:
             # Return a simple black clip as last resort
             return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
     
-    def _apply_ken_burns(self, clip: VideoClip, duration: float) -> VideoClip:
-        """Apply Ken Burns effect (slow zoom)."""
-        # Zoom factor: 1.0 to 1.1 over duration
-        return clip.resized(lambda t: 1 + 0.1 * t / duration)
-
-    def _create_text_overlay_pil(
-        self,
-        text: str,
-        duration: float,
-        resolution: Tuple[int, int]
-    ) -> VideoClip:
-        """Create text overlay using PIL (to avoid ImageMagick dependency)."""
-        w, h = resolution
+    def _create_title_card(self, title: str, duration: float = 3.0) -> VideoClip:
+        """Create a title card with black background and centered text."""
+        w, h = self.resolution
         
-        # Create transparent image
+        # Black background
+        bg = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
+        
+        # Create title text
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Load font (try default or specific)
+        # Larger font for title - 5% of height
+        font_size = int(h * 0.05)
+        
         try:
-            # Try to find a system font or use default
-            font_size = int(h * 0.05) # 5% of height
             try:
                 font = ImageFont.truetype("Arial.ttf", font_size)
             except:
@@ -415,25 +412,127 @@ class VideoGenAgent:
                     font = ImageFont.load_default()
         except:
             font = ImageFont.load_default()
-            
-        # Calculate text size and position (bottom center)
-        # PIL text handling varies by version, simple approximation
-        text_w = draw.textlength(text, font=font)
-        text_h = font_size # Approx
         
-        x = (w - text_w) // 2
-        y = h - (h * 0.15) # 15% from bottom
+        # Wrap title text
+        max_width = int(w * 0.85)
+        lines = self._wrap_text(title, font, max_width, draw)
+        
+        # Calculate positioning (center of screen)
+        line_height = int(font_size * 1.3)
+        total_height = len(lines) * line_height
+        start_y = (h - total_height) // 2
+        
+        # Draw title with outline
+        text_color = (255, 255, 255, 255)
+        shadow_color = (50, 50, 50, 255)
+        
+        for i, line in enumerate(lines):
+            line_w = draw.textlength(line, font=font)
+            x = (w - line_w) // 2
+            y = start_y + (i * line_height)
+            
+            # Subtle outline
+            for adj in range(-2, 3):
+                for adj2 in range(-2, 3):
+                    if adj != 0 or adj2 != 0:
+                        draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
+            
+            draw.text((x, y), line, font=font, fill=text_color)
+        
+        # Convert to clip
+        img_np = np.array(img)
+        title_clip = ImageClip(img_np, transparent=True).with_duration(duration)
+        
+        # Composite over black background with fade
+        title_clip = title_clip.with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)])
+        
+        return CompositeVideoClip([bg, title_clip])
+    
+    def _apply_ken_burns(self, clip: VideoClip, duration: float) -> VideoClip:
+        """Apply Ken Burns effect (slow zoom)."""
+        # Zoom factor: 1.0 to 1.1 over duration
+        return clip.resized(lambda t: 1 + 0.1 * t / duration)
+
+
+    def _wrap_text(self, text: str, font, max_width: int, draw) -> List[str]:
+        """Wrap text to fit within max_width."""
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            test_width = draw.textlength(test_line, font=font)
+            
+            if test_width <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        return lines if lines else [text]
+
+    def _create_text_overlay_pil(
+        self,
+        text: str,
+        duration: float,
+        resolution: Tuple[int, int]
+    ) -> VideoClip:
+        """Create text overlay using PIL with text wrapping and better sizing."""
+        w, h = resolution
+        
+        # Create transparent image
+        img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Smaller font size - 3% of height instead of 5%
+        font_size = int(h * 0.03)
+        
+        # Load font
+        try:
+            try:
+                font = ImageFont.truetype("Arial.ttf", font_size)
+            except:
+                try:
+                    font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+                except:
+                    font = ImageFont.load_default()
+        except:
+            font = ImageFont.load_default()
+        
+        # Text wrapping - use 90% of width for safety
+        max_width = int(w * 0.9)
+        lines = self._wrap_text(text, font, max_width, draw)
+        
+        # Calculate total text block height
+        line_height = int(font_size * 1.2)  # 20% line spacing
+        total_text_height = len(lines) * line_height
+        
+        # Position at 80% from top (20% from bottom)
+        start_y = int(h * 0.80) - (total_text_height // 2)
         
         # Draw text with outline/shadow for visibility
         shadow_color = (0, 0, 0, 255)
         text_color = (255, 255, 255, 255)
         
-        # Thick outline
-        for adj in range(-2, 3):
-            for adj2 in range(-2, 3):
-                draw.text((x+adj, y+adj2), text, font=font, fill=shadow_color)
-                
-        draw.text((x, y), text, font=font, fill=text_color)
+        for i, line in enumerate(lines):
+            # Center each line
+            line_w = draw.textlength(line, font=font)
+            x = (w - line_w) // 2
+            y = start_y + (i * line_height)
+            
+            # Thick outline for readability
+            for adj in range(-3, 4):
+                for adj2 in range(-3, 4):
+                    if adj != 0 or adj2 != 0:  # Skip center
+                        draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
+            
+            # Main text
+            draw.text((x, y), line, font=font, fill=text_color)
         
         # Convert to numpy array for MoviePy
         img_np = np.array(img)
