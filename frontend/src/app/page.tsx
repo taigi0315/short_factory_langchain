@@ -347,47 +347,93 @@ export default function Home() {
                     onClick={async () => {
                       setLoading(true);
                       const controller = new AbortController();
-                      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
+                      const timeoutId = setTimeout(() => controller.abort(), 1200000); // 20 minutes timeout (increased from 10)
 
                       try {
-                        // 1. Generate images for all scenes
+                        // Fetch retry configuration from backend
+                        const configRes = await fetch('/api/dev/retry-config');
+                        const retryConfig = configRes.ok ? await configRes.json() : {
+                          max_retries: 5,
+                          retry_delays_seconds: [5, 15, 30, 60],
+                          scene_delay_seconds: 5
+                        };
+
+                        console.log('Using retry configuration:', retryConfig);
+
+                        // 1. Generate images for all scenes SEQUENTIALLY with exponential backoff
                         const imageMap: Record<number, string> = {};
+                        const MAX_RETRIES = retryConfig.max_retries;
+                        const DELAYS = retryConfig.retry_delays_seconds.map((s: number) => s * 1000); // Convert to ms
+                        const SCENE_DELAY = retryConfig.scene_delay_seconds * 1000; // Convert to ms
 
-                        // Create array of promises for parallel generation
-                        const imagePromises = script.scenes.map(async (scene: any) => {
-                          try {
-                            console.log(`Generating image for scene ${scene.scene_number}...`);
-                            const res = await fetch('/api/dev/generate-image', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                scene_number: scene.scene_number,
-                                prompt: scene.image_create_prompt,
-                                style: scene.image_style
-                              }),
-                            });
-                            if (res.ok) {
-                              const data = await res.json();
-                              console.log(`✓ Image generated for scene ${scene.scene_number}:`, data.url);
-                              return { sceneNumber: scene.scene_number, url: data.url };
-                            } else {
-                              const errorText = await res.text();
-                              console.error(`✗ Failed to generate image for scene ${scene.scene_number}: ${res.status} ${res.statusText}`, errorText);
+                        console.log(`Starting sequential image generation for ${script.scenes.length} scenes...`);
+                        console.log(`Max retries: ${MAX_RETRIES}, Delays: ${retryConfig.retry_delays_seconds}s, Scene spacing: ${retryConfig.scene_delay_seconds}s`);
+
+                        for (let i = 0; i < script.scenes.length; i++) {
+                          const scene = script.scenes[i];
+                          let success = false;
+                          let lastError = null;
+
+                          // Retry loop for each scene
+                          for (let attempt = 0; attempt < MAX_RETRIES && !success; attempt++) {
+                            try {
+                              const attemptLabel = attempt > 0 ? ` (retry ${attempt}/${MAX_RETRIES - 1})` : '';
+                              console.log(`[${i + 1}/${script.scenes.length}] Generating image for scene ${scene.scene_number}${attemptLabel}...`);
+
+                              const res = await fetch('/api/dev/generate-image', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  scene_number: scene.scene_number,
+                                  prompt: scene.image_create_prompt,
+                                  style: scene.image_style
+                                }),
+                              });
+
+                              if (res.ok) {
+                                const data = await res.json();
+                                console.log(`✓ Image generated for scene ${scene.scene_number}`);
+                                imageMap[scene.scene_number] = data.url;
+                                success = true;
+                              } else {
+                                const errorText = await res.text();
+                                lastError = `${res.status} ${res.statusText}: ${errorText}`;
+                                console.error(`✗ Failed to generate image for scene ${scene.scene_number}: ${lastError}`);
+
+                                // If not the last retry, wait with exponential backoff
+                                if (attempt < MAX_RETRIES - 1) {
+                                  const retryDelay = DELAYS[Math.min(attempt, DELAYS.length - 1)];
+                                  console.log(`Waiting ${retryDelay / 1000}s before retry...`);
+                                  await new Promise(resolve => setTimeout(resolve, retryDelay));
+                                }
+                              }
+                            } catch (e) {
+                              lastError = e;
+                              console.error(`✗ Exception generating image for scene ${scene.scene_number}:`, e);
+
+                              // If not the last retry, wait with exponential backoff
+                              if (attempt < MAX_RETRIES - 1) {
+                                const retryDelay = DELAYS[Math.min(attempt, DELAYS.length - 1)];
+                                console.log(`Waiting ${retryDelay / 1000}s before retry...`);
+                                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                              }
                             }
-                          } catch (e) {
-                            console.error(`✗ Exception generating image for scene ${scene.scene_number}:`, e);
                           }
-                          return null;
-                        });
 
-                        const results = await Promise.all(imagePromises);
-                        console.log('Image generation results:', results);
-                        results.forEach(result => {
-                          if (result) {
-                            imageMap[result.sceneNumber] = result.url;
+                          // If all retries failed, log error but continue with other scenes
+                          if (!success) {
+                            console.error(`✗ Failed to generate image for scene ${scene.scene_number} after ${MAX_RETRIES} attempts. Last error:`, lastError);
+                            alert(`Warning: Failed to generate image for scene ${scene.scene_number}. Continuing with other scenes...`);
                           }
-                        });
-                        console.log('Final imageMap:', imageMap);
+
+                          // Add delay between scenes (except after the last one)
+                          if (i < script.scenes.length - 1 && success) {
+                            console.log(`Waiting ${SCENE_DELAY / 1000}s before next scene...`);
+                            await new Promise(resolve => setTimeout(resolve, SCENE_DELAY));
+                          }
+                        }
+
+                        console.log('Image generation complete. Final imageMap:', imageMap);
 
                         // 2. Generate Video
                         const res = await fetch('/api/dev/generate-video-from-script', {

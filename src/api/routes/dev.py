@@ -53,6 +53,15 @@ async def generate_image(request: ImageGenerationRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/retry-config")
+async def get_retry_config():
+    """Get image generation retry configuration for frontend."""
+    return {
+        "max_retries": settings.IMAGE_GENERATION_MAX_RETRIES,
+        "retry_delays_seconds": settings.IMAGE_GENERATION_RETRY_DELAYS,
+        "scene_delay_seconds": settings.IMAGE_GENERATION_SCENE_DELAY
+    }
+
 # Placeholder for other endpoints (Audio, Assembly)
 # They will follow a similar pattern
 class VideoGenRequest(BaseModel):
