@@ -350,41 +350,75 @@ export default function Home() {
                       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
 
                       try {
-                        // 1. Generate images for all scenes SEQUENTIALLY (to avoid rate limits)
+                        // 1. Generate images for all scenes SEQUENTIALLY with exponential backoff
                         const imageMap: Record<number, string> = {};
+                        const MAX_RETRIES = 3;
+                        const DELAYS = [2000, 5000, 10000]; // 2s, 5s, 10s
 
                         console.log(`Starting sequential image generation for ${script.scenes.length} scenes...`);
 
                         for (let i = 0; i < script.scenes.length; i++) {
                           const scene = script.scenes[i];
-                          try {
-                            console.log(`[${i + 1}/${script.scenes.length}] Generating image for scene ${scene.scene_number}...`);
-                            const res = await fetch('/api/dev/generate-image', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                scene_number: scene.scene_number,
-                                prompt: scene.image_create_prompt,
-                                style: scene.image_style
-                              }),
-                            });
+                          let success = false;
+                          let lastError = null;
 
-                            if (res.ok) {
-                              const data = await res.json();
-                              console.log(`✓ Image generated for scene ${scene.scene_number}:`, data.url);
-                              imageMap[scene.scene_number] = data.url;
-                            } else {
-                              const errorText = await res.text();
-                              console.error(`✗ Failed to generate image for scene ${scene.scene_number}: ${res.status} ${res.statusText}`, errorText);
-                            }
+                          // Retry loop for each scene
+                          for (let attempt = 0; attempt < MAX_RETRIES && !success; attempt++) {
+                            try {
+                              const attemptLabel = attempt > 0 ? ` (retry ${attempt}/${MAX_RETRIES - 1})` : '';
+                              console.log(`[${i + 1}/${script.scenes.length}] Generating image for scene ${scene.scene_number}${attemptLabel}...`);
 
-                            // Add 2-second delay between requests (except after the last one)
-                            if (i < script.scenes.length - 1) {
-                              console.log('Waiting 2 seconds before next request...');
-                              await new Promise(resolve => setTimeout(resolve, 2000));
+                              const res = await fetch('/api/dev/generate-image', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  scene_number: scene.scene_number,
+                                  prompt: scene.image_create_prompt,
+                                  style: scene.image_style
+                                }),
+                              });
+
+                              if (res.ok) {
+                                const data = await res.json();
+                                console.log(`✓ Image generated for scene ${scene.scene_number}`);
+                                imageMap[scene.scene_number] = data.url;
+                                success = true;
+                              } else {
+                                const errorText = await res.text();
+                                lastError = `${res.status} ${res.statusText}: ${errorText}`;
+                                console.error(`✗ Failed to generate image for scene ${scene.scene_number}: ${lastError}`);
+
+                                // If not the last retry, wait with exponential backoff
+                                if (attempt < MAX_RETRIES - 1) {
+                                  const retryDelay = DELAYS[attempt];
+                                  console.log(`Waiting ${retryDelay / 1000}s before retry...`);
+                                  await new Promise(resolve => setTimeout(resolve, retryDelay));
+                                }
+                              }
+                            } catch (e) {
+                              lastError = e;
+                              console.error(`✗ Exception generating image for scene ${scene.scene_number}:`, e);
+
+                              // If not the last retry, wait with exponential backoff
+                              if (attempt < MAX_RETRIES - 1) {
+                                const retryDelay = DELAYS[attempt];
+                                console.log(`Waiting ${retryDelay / 1000}s before retry...`);
+                                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                              }
                             }
-                          } catch (e) {
-                            console.error(`✗ Exception generating image for scene ${scene.scene_number}:`, e);
+                          }
+
+                          // If all retries failed, log error but continue with other scenes
+                          if (!success) {
+                            console.error(`✗ Failed to generate image for scene ${scene.scene_number} after ${MAX_RETRIES} attempts. Last error:`, lastError);
+                            alert(`Warning: Failed to generate image for scene ${scene.scene_number}. Continuing with other scenes...`);
+                          }
+
+                          // Add delay between scenes (except after the last one)
+                          // Use first delay (2s) for normal spacing between successful requests
+                          if (i < script.scenes.length - 1 && success) {
+                            console.log('Waiting 2 seconds before next scene...');
+                            await new Promise(resolve => setTimeout(resolve, DELAYS[0]));
                           }
                         }
 
