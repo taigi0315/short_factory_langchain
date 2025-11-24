@@ -328,7 +328,7 @@ class VideoGenAgent:
                     logger.debug("Loading image", path=image_path)
                     img_clip = ImageClip(image_path)
                     
-                    # Resize to cover resolution (maintain aspect ratio)
+                    # Resize to FIT within resolution (maintain aspect ratio, no cropping)
                     w, h = img_clip.size
                     target_w, target_h = self.resolution
                     
@@ -336,17 +336,24 @@ class VideoGenAgent:
                                original_size=f"{w}x{h}",
                                target_size=f"{target_w}x{target_h}")
                     
-                    # Calculate scaling to cover
-                    scale = max(target_w / w, target_h / h)
+                    # Calculate scaling to FIT (contain, not cover)
+                    # This ensures the entire image is visible without cropping
+                    scale = min(target_w / w, target_h / h)
                     img_clip = img_clip.resized(scale)
                     
-                    # Center crop
-                    img_clip = img_clip.cropped(
-                        x_center=img_clip.w/2,
-                        y_center=img_clip.h/2,
-                        width=target_w,
-                        height=target_h
-                    )
+                    # Center the image with black padding if needed
+                    # No cropping - the entire image will be visible
+                    if img_clip.w < target_w or img_clip.h < target_h:
+                        # Create black background
+                        bg = ColorClip(size=self.resolution, color=(0, 0, 0))
+                        # Center the image on the background
+                        x_pos = (target_w - img_clip.w) // 2
+                        y_pos = (target_h - img_clip.h) // 2
+                        img_clip = CompositeVideoClip([
+                            bg.with_duration(1),  # Temporary duration
+                            img_clip.with_position((x_pos, y_pos))
+                        ])
+                    
                     
                     # Set duration
                     clip = img_clip.with_duration(duration)
