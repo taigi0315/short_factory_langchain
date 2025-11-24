@@ -376,8 +376,19 @@ class VideoGenAgent:
                     effect = scene.selected_effect
                     if not effect and hasattr(scene, 'recommended_effect') and scene.recommended_effect:
                         effect = scene.recommended_effect
+                        logger.info("Using recommended effect from Director", 
+                                   scene_number=scene.scene_number,
+                                   effect=effect)
                     if not effect:
                         effect = "ken_burns_zoom_in"  # Default
+                        logger.warning("No effect specified, using default", 
+                                      scene_number=scene.scene_number,
+                                      effect=effect)
+                    else:
+                        logger.info("Applying effect to scene",
+                                   scene_number=scene.scene_number,
+                                   effect=effect,
+                                   source="selected" if scene.selected_effect else "recommended")
                     
                     logger.debug("Applying effect to image", 
                                scene_number=scene.scene_number,
@@ -387,6 +398,9 @@ class VideoGenAgent:
                     if duration > 1.0:
                         try:
                             clip = self._apply_effect_to_clip(clip, effect, duration)
+                            logger.debug("Effect applied successfully",
+                                        scene_number=scene.scene_number,
+                                        effect=effect)
                         except Exception as effect_error:
                             logger.warning("Effect application failed, using static", 
                                          effect=effect,
