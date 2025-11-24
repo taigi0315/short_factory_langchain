@@ -1,6 +1,9 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Literal, Optional
 from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SceneType(str, Enum):
     EXPLANATION = "explanation"  # Character explaining concepts
@@ -172,6 +175,102 @@ class Scene(BaseModel):
     recommended_effect: Optional[str] = Field(default=None, description="AI-recommended video effect")
     recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
     effect_reasoning: Optional[str] = Field(default=None, description="Reasoning for effect recommendation")
+
+    @field_validator('scene_type', mode='before')
+    @classmethod
+    def validate_scene_type(cls, v):
+        if isinstance(v, SceneType):
+            return v
+        if not isinstance(v, str):
+            return v
+            
+        # Try to match enum directly
+        try:
+            return SceneType(v)
+        except ValueError:
+            pass
+            
+        # Common fixes
+        fixes = {
+            "climax": SceneType.CONCLUSION,
+            "rising_action": SceneType.EXPLANATION,
+            "development": SceneType.EXPLANATION,
+            "resolution": SceneType.CONCLUSION,
+            "introduction": SceneType.HOOK,
+            "narrative": SceneType.STORY_TELLING,
+            "opening": SceneType.HOOK,
+        }
+        
+        if v in fixes:
+            logger.warning(f"Fixed invalid scene_type: '{v}' -> '{fixes[v].value}'")
+            return fixes[v]
+            
+        # Default fallback
+        logger.warning(f"Invalid scene_type '{v}' not found in fixes. Defaulting to EXPLANATION.")
+        return SceneType.EXPLANATION
+
+    @field_validator('voice_tone', mode='before')
+    @classmethod
+    def validate_voice_tone(cls, v):
+        if isinstance(v, VoiceTone):
+            return v
+        if not isinstance(v, str):
+            return v
+            
+        try:
+            return VoiceTone(v)
+        except ValueError:
+            pass
+            
+        fixes = {
+            "explanation": VoiceTone.SERIOUS,
+            "narrative": VoiceTone.CALM,
+            "climax": VoiceTone.DRAMATIC,
+            "development": VoiceTone.CURIOUS,
+            "rising_action": VoiceTone.EXCITED,
+            "informative": VoiceTone.SERIOUS,
+            "conclusion": VoiceTone.CONFIDENT,
+            "hook": VoiceTone.EXCITED,
+        }
+        
+        if v in fixes:
+            logger.warning(f"Fixed invalid voice_tone: '{v}' -> '{fixes[v].value}'")
+            return fixes[v]
+            
+        logger.warning(f"Invalid voice_tone '{v}' not found in fixes. Defaulting to SERIOUS.")
+        return VoiceTone.SERIOUS
+
+    @field_validator('image_style', mode='before')
+    @classmethod
+    def validate_image_style(cls, v):
+        if isinstance(v, ImageStyle):
+            return v
+        if not isinstance(v, str):
+            return v
+            
+        try:
+            return ImageStyle(v)
+        except ValueError:
+            pass
+            
+        fixes = {
+            "comparison": ImageStyle.BEFORE_AFTER_COMPARISON,
+            "split": ImageStyle.SPLIT_SCREEN,
+            "character": ImageStyle.CHARACTER_WITH_BACKGROUND,
+            "diagram": ImageStyle.DIAGRAM_EXPLANATION,
+            "infograph": ImageStyle.INFOGRAPHIC,
+            "comic": ImageStyle.COMIC_PANEL,
+            "closeup": ImageStyle.CLOSE_UP_REACTION,
+            "wide": ImageStyle.WIDE_ESTABLISHING_SHOT,
+            "visual_demo": ImageStyle.STEP_BY_STEP_VISUAL,
+        }
+        
+        if v in fixes:
+            logger.warning(f"Fixed invalid image_style: '{v}' -> '{fixes[v].value}'")
+            return fixes[v]
+            
+        logger.warning(f"Invalid image_style '{v}' not found in fixes. Defaulting to CINEMATIC.")
+        return ImageStyle.CINEMATIC
 
 class SceneConfig(BaseModel):
     """Configuration for building video from a scene"""

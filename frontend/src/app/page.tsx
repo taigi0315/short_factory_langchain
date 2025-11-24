@@ -350,13 +350,15 @@ export default function Home() {
                       const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes timeout
 
                       try {
-                        // 1. Generate images for all scenes
+                        // 1. Generate images for all scenes SEQUENTIALLY (to avoid rate limits)
                         const imageMap: Record<number, string> = {};
 
-                        // Create array of promises for parallel generation
-                        const imagePromises = script.scenes.map(async (scene: any) => {
+                        console.log(`Starting sequential image generation for ${script.scenes.length} scenes...`);
+
+                        for (let i = 0; i < script.scenes.length; i++) {
+                          const scene = script.scenes[i];
                           try {
-                            console.log(`Generating image for scene ${scene.scene_number}...`);
+                            console.log(`[${i + 1}/${script.scenes.length}] Generating image for scene ${scene.scene_number}...`);
                             const res = await fetch('/api/dev/generate-image', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
@@ -366,28 +368,27 @@ export default function Home() {
                                 style: scene.image_style
                               }),
                             });
+
                             if (res.ok) {
                               const data = await res.json();
                               console.log(`✓ Image generated for scene ${scene.scene_number}:`, data.url);
-                              return { sceneNumber: scene.scene_number, url: data.url };
+                              imageMap[scene.scene_number] = data.url;
                             } else {
                               const errorText = await res.text();
                               console.error(`✗ Failed to generate image for scene ${scene.scene_number}: ${res.status} ${res.statusText}`, errorText);
                             }
+
+                            // Add 2-second delay between requests (except after the last one)
+                            if (i < script.scenes.length - 1) {
+                              console.log('Waiting 2 seconds before next request...');
+                              await new Promise(resolve => setTimeout(resolve, 2000));
+                            }
                           } catch (e) {
                             console.error(`✗ Exception generating image for scene ${scene.scene_number}:`, e);
                           }
-                          return null;
-                        });
+                        }
 
-                        const results = await Promise.all(imagePromises);
-                        console.log('Image generation results:', results);
-                        results.forEach(result => {
-                          if (result) {
-                            imageMap[result.sceneNumber] = result.url;
-                          }
-                        });
-                        console.log('Final imageMap:', imageMap);
+                        console.log('Image generation complete. Final imageMap:', imageMap);
 
                         // 2. Generate Video
                         const res = await fetch('/api/dev/generate-video-from-script', {
