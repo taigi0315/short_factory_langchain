@@ -322,7 +322,7 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
             shot_type=visual_guide["shot_type"],
             camera_movement=visual_guide["camera_movement"],
             camera_angle=visual_guide["camera_angle"],
-            lighting=visual_guide["lighting"],
+            lighting_mood=visual_guide["lighting"],
             composition=visual_guide["composition"],
             emotional_purpose=f"Evoke {emotion}",
             narrative_function="Advance story",
