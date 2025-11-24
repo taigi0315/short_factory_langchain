@@ -306,8 +306,8 @@ export default function Home() {
             {loading ? (
               <div className="bg-slate-900 p-12 rounded-2xl border border-slate-800 text-center">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
-                <h2 className="text-3xl font-bold mb-4">Writing your script...</h2>
-                <p className="text-slate-400">Our AI agents are brainstorming the perfect shots.</p>
+                <h2 className="text-3xl font-bold mb-4">Generating your video...</h2>
+                <p className="text-slate-400">Creating images, voiceovers, and rendering your masterpiece.</p>
               </div>
             ) : script ? (
               <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800">
@@ -503,7 +503,7 @@ export default function Home() {
                     {loading ? (
                       <>
                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Generating Magic...
+                        Generating Video...
                       </>
                     ) : (
                       <>
