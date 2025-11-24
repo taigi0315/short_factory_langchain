@@ -101,4 +101,12 @@ app.include_router(scene_editor.router)  # Already has prefix in router definiti
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("src.api.main:app", host="0.0.0.0", port=8001, reload=True)
+    # Increase timeout for long-running video generation (10 minutes)
+    # timeout_keep_alive: How long to keep connections alive when idle
+    uvicorn.run(
+        "src.api.main:app", 
+        host="0.0.0.0", 
+        port=8001, 
+        reload=True,
+        timeout_keep_alive=600  # 10 minutes (600 seconds)
+    )
