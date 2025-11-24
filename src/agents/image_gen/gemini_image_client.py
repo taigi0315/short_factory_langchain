@@ -35,9 +35,9 @@ class GeminiImageClient:
         self,
         prompt: str,
         model: Optional[str] = None,  # Kept for compatibility, but ignored
-        width: int = 1920,
-        height: int = 1080,
-        aspect_ratio: str = "16:9",
+        width: int = 1080,
+        height: int = 1920,
+        aspect_ratio: str = "9:16",  # Vertical for YouTube Shorts
     ) -> str:
         """
         Generate an image using Gemini with retry logic for rate limiting.
