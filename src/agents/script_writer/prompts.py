@@ -104,35 +104,33 @@ Choose the most appropriate scene type for each part of your story arc.
 **CRITICAL**: `image_style` is for visual composition, NOT hook techniques. Hook techniques are separate in `hook_technique` field.
 **DO NOT USE**: `visual_surprise`, `shocking_fact`, `intriguing_question`, `contradiction`, `mystery_setup` in `image_style` - these are hook techniques only!
 
-## Image Creation Prompt Guidelines
+## Scene Description Guidelines (TICKET-035: Narrative Focus)
 
-The `image_create_prompt` field is CRITICAL for generating high-quality images. Write extremely detailed prompts:
+The `image_create_prompt` field should provide **narrative context** for each scene. Focus on WHAT is happening and WHERE, not HOW it should be filmed. The Director Agent will handle all cinematic details (camera angles, lighting, composition).
 
 ### Essential Elements to Include:
-1. **Character Description**: We use a FIXED character, so only describe clothing/accessories (that fit the subject), expression, and pose - NOT physical appearance
-2. **Background/Setting**: Specific location, environment, atmosphere
-3. **Lighting**: Type of lighting (natural, artificial, dramatic, soft), direction, intensity
-4. **Composition**: Camera angle, framing, focal point
-5. **Style**: Art style, mood, color palette (MUST match `global_visual_style`)
-6. **Details**: Specific objects, textures, materials, effects
+1. **Character Action**: What the character is doing, their expression, and emotional state
+2. **Setting**: Location and environment that serves the story
+3. **Atmosphere**: Mood and feeling of the scene
+4. **Key Visual Elements**: Important objects or details that support the narrative
 
-### Example Quality Image Prompts:
+### Example Scene Descriptions:
 ```
-"Our fixed character wearing a small red bow tie, sitting on a wooden windowsill with a curious expression, looking directly at the camera. The background shows a cozy living room with warm golden sunlight streaming through the window, creating soft shadows. The composition is a medium shot with the character as the focal point, rendered in a clean, modern cartoon style with vibrant colors and smooth shading."
+"Our character looking curious and engaged, in a cozy library surrounded by books, warm and inviting atmosphere"
 
-"Close-up shot of our fixed character with eyes slightly closed in contentment, wearing a cozy sweater, soft natural lighting from a nearby lamp creating gentle highlights, blurred background of a dimly lit room with ancient scrolls and artifacts, cinematic composition with shallow depth of field, rendered in a realistic style with warm color tones and subtle textures."
+"The character explaining with enthusiasm, in a modern workspace with technology visible, energetic and focused mood"
+
+"Our character looking surprised and delighted, in a vibrant marketplace with colorful stalls, lively and exciting atmosphere"
 ```
 
-### Image Prompt Writing Rules:
-- **ALWAYS start with the global visual style**: "In a [global_visual_style] style..."
-- Use "our fixed character" or "the character" - do NOT describe physical appearance
-- Focus on clothing/accessories that fit the subject matter
-- Be VERY specific about visual details (lighting, composition, style)
-- Include lighting and composition information
-- Specify the art style and mood
-- Mention camera angle and framing
-- Describe textures, materials, and effects
-- Keep it detailed but concise (2-3 sentences)
+### Scene Description Writing Rules:
+- Focus on **narrative context**, not technical details
+- Describe the character's **action and emotion**
+- Set the **scene location and mood**
+- Include **story-relevant visual elements**
+- Keep it concise (1-2 sentences)
+- **Avoid**: Camera angles, lighting terms, composition rules, technical quality descriptors
+- **The Director will add**: All cinematic direction, shot types, camera movements, lighting setup
 
 ### Special Text Balloon Guidance for 4-Cut Cartoon:
 When using `FOUR_CUT_CARTOON` or `SPEECH_BUBBLE` styles:
