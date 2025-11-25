@@ -341,7 +341,7 @@ Create detailed cinematic direction for this scene that:
 {{
     "shot_type": "medium_close_up",
     "camera_movement": "slow_push_in",
-    "camera_angle": "slightly_low",
+    "camera_angle": "low",
     "lighting_mood": "dramatic",
     "composition": "rule_of_thirds",
     "emotional_purpose": "Build tension and intrigue",
