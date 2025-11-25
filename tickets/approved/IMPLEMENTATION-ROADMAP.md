@@ -62,6 +62,12 @@ Work on tickets in this order:
    - **Why now:** High user impact for low effort.
    - **Success metric:** Distinct emotional tones in audio.
 
+5. **TICKET-031: Improve Story Finder Agent Quality**
+   - **Status:** ✅ Complete (2025-11-24)
+   - **Priority:** High
+   - **Effort:** 1 day
+   - **Success metric:** Dynamic routing and search enabled for News/Real Story.
+
 ---
 
 ## Phase 2: Advanced Features (Sprint 2)

@@ -96,3 +96,41 @@ story_finder_chain = (
   * Use `langchain_core` runnables (`RunnablePassthrough`, `RunnableBranch`) if possible.
   * Ensure environment variables for search APIs (e.g., `TAVILY_API_KEY`) are handled securely.
   * Keep the prompt templates modular (separate file) so they can be easily edited later.
+---
+## ✅ Implementation Complete
+
+**Implemented by:** Antigravity
+**Implementation Date:** 2025-11-24
+**Branch:** feature/TICKET-031-improve-story-finder
+
+### What Was Implemented
+Verified and tested the dynamic routing and web search capabilities for the Story Finder Agent.
+- Confirmed `NEWS` and `REAL_STORY` categories trigger web search.
+- Confirmed `FICTION` category skips web search.
+- **Fixed:** `EDUCATIONAL` category now skips web search by default (as per ticket requirements), whereas it was previously searching.
+- Added comprehensive unit and integration tests.
+
+### Files Modified
+- `src/agents/story_finder/agent.py` - Updated `search_step` to skip search for "educational" category.
+
+### Tests Added
+**Unit Tests:**
+- `tests/unit/test_story_finder_routing.py`
+  - `test_news_category_triggers_search`
+  - `test_fiction_category_skips_search`
+  - `test_real_story_category_triggers_search`
+  - `test_educational_category_search_behavior`
+
+**Integration Tests:**
+- `tests/integration/test_story_finder_integration.py`
+  - `test_find_stories_end_to_end`
+
+### Verification Performed
+- [✓] All new tests pass
+- [✓] Manual verification of routing logic via tests
+
+### Deviations from Original Plan
+- None significant.
+
+### Additional Notes
+- The ticket filename `TICKET-031-improve-script-writer-quality.md` is slightly misleading as the content is about "Story Finder Agent".

@@ -74,8 +74,8 @@ class StoryFinderAgent:
             category = inputs.get("category", "").lower()
             subject = inputs.get("subject", "")
             
-            # Skip search for Fiction or if no tool available
-            if category == "fiction" or not self.search_tool:
+            # Skip search for Fiction, Educational (default), or if no tool available
+            if category in ["fiction", "educational"] or not self.search_tool:
                 return ""
             
             # Perform search
