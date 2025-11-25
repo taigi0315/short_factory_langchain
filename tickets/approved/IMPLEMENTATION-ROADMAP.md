@@ -68,6 +68,18 @@ Work on tickets in this order:
    - **Effort:** 1 day
    - **Success metric:** Dynamic routing and search enabled for News/Real Story.
 
+6. **TICKET-032: Support Multiple Images per Dialogue**
+   - **Status:** ✅ Complete (2025-11-24)
+   - **Priority:** Medium
+   - **Effort:** 1-2 days
+   - **Success metric:** Multiple images per scene supported.
+
+7. **TICKET-033: Dynamic Visual Segmentation**
+   - **Status:** ✅ Complete (2025-11-24)
+   - **Priority:** High
+   - **Effort:** 2-3 days
+   - **Success metric:** Scenes split into visual segments with synced audio.
+
 ---
 
 ## Phase 2: Advanced Features (Sprint 2)
