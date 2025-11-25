@@ -1,0 +1,35 @@
+F..
+======================================================================
+FAIL: test_assemble_video_segments (tests.unit.test_visual_segmentation.TestVisualSegmentation.test_assemble_video_segments)
+Test assemble_video logic with visual segments.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/changikchoi/.pyenv/versions/3.12.2/lib/python3.12/unittest/async_case.py", line 90, in _callTestMethod
+    if self._callMaybeAsync(method) is not None:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/changikchoi/.pyenv/versions/3.12.2/lib/python3.12/unittest/async_case.py", line 112, in _callMaybeAsync
+    return self._asyncioRunner.run(
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/changikchoi/.pyenv/versions/3.12.2/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/changikchoi/.pyenv/versions/3.12.2/lib/python3.12/asyncio/base_events.py", line 685, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/changikchoi/.pyenv/versions/3.12.2/lib/python3.12/unittest/mock.py", line 1404, in patched
+    return await func(*newargs, **newkeywargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/changikchoi/Documents/Github/ShortFactoryLangChain/tests/unit/test_visual_segmentation.py", line 95, in test_assemble_video_segments
+    self.assertEqual(mock_concat.call_count, 2) # Once for scene, once for final
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.009s
+
+FAILED (failures=1)
+Assembling video...
+DEBUG: scene_num=1, num_images=2
+DEBUG: len(scene_clips)=2
+DEBUG: mock_concat.call_count=1
+DEBUG: mock_concat.call_args_list=[call([<MagicMock name='ImageClip()' id='4395238656'>, <MagicMock name='ImageClip()' id='4395238656'>], method='compose')]

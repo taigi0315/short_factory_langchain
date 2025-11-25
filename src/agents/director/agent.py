@@ -193,14 +193,15 @@ class DirectorAgent:
             next_scene = script.scenes[i+1] if i < len(script.scenes) - 1 else None
             
             # Generate direction for this scene
-            direction = await self._generate_scene_direction(
+            direction, visual_segments = await self._generate_scene_direction(
                 scene, beat_name, beat_emotion, prev_scene, next_scene, i == emotional_arc.peak_moment
             )
             
             directed_scenes.append(DirectedScene(
                 original_scene=scene,
                 direction=direction,
-                story_beat=beat_name
+                story_beat=beat_name,
+                visual_segments=visual_segments
             ))
         
         return directed_scenes
@@ -213,7 +214,7 @@ class DirectorAgent:
         prev_scene: Optional[Scene],
         next_scene: Optional[Scene],
         is_peak: bool
-    ) -> CinematicDirection:
+    ) -> tuple[CinematicDirection, List["VisualSegment"]]:
         """Generate cinematic direction for a single scene using LLM"""
         
         # Create prompt for LLM
@@ -245,7 +246,34 @@ class DirectorAgent:
                 director_notes=direction_data.get("director_notes", "Standard direction")
             )
             
-            return direction
+            # TICKET-035: Extract visual segments with detailed prompts
+            visual_segments_data = direction_data.get("visual_segments", [])
+            visual_segments = []
+            
+            # If LLM returned segments, use them to update the original segments
+            if visual_segments_data and hasattr(scene, 'content') and scene.content:
+                # We expect the LLM to return a list of prompts corresponding to the input segments
+                for i, segment_data in enumerate(visual_segments_data):
+                    if i < len(scene.content):
+                        original_segment = scene.content[i]
+                        # Create a new VisualSegment with the enhanced prompt
+                        from src.models.models import VisualSegment
+                        new_segment = VisualSegment(
+                            segment_text=original_segment.segment_text,
+                            image_prompt=segment_data.get("image_prompt", original_segment.image_prompt)
+                        )
+                        visual_segments.append(new_segment)
+            
+            # If no segments returned or mismatch, fallback to using enhanced_image_prompt for all
+            if not visual_segments and hasattr(scene, 'content') and scene.content:
+                 from src.models.models import VisualSegment
+                 for segment in scene.content:
+                     visual_segments.append(VisualSegment(
+                         segment_text=segment.segment_text,
+                         image_prompt=direction.enhanced_image_prompt # Use the main enhanced prompt as fallback
+                     ))
+
+            return direction, visual_segments
             
         except Exception as e:
             logger.warning("LLM direction generation failed, using fallback", error=str(e))
@@ -308,23 +336,37 @@ Create detailed cinematic direction for this scene that:
     "narrative_function": "Hook viewer with mystery",
     "connection_from_previous": "Continues momentum from wide shot",
     "connection_to_next": "Sets up reveal by building tension",
-    "enhanced_image_prompt": "Medium close-up of character, positioned on left third, dramatic side lighting creating shadows, mysterious expression, slightly low angle suggesting hidden knowledge. Photorealistic, professional photography, 8k uhd.",
-    "enhanced_video_prompt": "Start: Character's face in shadow, mysterious expression. Action: Slow push-in over 5 seconds, light gradually reveals face. Emotion: Building intrigue and tension. Purpose: Hook viewer with mystery, set up for revelation in next scene. Camera: Smooth dolly push-in, slight upward drift. End: Tight on eyes, ready for cut to wide reveal.",
-    "director_notes": "This shot hooks the viewer with mystery. The low angle and dramatic lighting suggest hidden knowledge. The slow push-in builds tension, ending tight on the eyes to create anticipation for the next scene's reveal."
+    "enhanced_image_prompt": "Medium close-up of character...",
+    "visual_segments": [
+        {{
+            "image_prompt": "Detailed prompt for segment 1..."
+        }},
+        {{
+            "image_prompt": "Detailed prompt for segment 2..."
+        }}
+    ],
+    "enhanced_video_prompt": "Start: Character's face...",
+    "director_notes": "This shot hooks the viewer..."
 }}
+
+**IMPORTANT:**
+The input scene has {len(scene.content) if hasattr(scene, 'content') and scene.content else 0} visual segments.
+You MUST provide a 'visual_segments' list in the JSON output with exactly {len(scene.content) if hasattr(scene, 'content') and scene.content else 0} items.
+Each item should have an 'image_prompt' that corresponds to the segment's text but adds your cinematic direction.
+
 
 Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and MEANING.
 """
         
         return prompt
     
-    def _create_fallback_scene_direction(self, scene: Scene, emotion: str) -> CinematicDirection:
+    def _create_fallback_scene_direction(self, scene: Scene, emotion: str) -> tuple[CinematicDirection, List["VisualSegment"]]:
         """Create basic direction when LLM fails"""
         
         # Use emotion-to-visual mapping
         visual_guide = EMOTION_TO_VISUAL.get(emotion, EMOTION_TO_VISUAL["calm"])
         
-        return CinematicDirection(
+        direction = CinematicDirection(
             shot_type=visual_guide["shot_type"],
             camera_movement=visual_guide["camera_movement"],
             camera_angle=visual_guide["camera_angle"],
@@ -336,6 +378,18 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
             enhanced_video_prompt=scene.video_prompt,
             director_notes=f"Fallback direction for {emotion} emotion"
         )
+        
+        # Create fallback segments
+        visual_segments = []
+        if hasattr(scene, 'content') and scene.content:
+             from src.models.models import VisualSegment
+             for segment in scene.content:
+                 visual_segments.append(VisualSegment(
+                     segment_text=segment.segment_text,
+                     image_prompt=scene.image_create_prompt # Fallback to main prompt
+                 ))
+                 
+        return direction, visual_segments
     
     def _ensure_visual_continuity(self, directed_scenes: List[DirectedScene]) -> List[DirectedScene]:
         """Ensure visual continuity between scenes"""
@@ -376,11 +430,12 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
         
         directed_scenes = []
         for scene in script.scenes:
-            direction = self._create_fallback_scene_direction(scene, "calm")
+            direction, visual_segments = self._create_fallback_scene_direction(scene, "calm")
             directed_scenes.append(DirectedScene(
                 original_scene=scene,
                 direction=direction,
-                story_beat="Standard"
+                story_beat="Standard",
+                visual_segments=visual_segments
             ))
         
         return DirectedScript(

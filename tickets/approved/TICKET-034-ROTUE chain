@@ -1,0 +1,130 @@
+Feature Ticket: Implement LangChain Router (RunnableBranch) for Script Writer
+Priority: High Component: Backend / Script Writer Agent Tech Stack: Python, LangChain (LCEL), Pydantic
+
+1. Context & Objective
+Current State: The Script Writer uses a single, monolithic prompt for all video categories. This causes "style bleed"—where serious "News" stories accidentally get generated with "Cartoon" visual prompts because the AI defaults to a generic style.
+
+Target State: Implement a LangChain Router (RunnableBranch) that dynamically selects a specialized System Prompt based on the user's category input.
+
+Real Story / News → Routes to a "Documentary Director" persona (Enforced 8K Photorealism).
+
+Educational → Routes to a "Motion Graphics Artist" persona (Enforced 3D Isometric/Clean).
+
+Fiction → Routes to a "Creative Director" persona (Stylized Art).
+
+2. Architecture Design
+We are moving from a linear chain to a branching chain. The LLM and OutputParser remain shared, but the PromptTemplate changes dynamically.
+
+Flow: Input ({category, subject...}) → Router → Selects Specific Prompt Template → LLM → Pydantic Parser → JSON Output
+
+3. Implementation Details
+A. Define Specialized Prompts
+Create three distinct prompt templates. These replace the massive dynamic_prompt we used before.
+
+1. REAL_STORY_PROMPT (News & Real Story)
+
+Persona: "You are a BBC/Netflix Documentary Director." Visual Rules: "Strictly 8K Photorealism. DO NOT use terms like 'cartoon', 'illustration', or 'vector'. Describe camera lenses (35mm), lighting (cinematic), and textures (pores, dust)." Tone: Serious, Investigative, Dramatic.
+
+2. EDUCATIONAL_PROMPT (Educational & Explainer)
+
+Persona: "You are a Lead Animator for a high-end Tech Explainer channel (like Kurzgesagt or Apple)." Visual Rules: "Use 3D Isometric Renders, Clean Vector Art, or Modern Motion Graphics. White/Clean backgrounds. Focus on clarity." Tone: Clear, Encouraging, authoritative.
+
+3. CREATIVE_PROMPT (Fiction & Fun)
+
+Persona: "You are a Movie Director." Visual Rules: "Artistic freedom allowed. Cyberpunk, Watercolor, Noir, or Disney-style 3D." Tone: Entertaining, Emotional.
+
+B. The Router Logic (Python Code)
+Use RunnableBranch to route the input to the correct prompt template.
+
+Python
+
+from langchain_core.runnables import RunnableBranch
+from langchain.prompts import PromptTemplate
+from src.models.models import VideoScript
+
+# 1. Setup Parser (Shared across all routes)
+parser = PydanticOutputParser(pydantic_object=VideoScript)
+format_instructions = parser.get_format_instructions()
+
+# 2. Define the Branch Prompts
+# Note: Ensure all templates accept the same input variables: {subject, language, max_video_scenes}
+real_story_template = PromptTemplate.from_template(
+    """You are a Documentary Director... 
+    [Insert Strict Photorealism Rules Here]
+    ...
+    {format_instructions}
+    """
+)
+
+educational_template = PromptTemplate.from_template(
+    """You are an Educational Content Creator...
+    [Insert 3D/Clean Visual Rules Here]
+    ...
+    {format_instructions}
+    """
+)
+
+default_template = PromptTemplate.from_template(
+    """You are a General Video Creator...
+    ...
+    {format_instructions}
+    """
+)
+
+# 3. Create the Router
+# This logic checks the 'category' input and returns the correct Prompt Object
+prompt_router = RunnableBranch(
+    (lambda x: x["category"] in ["Real Story", "News"], real_story_template),
+    (lambda x: x["category"] in ["Educational", "Explainer"], educational_template),
+    default_template  # Fallback for Fiction or Auto
+)
+
+# 4. Build the Final Chain
+# Input -> Router (Selects Prompt) -> LLM -> Parser
+script_writer_chain = (
+    {
+        "subject": lambda x: x["subject"],
+        "language": lambda x: x["language"],
+        "max_video_scenes": lambda x: x["max_video_scenes"],
+        "category": lambda x: x["category"],
+        "format_instructions": lambda x: format_instructions
+    }
+    | prompt_router
+    | llm
+    | parser
+)
+4. Specific Visual Requirements per Route
+Please copy these exact requirements into the respective prompt templates to ensure the image generation agent receives high-quality instructions.
+
+For REAL_STORY_PROMPT:
+
+Markdown
+
+## VISUAL STYLE ENFORCEMENT (STRICT)
+- **Style**: Hyper-Realistic, Cinematic 8K, Shot on ARRI Alexa.
+- **Forbidden**: Cartoons, 3D characters, Anime, Vectors.
+- **Image Prompts Must Include**: "Depth of field", "Film grain", "Natural lighting", "Skin texture".
+- **Example Prompt**: "A hyper-realistic close-up of a bank vault door, rusty metal texture, dim dramatic lighting, cinematic composition, shot on 50mm lens."
+For EDUCATIONAL_PROMPT:
+
+Markdown
+
+## VISUAL STYLE ENFORCEMENT (STRICT)
+- **Style**: High-end 3D Isometric Render (Blender/Octane) OR Modern Vector Flat Design.
+- **Forbidden**: Gritty realism, messy backgrounds, disturbing imagery.
+- **Image Prompts Must Include**: "Soft studio lighting", "Clean background", "Vibrant colors", "Minimalist".
+- **Example Prompt**: "A clean 3D isometric render of a bank vault, floating coins, soft pastel blue background, soft shadows, high quality Octane render."
+5. Acceptance Criteria
+Routing Verification:
+
+Input category="News" must trigger the REAL_STORY_PROMPT. The resulting script must have global_visual_style set to "Hyper-Realistic" (or similar).
+
+Input category="Educational" must trigger EDUCATIONAL_PROMPT. The resulting script must have global_visual_style set to "3D Isometric" or "Modern Vector".
+
+Output Integrity:
+
+Regardless of the route, the output must be a valid JSON matching the VideoScript Pydantic model.
+
+Visual Quality Check:
+
+"News" scripts must NOT generate image prompts containing words like "cartoon", "illustration", or "Pixar-style".
