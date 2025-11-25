@@ -224,8 +224,23 @@ class DirectorAgent:
             # Call LLM (Gemini doesn't support response_format, we rely on prompt instructions)
             response = self.llm.invoke(prompt)
             
+            # Extract JSON from response (handle markdown code blocks)
+            content = response.content.strip()
+            
+            # Try to extract JSON from markdown code blocks
+            if "```json" in content:
+                # Extract content between ```json and ```
+                json_start = content.find("```json") + 7
+                json_end = content.find("```", json_start)
+                content = content[json_start:json_end].strip()
+            elif "```" in content:
+                # Extract content between ``` and ```
+                json_start = content.find("```") + 3
+                json_end = content.find("```", json_start)
+                content = content[json_start:json_end].strip()
+            
             # Parse response
-            direction_data = json.loads(response.content)
+            direction_data = json.loads(content)
             
             # Create CinematicDirection object
             direction = CinematicDirection(
