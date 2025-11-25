@@ -8,6 +8,7 @@ from typing import List, Dict, Optional
 import requests
 
 from src.models.models import Scene, ImageStyle
+from src.agents.director.models import DirectedScript, DirectedScene
 from src.core.config import settings
 from src.agents.image_gen.gemini_image_client import GeminiImageClient
 
@@ -147,6 +148,58 @@ class ImageGenAgent:
                         await asyncio.sleep(wait_time)
         
         return image_paths
+
+    async def generate_images_from_directed_script(
+        self,
+        directed_script: DirectedScript,
+        workflow_id: Optional[str] = None
+    ) -> Dict[int, List[str]]:
+        """
+        Generates images for a DirectedScript using the Director's enhanced visual segments.
+        
+        TICKET-035: This method uses the Director Agent's enhanced image prompts from
+        DirectedScene.visual_segments instead of the Script Writer's basic descriptions.
+        
+        Args:
+            directed_script: DirectedScript with cinematic direction
+            workflow_id: Optional workflow ID for checkpoint saving
+            
+        Returns:
+            Dictionary mapping scene_number to list of local_file_paths
+        """
+        logger.info(
+            "Generating images from directed script",
+            scenes=len(directed_script.directed_scenes),
+            workflow_id=workflow_id
+        )
+        
+        # Create temporary Scene objects with Director's enhanced visual segments
+        # This allows us to reuse the existing generate_images infrastructure
+        enhanced_scenes = []
+        for directed_scene in directed_script.directed_scenes:
+            # Copy the original scene
+            scene = directed_scene.original_scene
+            
+            # Override content with Director's enhanced visual segments
+            if directed_scene.visual_segments:
+                # Create a new Scene with the enhanced segments
+                enhanced_scene = Scene(
+                    scene_number=scene.scene_number,
+                    scene_type=scene.scene_type,
+                    voice_tone=scene.voice_tone,
+                    image_style=scene.image_style,
+                    content=directed_scene.visual_segments,  # Use Director's enhanced segments
+                    elevenlabs_settings=scene.elevenlabs_settings,
+                    needs_animation=scene.needs_animation,
+                    transition_to_next=scene.transition_to_next
+                )
+                enhanced_scenes.append(enhanced_scene)
+            else:
+                # Fallback to original scene if no visual segments
+                enhanced_scenes.append(scene)
+        
+        # Delegate to existing generate_images method
+        return await self.generate_images(enhanced_scenes, workflow_id)
 
     async def _generate_scene_images(
         self, 
