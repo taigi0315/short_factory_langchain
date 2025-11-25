@@ -56,14 +56,14 @@ async def generate_script(request: ScriptGenerationRequest):
             scene.recommended_ai_video = director.recommend_ai_video(directed_scene)
             scene.effect_reasoning = direction.director_notes
             
-            # Use Director's enhanced prompts (for display/debugging)
-            scene.image_create_prompt = direction.enhanced_image_prompt
-            if direction.enhanced_video_prompt:
-                scene.video_prompt = direction.enhanced_video_prompt
-            
             # TICKET-035: Update scene content with Director's enhanced visual segments
+            # Note: image_create_prompt is now a @property derived from content, so we don't set it directly
             if directed_scene.visual_segments:
                 scene.content = directed_scene.visual_segments
+            
+            # Update video_prompt if available
+            if direction.enhanced_video_prompt:
+                scene.video_prompt = direction.enhanced_video_prompt
     
     return ScriptGenerationResponse(script=script)
 

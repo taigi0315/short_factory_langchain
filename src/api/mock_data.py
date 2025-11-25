@@ -5,7 +5,7 @@ Used when LLM APIs are unavailable or keys are missing.
 from typing import List
 from src.api.schemas.stories import StoryIdeaResponse, StoryGenerationRequest
 from src.api.schemas.scripts import ScriptGenerationResponse, ScriptGenerationRequest
-from src.models.models import VideoScript, Scene, SceneType, VoiceTone, ImageStyle, TransitionType, HookTechnique, ElevenLabsSettings
+from src.models.models import VideoScript, Scene, SceneType, VoiceTone, ImageStyle, TransitionType, HookTechnique, ElevenLabsSettings, VisualSegment
 
 
 def get_mock_stories(request: StoryGenerationRequest) -> List[StoryIdeaResponse]:
@@ -41,11 +41,15 @@ def get_mock_script(request: ScriptGenerationRequest) -> ScriptGenerationRespons
         Scene(
             scene_number=1,
             scene_type=SceneType.HOOK,
-            dialogue=f"Welcome to the amazing world of {request.story_title}!",
+            content=[
+                VisualSegment(
+                    segment_text=f"Welcome to the amazing world of {request.story_title}!",
+                    image_prompt=f"Cinematic opening shot related to {request.story_title}, dramatic lighting"
+                )
+            ],
             voice_tone=VoiceTone.EXCITED,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.EXCITED),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt=f"Cinematic opening shot related to {request.story_title}, dramatic lighting, 4k",
             character_pose="welcoming gesture",
             background_description="Engaging visual environment",
             needs_animation=True,
@@ -56,11 +60,15 @@ def get_mock_script(request: ScriptGenerationRequest) -> ScriptGenerationRespons
         Scene(
             scene_number=2,
             scene_type=SceneType.EXPLANATION,
-            dialogue=f"Let me explain the key concepts of {request.story_premise}.",
+            content=[
+                VisualSegment(
+                    segment_text=f"Let me explain the key concepts of {request.story_premise}.",
+                    image_prompt=f"Friendly character explaining {request.story_premise}, warm colors"
+                )
+            ],
             voice_tone=VoiceTone.FRIENDLY,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.FRIENDLY),
             image_style=ImageStyle.CHARACTER_WITH_BACKGROUND,
-            image_create_prompt=f"Friendly character explaining {request.story_premise}, warm colors",
             character_pose="explaining gestures",
             background_description="Comfortable setting",
             needs_animation=False,
@@ -70,11 +78,15 @@ def get_mock_script(request: ScriptGenerationRequest) -> ScriptGenerationRespons
         Scene(
             scene_number=3,
             scene_type=SceneType.VISUAL_DEMO,
-            dialogue="Here's how it works in practice.",
+            content=[
+                VisualSegment(
+                    segment_text="Here's how it works in practice.",
+                    image_prompt="Visual demonstration with diagrams and examples"
+                )
+            ],
             voice_tone=VoiceTone.CURIOUS,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CURIOUS),
             image_style=ImageStyle.DIAGRAM_EXPLANATION,
-            image_create_prompt="Visual demonstration with diagrams and examples",
             character_pose="pointing at diagram",
             background_description="Educational environment",
             needs_animation=False,
@@ -84,11 +96,15 @@ def get_mock_script(request: ScriptGenerationRequest) -> ScriptGenerationRespons
         Scene(
             scene_number=4,
             scene_type=SceneType.CONCLUSION,
-            dialogue="And that's the complete story!",
+            content=[
+                VisualSegment(
+                    segment_text="And that's the complete story!",
+                    image_prompt="Satisfying conclusion shot with character smiling"
+                )
+            ],
             voice_tone=VoiceTone.CONFIDENT,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CONFIDENT),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt="Satisfying conclusion shot with character smiling",
             character_pose="confident stance",
             background_description="Uplifting environment",
             needs_animation=False,
