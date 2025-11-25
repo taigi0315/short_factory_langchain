@@ -15,7 +15,7 @@ class VideoAssemblyAgent:
     async def assemble_video(
         self, 
         script: VideoScript, 
-        image_paths: Dict[int, str], 
+        image_paths: Dict[int, List[str]], 
         audio_paths: Dict[int, str]
     ) -> str:
         """
@@ -32,23 +32,55 @@ class VideoAssemblyAgent:
                 print(f"Skipping scene {scene_num}: Missing assets")
                 continue
                 
-            image_path = image_paths[scene_num]
+            image_paths_list = image_paths[scene_num]
+            # Handle case where image_paths might be a single string (backward compatibility)
+            if isinstance(image_paths_list, str):
+                image_paths_list = [image_paths_list]
+                
             audio_path = audio_paths[scene_num]
             
             # Create Audio Clip
             audio_clip = AudioFileClip(audio_path)
-            duration = audio_clip.duration
+            total_duration = audio_clip.duration
             
-            # Create Image Clip
-            # Set duration to match audio
-            img_clip = ImageClip(image_path).with_duration(duration)
+            # Calculate durations for each image
+            num_images = len(image_paths_list)
+            image_durations = []
             
-            # Apply Effect (TICKET-030)
-            effect_name = getattr(scene, 'selected_effect', 'ken_burns_zoom_in')
-            img_clip = self._apply_effect(img_clip, effect_name, duration)
+            if num_images == 1:
+                image_durations = [total_duration]
+            else:
+                # Use provided ratios or default to equal distribution
+                ratios = scene.image_ratios
+                if not ratios or len(ratios) != num_images:
+                    # Equal distribution
+                    image_durations = [total_duration / num_images] * num_images
+                else:
+                    # Use ratios
+                    # Normalize ratios just in case
+                    total_ratio = sum(ratios)
+                    image_durations = [total_duration * (r / total_ratio) for r in ratios]
             
-            # Combine Image + Audio
-            video_clip = img_clip.with_audio(audio_clip)
+            # Create Image Clips
+            scene_clips = []
+            for i, img_path in enumerate(image_paths_list):
+                duration = image_durations[i]
+                img_clip = ImageClip(img_path).with_duration(duration)
+                
+                # Apply Effect (TICKET-030)
+                effect_name = getattr(scene, 'selected_effect', 'ken_burns_zoom_in')
+                img_clip = self._apply_effect(img_clip, effect_name, duration)
+                
+                scene_clips.append(img_clip)
+            
+            # Concatenate image clips for this scene
+            if len(scene_clips) > 1:
+                visual_clip = concatenate_videoclips(scene_clips, method="compose")
+            else:
+                visual_clip = scene_clips[0]
+            
+            # Combine Visual + Audio
+            video_clip = visual_clip.with_audio(audio_clip)
             
             # Add subtitles (simple version)
             # Note: TextClip requires ImageMagick, might be tricky on some systems.

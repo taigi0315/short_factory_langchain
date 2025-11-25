@@ -29,7 +29,7 @@ class ImageGenAgent:
         self, 
         scenes: List[Scene],
         workflow_id: Optional[str] = None
-    ) -> Dict[int, str]:
+    ) -> Dict[int, List[str]]:
         """
         Generates images for a list of scenes.
         
@@ -38,7 +38,7 @@ class ImageGenAgent:
             workflow_id: Optional workflow ID for checkpoint saving
             
         Returns:
-            Dictionary mapping scene_number to local_file_path
+            Dictionary mapping scene_number to list of local_file_paths
         """
         logger.info("Generating images for scenes", count=len(scenes), workflow_id=workflow_id)
         
@@ -72,25 +72,33 @@ class ImageGenAgent:
             for attempt in range(1, max_retries + 1):
                 try:
                     logger.info(
-                        "Generating image for scene (attempt {}/{})".format(attempt, max_retries),
+                        "Generating images for scene (attempt {}/{})".format(attempt, max_retries),
                         scene_number=scene.scene_number,
                         attempt=attempt
                     )
                     
-                    image_path = await self._generate_single_image(client, scene)
-                    image_paths[scene.scene_number] = image_path
+                    scene_image_paths = await self._generate_scene_images(client, scene)
+                    image_paths[scene.scene_number] = scene_image_paths
                     
-                    # Save checkpoint after each successful image
-                    if workflow_manager:
-                        workflow_manager.save_image(workflow_id, scene.scene_number, image_path)
+                    # Save checkpoint after each successful scene (saving the first image as representative or all?)
+                    # Workflow manager might expect a single path or we need to update it too.
+                    # For now, let's assume we save the first image path for simple checkpointing, 
+                    # or update workflow manager later. 
+                    # If we pass a list to save_image, it might break if it expects str.
+                    # Let's check workflow_manager usage. It's imported dynamically.
+                    # Assuming for now we just save the first one or skip if complex.
+                    if workflow_manager and scene_image_paths:
+                        # TODO: Update workflow manager to support list of images
+                        workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
                         logger.info("Checkpoint saved", 
                                   workflow_id=workflow_id,
                                   progress=f"{len(image_paths)}/{len(scenes)}")
                     
                     # Success! Break out of retry loop
                     logger.info(
-                        "Image generated successfully",
+                        "Images generated successfully",
                         scene_number=scene.scene_number,
+                        count=len(scene_image_paths),
                         attempt=attempt
                     )
                     break
@@ -140,66 +148,77 @@ class ImageGenAgent:
         
         return image_paths
 
-    async def _generate_single_image(
+    async def _generate_scene_images(
         self, 
         client: GeminiImageClient, 
         scene: Scene
-    ) -> str:
-        """Generate image for a single scene with caching."""
-        enhanced_prompt = self._enhance_prompt(scene)
-        model = self._select_model(scene)
+    ) -> List[str]:
+        """Generate one or more images for a single scene."""
+        prompts = []
+        if scene.image_prompts:
+            prompts = scene.image_prompts
+        else:
+            prompts = [scene.image_create_prompt]
+            
+        generated_paths = []
         
-        # Check cache
-        cache_key = self._cache_key(enhanced_prompt, model)
-        cache_path = os.path.join(self.cache_dir, f"{cache_key}.png")
-        
-        if os.path.exists(cache_path):
-            logger.info("Using cached image for scene", scene_number=scene.scene_number)
-            # Copy to output dir with scene name
-            filename = f"scene_{scene.scene_number}_{uuid.uuid4().hex[:8]}.png"
-            filepath = os.path.join(self.output_dir, filename)
-            shutil.copy(cache_path, filepath)
-            return filepath
+        for i, prompt in enumerate(prompts):
+            # Create a temporary scene object or just pass prompt to helper if refactored
+            # But _enhance_prompt takes a Scene. 
+            # We should probably refactor _enhance_prompt or just temporarily modify the scene object 
+            # (which is risky if async/parallel, but here we are sequential per scene).
+            # Better: Create a helper that takes prompt + style.
+            
+            enhanced_prompt = self._enhance_prompt_text(prompt, scene.image_style)
+            model = self._select_model(scene)
+            
+            # Check cache
+            cache_key = self._cache_key(enhanced_prompt, model)
+            cache_path = os.path.join(self.cache_dir, f"{cache_key}.png")
+            
+            if os.path.exists(cache_path):
+                logger.info("Using cached image for scene", scene_number=scene.scene_number, index=i)
+                filename = f"scene_{scene.scene_number}_{i}_{uuid.uuid4().hex[:8]}.png"
+                filepath = os.path.join(self.output_dir, filename)
+                shutil.copy(cache_path, filepath)
+                generated_paths.append(filepath)
+                continue
 
-        logger.info("Generating image for scene", scene_number=scene.scene_number)
-        logger.debug("Image prompt", prompt=enhanced_prompt)
-        
-        try:
-            # Calculate correct dimensions based on aspect ratio
-            # 9:16 (portrait) = 1080x1920
-            # 16:9 (landscape) = 1920x1080
-            if settings.IMAGE_ASPECT_RATIO == "9:16":
-                width, height = 1080, 1920
-            else:  # Default to 16:9
-                width, height = 1920, 1080
+            logger.info("Generating image for scene", scene_number=scene.scene_number, index=i)
+            logger.debug("Image prompt", prompt=enhanced_prompt)
             
-            # Generate image
-            image_url = await client.generate_image(
-                prompt=enhanced_prompt,
-                model=model,
-                width=width,
-                height=height,
-                aspect_ratio=settings.IMAGE_ASPECT_RATIO,
-            )
-            
-            # Download to cache first
-            await client.download_image(image_url, cache_path)
-            
-            # Copy to final destination
-            filename = f"scene_{scene.scene_number}_{uuid.uuid4().hex[:8]}.png"
-            filepath = os.path.join(self.output_dir, filename)
-            shutil.copy(cache_path, filepath)
-            
-            logger.info("Image saved", filepath=filepath)
-            return filepath
-            
-        except Exception as e:
-            logger.error("Image generation failed", error=str(e))
-            raise
+            try:
+                if settings.IMAGE_ASPECT_RATIO == "9:16":
+                    width, height = 1080, 1920
+                else:
+                    width, height = 1920, 1080
+                
+                image_url = await client.generate_image(
+                    prompt=enhanced_prompt,
+                    model=model,
+                    width=width,
+                    height=height,
+                    aspect_ratio=settings.IMAGE_ASPECT_RATIO,
+                )
+                
+                await client.download_image(image_url, cache_path)
+                
+                filename = f"scene_{scene.scene_number}_{i}_{uuid.uuid4().hex[:8]}.png"
+                filepath = os.path.join(self.output_dir, filename)
+                shutil.copy(cache_path, filepath)
+                
+                logger.info("Image saved", filepath=filepath)
+                generated_paths.append(filepath)
+                
+            except Exception as e:
+                logger.error("Image generation failed", error=str(e))
+                raise
+                
+        return generated_paths
 
-    def _enhance_prompt(self, scene: Scene) -> str:
+    def _enhance_prompt_text(self, base_prompt: str, style: ImageStyle) -> str:
         """Enhance the base prompt with photorealistic style and quality modifiers."""
-        base_prompt = scene.image_create_prompt or "A cinematic scene"
+        prompt = base_prompt or "A cinematic scene"
         
         # Add style modifiers based on image_style - emphasize photorealism
         style_enhancers = {
@@ -218,15 +237,19 @@ class ImageGenAgent:
         
         # Default to photorealistic cinematic if style not found
         style_suffix = style_enhancers.get(
-            scene.image_style, 
+            style, 
             "photorealistic, high quality, professional photography, realistic lighting and textures, cinematic"
         )
         
         # Add quality modifiers emphasizing realism
         quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting"
         
-        enhanced = f"{base_prompt}, {style_suffix}, {quality_suffix}"
+        enhanced = f"{prompt}, {style_suffix}, {quality_suffix}"
         return enhanced
+
+    def _enhance_prompt(self, scene: Scene) -> str:
+        """Legacy wrapper for backward compatibility if needed."""
+        return self._enhance_prompt_text(scene.image_create_prompt, scene.image_style)
 
     def _select_model(self, scene: Scene) -> str:
         """Select appropriate model based on scene requirements."""
@@ -236,25 +259,32 @@ class ImageGenAgent:
     def _cache_key(self, prompt: str, model: str) -> str:
         return hashlib.sha256(f"{prompt}:{model}".encode()).hexdigest()[:16]
 
-    async def _generate_mock_images(self, scenes: List[Scene]) -> Dict[int, str]:
+    async def _generate_mock_images(self, scenes: List[Scene]) -> Dict[int, List[str]]:
         """Generate mock images for all scenes."""
         image_paths = {}
         for scene in scenes:
-            image_paths[scene.scene_number] = await self._generate_placeholder(scene)
+            count = len(scene.image_prompts) if scene.image_prompts else 1
+            scene_paths = []
+            for i in range(count):
+                path = await self._generate_placeholder(scene, index=i)
+                scene_paths.append(path)
+            image_paths[scene.scene_number] = scene_paths
         return image_paths
 
-    async def _generate_placeholder(self, scene: Scene) -> str:
+    async def _generate_placeholder(self, scene: Scene, index: int = 0) -> str:
         """Generate a placeholder image using placehold.co."""
-        filename = f"scene_{scene.scene_number}_placeholder.png"
+        filename = f"scene_{scene.scene_number}_{index}_placeholder.png"
         filepath = os.path.join(self.output_dir, filename)
         
+        base_prompt = scene.image_prompts[index] if scene.image_prompts and index < len(scene.image_prompts) else scene.image_create_prompt
+        
         prompt_slug = (
-            scene.image_create_prompt[:20].replace(" ", "+")
-            if scene.image_create_prompt
+            base_prompt[:20].replace(" ", "+")
+            if base_prompt
             else "scene"
         )
         image_url = (
-            f"https://placehold.co/1280x720/2563eb/ffffff/png?text=Scene+{scene.scene_number}:{prompt_slug}"
+            f"https://placehold.co/1280x720/2563eb/ffffff/png?text=Scene+{scene.scene_number}-{index}:{prompt_slug}"
         )
         
         # Run synchronous requests in executor to avoid blocking async loop

@@ -151,6 +151,8 @@ class Scene(BaseModel):
     # Image related
     image_style: ImageStyle
     image_create_prompt: str = Field(description="Detailed prompt for image generation - be very specific about visual elements, lighting, composition, and style")
+    image_prompts: Optional[List[str]] = Field(default=None, description="List of image prompts for this scene. If provided, these will be used instead of image_create_prompt for multiple images.")
+    image_ratios: Optional[List[float]] = Field(default=None, description="List of duration ratios for each image in image_prompts. Must sum to approx 1.0. If not provided, equal distribution is assumed.")
     character_pose: Optional[str] = Field(default=None, description="Character pose: 'pointing', 'thinking', 'surprised'")
     background_description: Optional[str] = Field(default=None, description="Background setting description")
     
