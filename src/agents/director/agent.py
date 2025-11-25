@@ -221,11 +221,8 @@ class DirectorAgent:
         prompt = self._create_director_prompt(scene, beat_name, beat_emotion, prev_scene, next_scene, is_peak)
         
         try:
-            # Call LLM with JSON mode
-            response = self.llm.invoke(
-                prompt,
-                response_format={"type": "json_object"}
-            )
+            # Call LLM (Gemini doesn't support response_format, we rely on prompt instructions)
+            response = self.llm.invoke(prompt)
             
             # Parse response
             direction_data = json.loads(response.content)
