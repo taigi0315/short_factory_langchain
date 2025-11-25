@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, computed_field
 from typing import List, Literal, Optional
 from enum import Enum
 import logging
@@ -180,19 +180,21 @@ class Scene(BaseModel):
     # VideoEffectAgent recommendations (TICKET-025)
     recommended_effect: Optional[str] = Field(default=None, description="AI-recommended video effect")
     recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
-    recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
     effect_reasoning: Optional[str] = Field(default=None, description="Reasoning for effect recommendation")
 
+    @computed_field
     @property
     def dialogue(self) -> str:
         """Derived full dialogue from segments"""
         return " ".join([seg.segment_text for seg in self.content])
 
+    @computed_field
     @property
     def image_prompts(self) -> List[str]:
         """Derived list of image prompts"""
         return [seg.image_prompt for seg in self.content]
     
+    @computed_field
     @property
     def image_create_prompt(self) -> str:
         """Backward compatibility: return first image prompt"""
