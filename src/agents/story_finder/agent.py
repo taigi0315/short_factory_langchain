@@ -1,8 +1,16 @@
 import os
 import logging
 import uuid
+from typing import Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
-from src.agents.story_finder.prompts import STORY_FINDER_TEMPLATE, story_parser
+from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_core.runnables import RunnableBranch, RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
+
+from src.agents.story_finder.prompts import (
+    NEWS_PROMPT, REAL_STORY_PROMPT, EDUCATIONAL_PROMPT, 
+    FICTION_PROMPT, DEFAULT_PROMPT, story_parser
+)
 from src.agents.story_finder.models import StoryList, StoryIdea
 from src.core.config import settings
 
@@ -34,8 +42,23 @@ class StoryFinderAgent:
                 request_timeout=30.0,  # 30 second timeout
             )
             
-            # Build the chain
-            self.chain = STORY_FINDER_TEMPLATE | self.llm | story_parser
+            # Initialize Search Tool (Tavily)
+            self.search_tool = None
+            if settings.TAVILY_API_KEY:
+                try:
+                    self.search_tool = TavilySearchResults(
+                        tavily_api_key=settings.TAVILY_API_KEY,
+                        max_results=3
+                    )
+                    logger.info("✅ Tavily Search Tool initialized")
+                except Exception as e:
+                    logger.error(f"⚠️ Failed to initialize Tavily Search Tool: {e}. Search will be disabled.")
+                    self.search_tool = None
+            else:
+                logger.warning("⚠️ TAVILY_API_KEY not found. Search capabilities disabled.")
+
+            # Build the dynamic chain
+            self.chain = self._build_chain()
             logger.info(f"StoryFinderAgent initialized successfully. Model: {settings.llm_model_name}")
             
         else:
@@ -43,13 +66,97 @@ class StoryFinderAgent:
             self.llm = None
             self.chain = None
 
-    def find_stories(self, subject: str, num_stories: int = 5) -> StoryList:
+    def _build_chain(self):
+        """Build the dynamic router chain."""
+        
+        # 1. Search Step (Conditional)
+        def search_step(inputs):
+            category = inputs.get("category", "").lower()
+            subject = inputs.get("subject", "")
+            
+            # Skip search for Fiction or if no tool available
+            if category == "fiction" or not self.search_tool:
+                return ""
+            
+            # Perform search
+            try:
+                logger.info(f"Searching web for: {subject} ({category})")
+                # Optimize query based on category
+                if category == "news":
+                    query = f"{subject} news last 10 days"
+                else:
+                    query = f"{subject} {category} stories controversy facts"
+                results = self.search_tool.invoke(query)
+                return str(results)
+            except Exception as e:
+                logger.error(f"Search failed: {e}")
+                return ""
+
+        # 2. Define Branching Logic for Prompts
+        # Each branch is: (condition_callable, runnable_chain)
+        
+        # News Chain
+        news_chain = (
+            NEWS_PROMPT 
+            | self.llm 
+            | story_parser
+        )
+        
+        # Real Story Chain
+        real_story_chain = (
+            REAL_STORY_PROMPT 
+            | self.llm 
+            | story_parser
+        )
+        
+        # Educational Chain
+        educational_chain = (
+            EDUCATIONAL_PROMPT 
+            | self.llm 
+            | story_parser
+        )
+        
+        # Fiction Chain
+        fiction_chain = (
+            FICTION_PROMPT 
+            | self.llm 
+            | story_parser
+        )
+        
+        # Default Chain
+        default_chain = (
+            DEFAULT_PROMPT 
+            | self.llm 
+            | story_parser
+        )
+        
+        # Router
+        branch = RunnableBranch(
+            (lambda x: x["category"].lower() == "news", news_chain),
+            (lambda x: x["category"].lower() == "real_story", real_story_chain),
+            (lambda x: x["category"].lower() == "educational", educational_chain),
+            (lambda x: x["category"].lower() == "fiction", fiction_chain),
+            default_chain
+        )
+        
+        # Full Chain
+        # We use RunnablePassthrough.assign to add 'search_context' to the inputs
+        full_chain = (
+            RunnablePassthrough.assign(search_context=search_step)
+            | branch
+        )
+        
+        return full_chain
+
+    def find_stories(self, subject: str, num_stories: int = 5, category: str = "default", mood: str = "neutral") -> StoryList:
         """
-        Generate story ideas for a given subject.
+        Generate story ideas for a given subject with dynamic routing.
         
         Args:
             subject: Topic to generate stories about
             num_stories: Number of stories to generate (default: 5)
+            category: Story category (News, Real Story, Educational, Fiction)
+            mood: Desired mood
             
         Returns:
             StoryList: List of generated story ideas
@@ -65,13 +172,17 @@ class StoryFinderAgent:
                     title="Mock Story 1", 
                     summary="A mock summary for testing.", 
                     hook="Did you know this is a mock?", 
-                    keywords=["mock", "test", "story"]
+                    keywords=["mock", "test", "story"],
+                    category=category,
+                    mood=mood
                 ),
                 StoryIdea(
                     title="Mock Story 2", 
                     summary="Another mock summary.", 
                     hook="Here is another mock hook.", 
-                    keywords=["mock", "example"]
+                    keywords=["mock", "example"],
+                    category=category,
+                    mood=mood
                 ),
             ])
         
@@ -80,14 +191,16 @@ class StoryFinderAgent:
         
         logger.info(
             f"[{request_id}] Story generation started - Subject: {subject[:50]}..., "
-            f"Num stories: {num_stories}, Real LLM: {settings.USE_REAL_LLM}"
+            f"Category: {category}, Mood: {mood}, Num stories: {num_stories}"
         )
         
         try:
             # Invoke the chain
             result = self.chain.invoke({
                 "subject": subject,
-                "num_stories": num_stories
+                "num_stories": num_stories,
+                "category": category,
+                "mood": mood
             })
             
             logger.info(

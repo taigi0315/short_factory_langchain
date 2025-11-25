@@ -117,8 +117,16 @@ ShortFactoryLangChain/
 **Responsibility**: Specialized AI agents for different tasks
 
 **Key Agents**:
-- **StoryFinderAgent**: Generates creative story ideas from topics using Gemini LLM
-- **ScriptWriterAgent**: Converts stories into structured video scripts
+-### 1. Story Finder Agent | 스토리 탐색 에이전트
+
+**Purpose**: Generate engaging story ideas from topics using dynamic personas and web search.
+**Key Features**:
+- **Dynamic Routing**: Switches between "News Reporter", "Historian", "Tutor", and "Novelist" personas based on category.
+- **Web Search Integration**: Uses Tavily API to fetch real-time data for News and Real Story categories.
+- **Structured Output**: Returns title, hook, summary, and keywords.
+
+**Configuration**:
+- Requires `TAVILY_API_KEY` for search capabilities.ries into structured video scripts
 - **ImageGenAgent**: Generates images for scenes using NanoBanana API
 - **VideoGenAgent**: Creates video clips (currently mock implementation)
 

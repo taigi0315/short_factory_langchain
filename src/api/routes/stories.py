@@ -18,11 +18,12 @@ async def generate_stories(request: StoryGenerationRequest):
     # Instantiate the agent
     agent = StoryFinderAgent()
     
-    # Enhance subject with mood and category
-    enhanced_subject = f"{request.topic} (Mood: {request.mood}, Category: {request.category})"
-    
-    # Generate stories
-    story_list = agent.find_stories(enhanced_subject)
+    # Generate stories with dynamic routing
+    story_list = agent.find_stories(
+        subject=request.topic,
+        category=request.category,
+        mood=request.mood
+    )
     
     # Map internal model to API response
     return [

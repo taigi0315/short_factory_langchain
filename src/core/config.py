@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = Field(default=None, description="Google Gemini API key (used for both text and image generation)")
     OPENAI_API_KEY: Optional[str] = Field(default=None, description="OpenAI API key")
     ELEVENLABS_API_KEY: Optional[str] = Field(default=None, description="ElevenLabs voice synthesis API key")
+    TAVILY_API_KEY: Optional[str] = Field(default=None, description="Tavily Search API key")
     
     VOICE_SETTINGS_OVERRIDE: str = Field(
         default="{}",

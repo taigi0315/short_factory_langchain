@@ -1,34 +1,110 @@
 from langchain.prompts import PromptTemplate
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers import PydanticOutputParser
 from src.agents.story_finder.models import StoryList
 
-# Parser
+# Output Parser
 story_parser = PydanticOutputParser(pydantic_object=StoryList)
 
-# Prompt
-STORY_FINDER_PROMPT = """
-You are a **Creative Researcher** and **Story Hunter**.
-Your goal is to take a broad subject and find specific, interesting, and potentially viral story angles.
-We are not looking for generic information. We want "The Coffee Poop Cat" type of stories - specific, weird, surprising, or deeply educational but with a twist.
+# 1. News Prompt
+NEWS_PROMPT = PromptTemplate(
+    template="""
+You are a **Viral News Reporter**.
+Your goal is to find the most recent controversy, lawsuit, shocking event, or viral moment regarding **{subject}**.
+Do NOT summarize history. Focus on "What just happened?" or "What is everyone talking about?".
 
-## Input Subject
-{subject}
+**Search Context:**
+{search_context}
 
-## Your Task
-Generate {num_stories} unique story ideas related to this subject.
-Each story should be distinct and have a clear "hook".
+**Your Task:**
+Generate {num_stories} distinct news angles based on the search results.
+Focus on specific numbers, dates, and conflict.
 
-## Criteria for Good Stories
-1. **Specific**: Not "History of Coffee", but "How a goat herder discovered coffee".
-2. **Surprising**: "Coffee was once banned by the Pope?"
-3. **Visual Potential**: Can we show interesting images/animations?
-4. **Emotional/Intellectual Engagement**: Makes the viewer say "Wow" or "I didn't know that".
+IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
 
 {format_instructions}
-"""
+""",
+    input_variables=["subject", "num_stories", "search_context"],
+    partial_variables={"format_instructions": story_parser.get_format_instructions()}
+)
 
-STORY_FINDER_TEMPLATE = PromptTemplate(
-    template=STORY_FINDER_PROMPT,
+# 2. Real Story Prompt (Investigative)
+REAL_STORY_PROMPT = PromptTemplate(
+    template="""
+You are a **Documentary Researcher** and **Investigative Historian**.
+Your goal is to find the "Corner Story" — the obscure, weird, controversial, or mind-blowing specific detail about **{subject}** that 99% of people don't know.
+Look for:
+- The "Underdog/Revenge" angle
+- The "Villain" angle
+- The "Accidental Success" angle
+
+**Search Context:**
+{search_context}
+
+**Your Task:**
+Generate {num_stories} unique story hooks based on the search results.
+
+IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+
+{format_instructions}
+""",
+    input_variables=["subject", "num_stories", "search_context"],
+    partial_variables={"format_instructions": story_parser.get_format_instructions()}
+)
+
+# 3. Educational Prompt
+EDUCATIONAL_PROMPT = PromptTemplate(
+    template="""
+You are a **Master Tutor** and **Analogy Expert**.
+Your goal is to explain **{subject}** using perfect analogies.
+Do not give dry facts. Explain it as if teaching a 5-year-old, then a 15-year-old.
+Focus on "How it works" rather than "What happened".
+
+**Your Task:**
+Generate {num_stories} educational story concepts.
+
+IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+
+{format_instructions}
+""",
     input_variables=["subject", "num_stories"],
+    partial_variables={"format_instructions": story_parser.get_format_instructions()}
+)
+
+# 4. Fiction Prompt
+FICTION_PROMPT = PromptTemplate(
+    template="""
+You are a **Thriller Novelist**.
+Your goal is to invent a hypothetical scenario or thriller plot featuring **{subject}** as a central plot device.
+This is PURE FICTION. Be creative, dramatic, and suspenseful.
+
+**Your Task:**
+Generate {num_stories} fictional story plots.
+
+IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+
+{format_instructions}
+""",
+    input_variables=["subject", "num_stories"],
+    partial_variables={"format_instructions": story_parser.get_format_instructions()}
+)
+
+# 5. Default / Fallback Prompt
+DEFAULT_PROMPT = PromptTemplate(
+    template="""
+You are a **Viral Content Strategist** and **Trivia Hunter**.
+Your goal is to find specific, interesting, and potentially viral story angles about **{subject}**.
+Avoid generic summaries. Look for the "weird" or "surprising".
+
+**Search Context (if available):**
+{search_context}
+
+**Your Task:**
+Generate {num_stories} unique story hooks.
+
+IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+
+{format_instructions}
+""",
+    input_variables=["subject", "num_stories", "search_context"],
     partial_variables={"format_instructions": story_parser.get_format_instructions()}
 )

@@ -162,8 +162,33 @@ POST /api/agents/story-finder
       "hook": "What if computers could learn just like you did?",
       "engagement_score": 9.2
     }
-  ]
+### 1. Generate Story Ideas | 스토리 아이디어 생성
+```http
+POST /api/stories/generate
+```
+
+Generates story concepts based on a topic, category, and mood.
+
+**Request Body:**
+```json
+{
+  "topic": "string",
+  "category": "string",  // "News", "Real Story", "Educational", "Fiction", "Default"
+  "mood": "string"       // "Exciting", "Mysterious", "Informative", etc.
 }
+```
+
+**Response:**
+```json
+[
+  {
+    "title": "string",
+    "premise": "string",
+    "genre": "string",
+    "target_audience": "string",
+    "estimated_duration": "string"
+  }
+]
 ```
 
 ---

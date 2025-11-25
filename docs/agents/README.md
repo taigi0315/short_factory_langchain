@@ -33,10 +33,15 @@ Agent
 - `prompts.py` - LLM prompts and output parsers
 - `models.py` - Pydantic models for story data
 
-**Key Method**: `find_stories(subject: str, num_stories: int) -> StoryList`
+**Key Method**: `find_stories(subject: str, num_stories: int, category: str, mood: str) -> StoryList`
+
+**Features**:
+- **Dynamic Routing**: Switches personas (News, Real Story, Fiction, etc.) based on category
+- **Web Search**: Integrates Tavily Search for real-time data (News/Real Story)
+- **Context Awareness**: Adapts output style to requested mood
 
 **Mode Switching**:
-- **Real Mode**: Uses Gemini LLM to generate creative story ideas
+- **Real Mode**: Uses Gemini LLM + Tavily Search (optional)
 - **Mock Mode**: Returns predefined mock stories for testing
 
 ### 2. ScriptWriterAgent (`script_writer/`)
@@ -103,6 +108,7 @@ All agents use centralized configuration from `src/core/config.py`:
 # LLM Configuration
 USE_REAL_LLM=True                    # Enable real LLM (default: False)
 GEMINI_API_KEY=your_key_here         # Required for real LLM
+TAVILY_API_KEY=your_key_here         # Required for Story Finder search
 LLM_MODEL_NAME=gemini-1.5-flash-latest  # Model to use
 
 # Image Generation
@@ -290,6 +296,8 @@ Mock mode is determined at initialization. Changing environment variables requir
 ### External Libraries
 
 - `langchain-google-genai` - Gemini LLM integration
+- `langchain-community` - Community tools (Tavily)
+- `tavily-python` - Web search API
 - `langchain-core` - LangChain framework
 - `pydantic` - Data validation
 - `requests` - HTTP client for image downloads

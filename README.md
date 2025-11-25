@@ -218,7 +218,10 @@ graph LR
 ```
 
 **Purpose | 목적**: Generate engaging story ideas from topics
-**기능**: 주제로부터 매력적인 스토리 아이디어 생성
+**Features**:
+- **Dynamic Personas**: Adapts to News, Real Story, Fiction, Educational categories.
+- **Web Search**: Uses Tavily to find real-time facts for News/Real Stories.
+**기능**: 주제로부터 매력적인 스토리 아이디어 생성, 웹 검색 및 동적 페르소나 적용
 
 ### 2. Script Writer Agent | 스크립트 작성 에이전트
 
@@ -291,6 +294,7 @@ graph TB
 # API Keys | API 키
 GEMINI_API_KEY=your_gemini_key
 ELEVENLABS_API_KEY=your_elevenlabs_key
+TAVILY_API_KEY=your_tavily_key # Required for Story Finder search
 LUMA_API_KEY=your_luma_key  # Optional | 선택사항
 
 # Feature Flags | 기능 플래그
