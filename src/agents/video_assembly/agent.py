@@ -44,27 +44,30 @@ class VideoAssemblyAgent:
             total_duration = audio_clip.duration
             
             # Calculate durations for each image
+            # Calculate durations for each image
             num_images = len(image_paths_list)
             image_durations = []
             
-            if num_images == 1:
-                image_durations = [total_duration]
+            # TICKET-033: Dynamic Visual Segmentation
+            if hasattr(scene, 'content') and scene.content and len(scene.content) == num_images:
+                segment_texts = [seg.segment_text for seg in scene.content]
+                image_durations = self._calculate_segment_durations(total_duration, segment_texts)
             else:
-                # Use provided ratios or default to equal distribution
-                ratios = scene.image_ratios
-                if not ratios or len(ratios) != num_images:
-                    # Equal distribution
+                # Fallback: Equal distribution
+                if num_images > 0:
                     image_durations = [total_duration / num_images] * num_images
                 else:
-                    # Use ratios
-                    # Normalize ratios just in case
-                    total_ratio = sum(ratios)
-                    image_durations = [total_duration * (r / total_ratio) for r in ratios]
+                    image_durations = [total_duration] # Should not happen if image_paths_list is checked
             
             # Create Image Clips
             scene_clips = []
             for i, img_path in enumerate(image_paths_list):
-                duration = image_durations[i]
+                # Safety check for duration index
+                if i < len(image_durations):
+                    duration = image_durations[i]
+                else:
+                    duration = total_duration / num_images # Fallback
+                
                 img_clip = ImageClip(img_path).with_duration(duration)
                 
                 # Apply Effect (TICKET-030)
@@ -74,23 +77,24 @@ class VideoAssemblyAgent:
                 scene_clips.append(img_clip)
             
             # Concatenate image clips for this scene
+            # Concatenate image clips for this scene
             if len(scene_clips) > 1:
                 visual_clip = concatenate_videoclips(scene_clips, method="compose")
-            else:
+            elif len(scene_clips) == 1:
                 visual_clip = scene_clips[0]
+            else:
+                logger.error("No clips created for scene", scene_num=scene_num)
+                continue
             
             # Combine Visual + Audio
             video_clip = visual_clip.with_audio(audio_clip)
-            
-            # Add subtitles (simple version)
-            # Note: TextClip requires ImageMagick, might be tricky on some systems.
-            # For now, we'll skip subtitles to ensure stability, or add them if requested.
             
             clips.append(video_clip)
             
         if not clips:
             raise ValueError("No clips were created. Check asset generation.")
             
+        # Concatenate all clips
         # Concatenate all clips
         final_video = concatenate_videoclips(clips, method="compose")
         
@@ -225,3 +229,25 @@ class VideoAssemblyAgent:
             
         # Default / Static
         return clip
+
+    def _calculate_segment_durations(self, total_audio_duration: float, segments: List[str]) -> List[float]:
+        """
+        Calculates how long each image should be displayed based on text length.
+        """
+        # 1. Calculate lengths
+        char_counts = [len(seg) for seg in segments]
+        total_chars = sum(char_counts)
+        
+        # Edge Case: Avoid division by zero if text is empty
+        if total_chars == 0:
+            return [total_audio_duration / len(segments)] * len(segments)
+
+        durations = []
+        
+        # 2. Calculate Ratios
+        for count in char_counts:
+            ratio = count / total_chars
+            duration = total_audio_duration * ratio
+            durations.append(duration)
+            
+        return durations

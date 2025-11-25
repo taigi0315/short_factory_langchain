@@ -153,9 +153,13 @@ class ImageGenAgent:
         client: GeminiImageClient, 
         scene: Scene
     ) -> List[str]:
-        """Generate one or more images for a single scene."""
+        """Generate one or more images for a single scene based on visual segments."""
         prompts = []
-        if scene.image_prompts:
+        # Use content segments if available (TICKET-033)
+        if scene.content:
+            prompts = [seg.image_prompt for seg in scene.content]
+        # Fallback for backward compatibility or if content is empty (shouldn't happen with new prompt)
+        elif scene.image_prompts:
             prompts = scene.image_prompts
         else:
             prompts = [scene.image_create_prompt]

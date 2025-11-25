@@ -138,21 +138,25 @@ class VideoGenerationPrompt(BaseModel):
     # Purpose of video generation
     animation_purpose: str = Field(description="Why animation is needed: 'to show emotion change', 'to demonstrate concept', 'to maintain engagement'")
 
+class VisualSegment(BaseModel):
+    segment_text: str = Field(..., description="The specific portion of dialogue corresponding to this image.")
+    image_prompt: str = Field(..., description="Detailed image generation prompt for this segment.")
+
 class Scene(BaseModel):
     scene_number: int
     scene_type: SceneType
     
     # Dialogue/narration
-    dialogue: Optional[str] = Field(default=None, description="What the character will say")
+    # Content (Visual Segments)
+    content: List[VisualSegment] = Field(..., description="List of visual beats within this scene.")
+    
     text_overlay: Optional[str] = Field(default=None, description="Text to display on screen (e.g. key points, title)")
     voice_tone: VoiceTone
     elevenlabs_settings: ElevenLabsSettings
     
     # Image related
     image_style: ImageStyle
-    image_create_prompt: str = Field(description="Detailed prompt for image generation - be very specific about visual elements, lighting, composition, and style")
-    image_prompts: Optional[List[str]] = Field(default=None, description="List of image prompts for this scene. If provided, these will be used instead of image_create_prompt for multiple images.")
-    image_ratios: Optional[List[float]] = Field(default=None, description="List of duration ratios for each image in image_prompts. Must sum to approx 1.0. If not provided, equal distribution is assumed.")
+    # image_create_prompt, image_prompts, image_ratios are replaced by content
     character_pose: Optional[str] = Field(default=None, description="Character pose: 'pointing', 'thinking', 'surprised'")
     background_description: Optional[str] = Field(default=None, description="Background setting description")
     
@@ -176,7 +180,23 @@ class Scene(BaseModel):
     # VideoEffectAgent recommendations (TICKET-025)
     recommended_effect: Optional[str] = Field(default=None, description="AI-recommended video effect")
     recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
+    recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
     effect_reasoning: Optional[str] = Field(default=None, description="Reasoning for effect recommendation")
+
+    @property
+    def dialogue(self) -> str:
+        """Derived full dialogue from segments"""
+        return " ".join([seg.segment_text for seg in self.content])
+
+    @property
+    def image_prompts(self) -> List[str]:
+        """Derived list of image prompts"""
+        return [seg.image_prompt for seg in self.content]
+    
+    @property
+    def image_create_prompt(self) -> str:
+        """Backward compatibility: return first image prompt"""
+        return self.content[0].image_prompt if self.content else ""
 
     @field_validator('scene_type', mode='before')
     @classmethod
