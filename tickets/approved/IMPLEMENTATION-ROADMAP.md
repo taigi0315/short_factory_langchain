@@ -81,7 +81,7 @@ Work on tickets in this order:
    - **Success metric:** Scenes split into visual segments with synced audio.
 
 8. **TICKET-035: Refactor Agent Architecture**
-   - **Status:** 🔴 Not Started
+   - **Status:** ✅ Complete
    - **Priority:** High
    - **Effort:** 3-4 days
    - **Success metric:** Director Agent active, Script Writer specialized, full pipeline working.
