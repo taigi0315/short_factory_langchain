@@ -95,39 +95,53 @@ class StoryFinderAgent:
         # 2. Define Branching Logic for Prompts
         # Each branch is: (condition_callable, runnable_chain)
         
+        # Helper for robust parsing
+        def clean_and_parse(message):
+            text = message.content
+            # Remove markdown code blocks
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            
+            # Fix invalid escapes commonly returned by Gemini
+            text = text.replace("\\$", "$")
+            
+            return story_parser.parse(text)
+
         # News Chain
         news_chain = (
             NEWS_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
         # Real Story Chain
         real_story_chain = (
             REAL_STORY_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
         # Educational Chain
         educational_chain = (
             EDUCATIONAL_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
         # Fiction Chain
         fiction_chain = (
             FICTION_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
         # Default Chain
         default_chain = (
             DEFAULT_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
         # Router

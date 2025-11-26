@@ -704,33 +704,41 @@ class VideoGenAgent:
         try:
             # Import ImageGenAgent to generate an image first
             from src.agents.image_gen.agent import ImageGenAgent
-            
+            from src.models.models import VisualSegment
+
             # Create a scene for image generation
             scene = Scene(
                 scene_number=1,
                 scene_type=SceneType.EXPLANATION,
-                visual_description=prompt,
-                dialogue=None,
+                content=[VisualSegment(
+                    segment_text=prompt,
+                    image_prompt=prompt
+                )],
                 text_overlay=prompt,
                 voice_tone=VoiceTone.CALM,
                 elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
                 image_style=ImageStyle.CINEMATIC,
-                image_create_prompt=prompt,
                 needs_animation=False,
                 transition_to_next=TransitionType.NONE
             )
-            
+
             # Generate image
             logger.info("Generating image for text-to-video", prompt=prompt)
             image_agent = ImageGenAgent()
-            image_paths = await image_agent.generate_images([scene])
-            image_path = image_paths.get(1)
-            
-            if not image_path or not os.path.exists(image_path):
+            image_paths_dict = await image_agent.generate_images([scene])
+            image_paths_list = image_paths_dict.get(1)
+
+            if not image_paths_list or len(image_paths_list) == 0:
                 logger.warning("Image generation failed, using color placeholder")
                 image_path = "placeholder_for_text_video.jpg"
             else:
-                logger.info("Image generated successfully for text-to-video", path=image_path)
+                # Take the first image path
+                image_path = image_paths_list[0] if isinstance(image_paths_list, list) else image_paths_list
+                if not os.path.exists(image_path):
+                    logger.warning("Image file not found, using color placeholder")
+                    image_path = "placeholder_for_text_video.jpg"
+                else:
+                    logger.info("Image generated successfully for text-to-video", path=image_path)
             
             # Create video clip
             clip = await self._create_scene_clip(
@@ -769,16 +777,19 @@ class VideoGenAgent:
         logger.info("Generating video from image", image_path=image_path)
         
         try:
+            from src.models.models import VisualSegment
+
             scene = Scene(
                 scene_number=1,
                 scene_type=SceneType.EXPLANATION,
-                visual_description="Image video",
-                dialogue=None,
+                content=[VisualSegment(
+                    segment_text=prompt if prompt else "Image video",
+                    image_prompt="image"
+                )],
                 text_overlay=prompt if prompt else None,
                 voice_tone=VoiceTone.CALM,
                 elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
                 image_style=ImageStyle.CINEMATIC,
-                image_create_prompt="image",
                 needs_animation=False,
                 transition_to_next=TransitionType.NONE
             )

@@ -22,6 +22,7 @@ export default function Home() {
   const [category, setCategory] = useState('Auto');
 
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
   const [stories, setStories] = useState<StoryIdea[]>([]);
   const [selectedStory, setSelectedStory] = useState<StoryIdea | null>(null);
   const [script, setScript] = useState<any>(null);
@@ -52,6 +53,66 @@ export default function Home() {
     }
   };
 
+  const generateFullVideo = async (script: any) => {
+    try {
+      setLoading(true);
+      setLoadingStatus('🎬 Analyzing script with Director Agent...');
+
+      // Create abort controller with 30-minute timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000);
+
+      // Update status periodically during generation
+      const statusInterval = setInterval(() => {
+        const statuses = [
+          '🎨 Generating images for scenes...',
+          '🎤 Synthesizing voiceovers...',
+          '🎥 Assembling video with cinematic effects...',
+          '⚙️ Processing final render...'
+        ];
+        setLoadingStatus(statuses[Math.floor(Math.random() * statuses.length)]);
+      }, 5000);
+
+      const res = await fetch('/api/videos/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      clearInterval(statusInterval);
+
+      if (!res.ok) {
+        throw new Error('Failed to generate video');
+      }
+
+      const data = await res.json();
+
+      if (data.video_path) {
+        // Video generated successfully
+        const videoUrl = data.video_path.startsWith('/')
+          ? data.video_path
+          : `/generated_assets/videos/${data.video_path}`;
+
+        window.open(videoUrl, '_blank');
+        alert('Video generated successfully! Opening in new tab...');
+      } else {
+        throw new Error('No video path returned');
+      }
+    } catch (error: any) {
+      console.error('Failed to generate video:', error);
+      if (error.name === 'AbortError') {
+        alert('Video generation timed out after 30 minutes. The video may still be processing on the server. Please check the "Generated Assets" folder later.');
+      } else {
+        alert(`Failed to generate video: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingStatus('');
+    }
+  };
+
   const createVideo = async () => {
     if (!selectedStory) return;
 
@@ -79,8 +140,10 @@ export default function Home() {
         if (workflowMode === 'manual') {
           // Show scene editor
           setShowSceneEditor(true);
+        } else if (workflowMode === 'auto') {
+          // Auto mode: automatically generate full video
+          await generateFullVideo(data.script);
         }
-        // Auto mode continues with existing flow
       } else {
         throw new Error('No script returned');
       }
@@ -289,13 +352,13 @@ export default function Home() {
 
             <button
               onClick={createVideo}
-              disabled={!selectedStory}
-              className={`w-full py-4 rounded-xl font-bold text-lg transition-all transform duration-200 border-2 ${!selectedStory
+              disabled={!selectedStory || loading}
+              className={`w-full py-4 rounded-xl font-bold text-lg transition-all transform duration-200 border-2 ${!selectedStory || loading
                 ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
                 : 'bg-gradient-to-r from-green-600 to-teal-600 border-transparent text-white shadow-xl hover:shadow-green-500/40 hover:scale-[1.02] hover:brightness-110'
                 }`}
             >
-              Create Video 🎬
+              {loading ? 'Processing...' : 'Create Video 🎬'}
             </button>
           </div>
         )}
@@ -307,6 +370,9 @@ export default function Home() {
               <div className="bg-slate-900 p-12 rounded-2xl border border-slate-800 text-center">
                 <div className="w-20 h-20 mx-auto mb-6 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
                 <h2 className="text-3xl font-bold mb-4">Generating your video...</h2>
+                {loadingStatus && (
+                  <p className="text-lg text-blue-400 animate-pulse">{loadingStatus}</p>
+                )}
                 <p className="text-slate-400 mb-2">Creating images, voiceovers, and rendering your masterpiece.</p>
                 <p className="text-yellow-500 text-sm font-medium bg-yellow-900/20 inline-block px-4 py-2 rounded-full">
                   ⚠️ This process involves high-quality rendering and may take 10-15 minutes. Please do not close this tab.

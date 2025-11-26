@@ -58,7 +58,11 @@ class TestVideoGenerationPipeline:
         try:
             images = await image_agent.generate_images([first_scene])
             assert len(images) == 1
-            assert os.path.exists(images[first_scene.scene_number])
+            # images now returns Dict[int, List[str]]
+            image_paths = images[first_scene.scene_number]
+            assert isinstance(image_paths, list)
+            assert len(image_paths) > 0
+            assert os.path.exists(image_paths[0])
         finally:
             image_agent.mock_mode = original_mode
 
@@ -76,20 +80,29 @@ class TestVideoGenerationPipeline:
         """
         Test real image generation with NanoBanana.
         """
+        from src.models.models import VisualSegment
+
         scene = Scene(
             scene_number=999,
             scene_type=SceneType.EXPLANATION,
-            voice_tone=VoiceTone.NEUTRAL,
-            elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.NEUTRAL),
+            voice_tone=VoiceTone.CALM,
+            elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt="A futuristic robot painting a canvas, 8k, highly detailed",
+            content=[VisualSegment(
+                segment_text="A futuristic scene",
+                image_prompt="A futuristic robot painting a canvas, 8k, highly detailed"
+            )],
             needs_animation=False,
             transition_to_next=TransitionType.NONE
         )
-        
+
         images = await image_agent.generate_images([scene])
         assert len(images) == 1
-        path = images[999]
+        # images now returns Dict[int, List[str]]
+        paths = images[999]
+        assert isinstance(paths, list)
+        assert len(paths) > 0
+        path = paths[0]
         assert os.path.exists(path)
         assert path.endswith(".png")
         assert os.path.getsize(path) > 0
@@ -103,11 +116,11 @@ async def test_video_generation_mock():
     from src.agents.video_gen.agent import VideoGenAgent
     
     agent = VideoGenAgent()
-    
+
     # Test Text to Video
     prompt = "A cinematic shot of a futuristic city"
-    video_path = agent.generate_from_text(prompt)
-    
+    video_path = await agent.generate_from_text(prompt)
+
     assert video_path is not None
     assert os.path.exists(video_path)
     assert video_path.endswith(".mp4")
@@ -119,7 +132,7 @@ async def test_video_generation_mock():
         f.write(b"dummy image content")
         
     try:
-        video_path_2 = agent.generate_from_image(dummy_image, "Animate this")
+        video_path_2 = await agent.generate_from_image(dummy_image, "Animate this")
         assert video_path_2 is not None
         assert os.path.exists(video_path_2)
         assert video_path_2.endswith(".mp4")

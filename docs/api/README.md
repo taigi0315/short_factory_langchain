@@ -1,530 +1,818 @@
 # API Documentation
 
+**Last Updated:** 2025-11-25  
+**Version:** 1.0
+
 ## Overview
 
-The `src/api/` directory contains the FastAPI application that exposes HTTP endpoints for the ShortFactory platform. The API follows REST principles and provides endpoints for story generation, script writing, and development tools.
+The `src/api/` directory contains the FastAPI-based REST API that serves as the interface between the frontend and the video generation pipeline. It provides endpoints for story generation, script creation, video generation, and development utilities.
+
+### Purpose
+
+This folder implements a production-ready REST API with:
+- RESTful endpoints for all video generation stages
+- Error handling and fallback mechanisms
+- CORS support for frontend integration
+- Health checks for deployment monitoring
+- Static file serving for generated assets
+- Request validation using Pydantic schemas
+
+### When to Work Here
+
+You'll work in this folder when:
+- Adding new API endpoints
+- Modifying request/response schemas
+- Implementing new error handling strategies
+- Adding middleware or authentication
+- Debugging API-related issues
+- Integrating new frontend features
+
+---
 
 ## Architecture
 
+The API follows a **layered architecture**:
+
 ```
-src/api/
-├── main.py              # FastAPI app initialization
-├── error_handling.py    # Error handling decorators
-├── mock_data.py         # Mock data for fallback/testing
-├── routes/              # API route handlers
-│   ├── stories.py       # Story generation endpoints
-│   ├── scripts.py       # Script generation endpoints
-│   └── dev.py           # Dev Mode endpoints
-└── schemas/             # Request/response models
-    ├── stories.py
-    ├── scripts.py
-    └── dev.py
+Client Request
+    ↓
+FastAPI Router (routes/)
+    ↓
+Request Validation (schemas/)
+    ↓
+Agent Orchestration (agents/)
+    ↓
+Response Formatting (schemas/)
+    ↓
+Client Response
 ```
+
+### Key Design Patterns
+
+1. **Router-based Organization**: Endpoints grouped by resource type
+2. **Schema Validation**: Pydantic models for request/response validation
+3. **Error Handling Middleware**: Centralized exception handling
+4. **Fallback Decorators**: Graceful degradation to mock data
+5. **Static File Serving**: Direct access to generated assets
+
+---
 
 ## File Inventory
 
-### Core Files
+### Root Files
 
-#### `main.py`
-**Purpose**: FastAPI application initialization and configuration
+| File | Purpose | Key Components |
+|------|---------|----------------|
+| `main.py` | FastAPI application setup | App initialization, middleware, exception handlers |
+| `error_handling.py` | Error handling utilities | `with_fallback` decorator, error formatters |
+| `mock_data.py` | Mock data for development | Mock stories, scripts, videos |
 
-**Key Components**:
-- FastAPI app instance with metadata
-- CORS middleware configuration
-- Health check endpoint
-- Static file serving for generated assets
-- Router registration
+### Subdirectories
 
-**Startup Flow**:
-1. Create FastAPI app
-2. Add CORS middleware
-3. Register health check
-4. Mount static files (`/generated_assets`)
-5. Include routers (stories, scripts, dev)
-6. Start Uvicorn server on port 8001
+| Directory | Purpose | Files |
+|-----------|---------|-------|
+| `routes/` | API endpoint definitions | `stories.py`, `scripts.py`, `videos.py`, `dev.py`, `scene_editor.py` |
+| `schemas/` | Request/response models | Pydantic schemas for validation |
 
-#### `error_handling.py`
-**Purpose**: Centralized error handling with fallback support
+---
 
-**Decorators**:
-1. `@with_fallback(mock_data_fn)` - Catches errors and returns mock data
-2. `@strict_error_handling` - Raises HTTP exceptions without fallback
+## Key Components
 
-**Design Pattern**: Decorator pattern for consistent error handling across routes
+### 1. FastAPI Application (`main.py`)
 
-#### `mock_data.py`
-**Purpose**: Provides mock data for testing and fallback scenarios
+**Purpose**: Central application setup with middleware, exception handlers, and router registration.
 
-**Functions**:
-- `get_mock_stories(request)` - Returns mock story ideas
-- `get_mock_script(request)` - Returns mock video script
+**Key Features**:
+```python
+from fastapi import FastAPI
+from src.api.main import app
 
-### Routes
-
-#### `routes/stories.py`
-**Endpoints**:
-- `POST /api/stories/generate` - Generate story ideas
-
-**Request**:
-```json
-{
-  "topic": "coffee",
-  "mood": "Fun",
-  "category": "Real Story"
-}
+# Application metadata
+app = FastAPI(
+    title="ShortFactory API",
+    description="API for ShortFactoryLangChain video generation platform",
+    version="1.0.0"
+)
 ```
 
-**Response**:
-```json
-[
-  {
-    "title": "The Coffee Revolution",
-    "premise": "A story about...",
-    "genre": "Documentary",
-    "target_audience": "General Audience",
-    "estimated_duration": "60s"
-  }
-]
-```
-
-#### `routes/scripts.py`
-**Endpoints**:
-- `POST /api/scripts/generate` - Generate video script from story
-
-**Request**:
-```json
-{
-  "story_title": "The Coffee Revolution",
-  "story_premise": "A story about...",
-  "story_genre": "Documentary",
-  "story_audience": "General Audience",
-  "duration": "60s"
-}
-```
-
-**Response**:
-```json
-{
-  "script": {
-    "title": "The Coffee Revolution",
-    "category": "Educational",
-    "scenes": [
-      {
-        "scene_number": 1,
-        "scene_title": "hook",
-        "image_create_prompt": "...",
-        "image_style": "cinematic",
-        "dialogue": "Welcome to...",
-        "voice_tone": "enthusiastic"
-      }
-    ]
-  }
-}
-```
-
-#### `routes/dev.py`
-**Endpoints**:
-- `POST /api/dev/generate-image` - Generate single image (Dev Mode)
-- `POST /api/dev/generate-video` - Generate video (Dev Mode)
-
-**Image Generation Request**:
-```json
-{
-  "prompt": "A cinematic coffee shop",
-  "style": "Cinematic"
-}
-```
-
-**Video Generation Request**:
-```json
-{
-  "mode": "text_to_video",
-  "prompt": "A coffee brewing process",
-  "image_path": null
-}
-```
-
-## Error Handling Strategy
-
-### Two-Tier Approach
-
-1. **Production Endpoints** (`@with_fallback`):
-   - Catch all exceptions
-   - Log errors with full context
-   - Return mock data as fallback
-   - Ensure API never returns 500 errors
-
-2. **Strict Endpoints** (`@strict_error_handling`):
-   - Validate inputs (400 for bad requests)
-   - Return 500 for server errors
-   - No fallback to mock data
-
-### Example Usage
+**Middleware Stack**:
+1. **CorrelationIdMiddleware**: Adds unique request IDs for tracing
+2. **CORSMiddleware**: Enables cross-origin requests from frontend
 
 ```python
+app.add_middleware(CorrelationIdMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+**Exception Handlers**:
+- `http_exception_handler`: Formats HTTP exceptions as JSON
+- `validation_exception_handler`: Handles Pydantic validation errors
+- `global_exception_handler`: Catches all unhandled exceptions
+
+**Health Check Endpoint**:
+```python
+@app.get("/health")
+async def health_check():
+    """Health check for Cloud Run deployment"""
+    return {
+        "status": "healthy",
+        "services": {"storage": "ok"}
+    }
+```
+
+**Static File Serving**:
+```python
+app.mount("/generated_assets", 
+    StaticFiles(directory="generated_assets"), 
+    name="generated_assets"
+)
+```
+
+**Uvicorn Configuration**:
+```python
+# Long timeouts for video generation
+config = Config(
+    app="src.api.main:app",
+    host="0.0.0.0",
+    port=8001,
+    reload=True,
+    timeout_keep_alive=600,  # 10 minutes
+    timeout_graceful_shutdown=600,  # 10 minutes
+)
+```
+
+---
+
+### 2. Routes
+
+#### Stories Router (`routes/stories.py`)
+
+**Purpose**: Story idea generation and discovery.
+
+**Endpoints**:
+
+**POST `/api/stories/generate`**
+- **Description**: Generate story ideas based on topic, category, and mood
+- **Request Body**:
+  ```json
+  {
+    "topic": "artificial intelligence",
+    "category": "technology",
+    "mood": "mysterious"
+  }
+  ```
+- **Response**:
+  ```json
+  [
+    {
+      "title": "The AI That Learned to Dream",
+      "premise": "A breakthrough AI begins experiencing...",
+      "genre": "technology • mysterious",
+      "target_audience": "General",
+      "estimated_duration": "30-60s"
+    }
+  ]
+  ```
+- **Fallback**: Returns mock stories if LLM unavailable
+
+---
+
+#### Scripts Router (`routes/scripts.py`)
+
+**Purpose**: Script generation from story ideas.
+
+**Endpoints**:
+
+**POST `/api/scripts/generate`**
+- **Description**: Generate video script from story premise
+- **Request Body**:
+  ```json
+  {
+    "title": "The AI That Learned to Dream",
+    "premise": "A breakthrough AI begins experiencing...",
+    "style": "dramatic",
+    "duration": 60
+  }
+  ```
+- **Response**: Complete `VideoScript` object with scenes
+- **Fallback**: Returns mock script if LLM unavailable
+
+---
+
+#### Videos Router (`routes/videos.py`)
+
+**Purpose**: Video generation and retrieval.
+
+**Endpoints**:
+
+**POST `/api/videos/generate`**
+- **Description**: Generate complete video from script
+- **Request Body**: `VideoScript` object
+- **Response**:
+  ```json
+  {
+    "video_id": "abc123",
+    "status": "completed",
+    "video_url": "/generated_assets/videos/abc123.mp4",
+    "duration": 58.5,
+    "scenes": 8
+  }
+  ```
+- **Processing**: Orchestrates all agents (Director → Image Gen → Voice → Assembly)
+- **Timeout**: 10 minutes (configured in Uvicorn)
+
+**GET `/api/videos/{video_id}`**
+- **Description**: Retrieve video metadata and status
+- **Response**: Video information and download URL
+
+---
+
+#### Scene Editor Router (`routes/scene_editor.py`)
+
+**Purpose**: Edit individual scenes in generated scripts.
+
+**Endpoints**:
+
+**PUT `/api/scene-editor/scenes/{scene_id}`**
+- **Description**: Update scene content, prompts, or settings
+- **Request Body**: Updated scene data
+- **Response**: Updated scene object
+
+**POST `/api/scene-editor/scenes/{scene_id}/regenerate-image`**
+- **Description**: Regenerate image for a specific scene
+- **Response**: New image URL
+
+**POST `/api/scene-editor/scenes/{scene_id}/regenerate-audio`**
+- **Description**: Regenerate audio for a specific scene
+- **Response**: New audio URL
+
+---
+
+#### Dev Router (`routes/dev.py`)
+
+**Purpose**: Development and debugging utilities.
+
+**Endpoints**:
+
+**GET `/api/dev/config`**
+- **Description**: View current configuration settings
+- **Response**: Settings object (sanitized API keys)
+
+**POST `/api/dev/clear-cache`**
+- **Description**: Clear generated assets cache
+- **Response**: Success message
+
+**GET `/api/dev/logs`**
+- **Description**: Retrieve recent application logs
+- **Response**: Log entries
+
+---
+
+### 3. Error Handling (`error_handling.py`)
+
+**Purpose**: Centralized error handling with fallback mechanisms.
+
+**Key Components**:
+
+**`with_fallback` Decorator**:
+```python
 from src.api.error_handling import with_fallback
-from src.api.mock_data import get_mock_stories
 
 @router.post("/generate")
-@with_fallback(lambda req: get_mock_stories(req))
-async def generate_stories(request: StoryRequest):
-    agent = StoryFinderAgent()
-    result = agent.find_stories(request.topic)
-    return result
+@with_fallback(lambda request: get_mock_data(request))
+async def generate_content(request: Request):
+    # Try real implementation
+    return await real_implementation(request)
+    # Falls back to mock data on error
 ```
 
-### Error Flow
+**How It Works**:
+1. Attempts to execute the wrapped function
+2. If exception occurs, logs the error
+3. Calls fallback function with original request
+4. Returns fallback result
+5. In DEV_MODE, re-raises exception after fallback
 
-```
-Request → Endpoint → Agent → LLM
-                ↓ (error)
-            Log Error
-                ↓
-         Return Mock Data
-```
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# Server
-PORT=8001                    # API server port
-
-# CORS
-CORS_ORIGINS=*              # Allowed origins (use specific in prod)
-
-# Paths
-GENERATED_ASSETS_DIR=./generated_assets  # Static file directory
-```
-
-### Static Files
-
-Generated assets are served at `/generated_assets/`:
-- Images: `/generated_assets/images/scene_1_abc123.png`
-- Videos: `/generated_assets/videos/text_gen_xyz789.mp4`
-
-## Health Check
-
-### Endpoint: `GET /health`
-
-**Purpose**: Verify API and dependencies are healthy
-
-**Response (Healthy)**:
+**Error Response Format**:
 ```json
 {
-  "status": "healthy",
-  "services": {
-    "storage": "ok"
-  }
+  "detail": "Error description",
+  "message": "Detailed error message (dev mode only)",
+  "errors": [...]  // Validation errors if applicable
 }
 ```
 
-**Response (Unhealthy)**:
-```json
-{
-  "status": "unhealthy",
-  "errors": ["GEMINI_API_KEY not set"],
-  "services": {
-    "storage": "ok"
-  }
-}
+---
+
+### 4. Mock Data (`mock_data.py`)
+
+**Purpose**: Provides realistic mock data for development and testing.
+
+**Available Mocks**:
+
+**`get_mock_stories(request)`**:
+```python
+from src.api.mock_data import get_mock_stories
+
+stories = get_mock_stories(request)
+# Returns list of StoryIdeaResponse objects
 ```
 
-**HTTP Status**:
-- 200: Healthy
-- 503: Unhealthy
+**`get_mock_script(request)`**:
+```python
+from src.api.mock_data import get_mock_script
 
-## Request/Response Schemas
+script = get_mock_script(request)
+# Returns complete VideoScript object
+```
 
-### Pydantic Models
+**`get_mock_video(request)`**:
+```python
+from src.api.mock_data import get_mock_video
 
-All requests and responses use Pydantic models for validation:
+video = get_mock_video(request)
+# Returns video metadata with placeholder URL
+```
 
+**Design Decisions**:
+- Mock data matches production schema exactly
+- Includes realistic content for UI testing
+- Deterministic output for reproducible tests
+- Covers edge cases (long titles, special characters, etc.)
+
+---
+
+### 5. Schemas (`schemas/`)
+
+**Purpose**: Pydantic models for request/response validation.
+
+**Key Schema Files**:
+
+**`stories.py`**:
 ```python
 from pydantic import BaseModel, Field
 
-class StoryRequest(BaseModel):
-    topic: str = Field(..., min_length=1, max_length=500)
-    mood: str = "Neutral"
-    category: str = "General"
+class StoryGenerationRequest(BaseModel):
+    topic: str = Field(..., min_length=1, max_length=200)
+    category: str = Field(default="general")
+    mood: str = Field(default="neutral")
+
+class StoryIdeaResponse(BaseModel):
+    title: str
+    premise: str
+    genre: str
+    target_audience: str
+    estimated_duration: str
+```
+
+**`scripts.py`**:
+```python
+class ScriptGenerationRequest(BaseModel):
+    title: str
+    premise: str
+    style: str = Field(default="engaging")
+    duration: int = Field(default=60, ge=15, le=180)
+
+class ScriptResponse(BaseModel):
+    script_id: str
+    title: str
+    scenes: List[Scene]
+    total_duration: float
+```
+
+**Validation Features**:
+- Field constraints (min/max length, ranges)
+- Type validation
+- Default values
+- Custom validators
+- Nested models
+
+---
+
+## Implementation Details
+
+### Request Flow
+
+1. **Client sends request** → FastAPI receives HTTP request
+2. **Middleware processing** → CORS, correlation ID added
+3. **Schema validation** → Pydantic validates request body
+4. **Router handling** → Appropriate endpoint function called
+5. **Agent orchestration** → Agents process the request
+6. **Response formatting** → Pydantic formats response
+7. **Error handling** → Exceptions caught and formatted
+8. **Client receives response** → JSON response sent
+
+### Async/Await Pattern
+
+All endpoints use async/await for non-blocking I/O:
+
+```python
+@router.post("/generate")
+async def generate_content(request: Request):
+    # Async agent calls
+    result = await agent.process(request)
+    return result
 ```
 
 **Benefits**:
-- Automatic validation
-- Type safety
-- API documentation (OpenAPI/Swagger)
-- Serialization/deserialization
+- Concurrent request handling
+- Better resource utilization
+- Improved throughput for I/O-bound operations
 
-## Common Tasks
+### CORS Configuration
 
-### Adding a New Endpoint
-
-1. **Create schema** in `schemas/`:
-```python
-# schemas/my_feature.py
-class MyRequest(BaseModel):
-    param: str
-
-class MyResponse(BaseModel):
-    result: str
-```
-
-2. **Create route** in `routes/`:
-```python
-# routes/my_feature.py
-from fastapi import APIRouter
-router = APIRouter()
-
-@router.post("/action")
-async def my_action(request: MyRequest) -> MyResponse:
-    # implementation
-    return MyResponse(result="success")
-```
-
-3. **Register router** in `main.py`:
-```python
-from src.api.routes import my_feature
-app.include_router(my_feature.router, prefix="/api/my-feature", tags=["my-feature"])
-```
-
-### Testing Endpoints
-
-#### Using curl
-
-```bash
-# Story generation
-curl -X POST "http://localhost:8001/api/stories/generate" \
-  -H "Content-Type: application/json" \
-  -d '{"topic": "coffee", "mood": "Fun", "category": "Real Story"}'
-
-# Script generation
-curl -X POST "http://localhost:8001/api/scripts/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "story_title": "Coffee Story",
-    "story_premise": "A fun story about coffee",
-    "story_genre": "Documentary",
-    "story_audience": "General",
-    "duration": "30s"
-  }'
-```
-
-#### Using Python requests
+Current configuration allows all origins (development):
 
 ```python
-import requests
-
-response = requests.post(
-    "http://localhost:8001/api/stories/generate",
-    json={"topic": "coffee", "mood": "Fun", "category": "Real Story"}
-)
-print(response.json())
+allow_origins=["*"]  # Replace in production
 ```
 
-### Modifying Error Handling
-
-To change fallback behavior:
-
-```python
-# Option 1: Custom fallback function
-def my_fallback(request):
-    return {"custom": "fallback"}
-
-@with_fallback(my_fallback)
-async def my_endpoint(request):
-    # implementation
-    pass
-
-# Option 2: No fallback (strict mode)
-@strict_error_handling
-async def my_endpoint(request):
-    # implementation - will raise HTTPException on error
-    pass
-```
-
-## CORS Configuration
-
-### Development
-
-```python
-allow_origins=["*"]  # Allow all origins
-```
-
-### Production
-
+**Production Configuration**:
 ```python
 allow_origins=[
-    "https://shortfactory.com",
-    "https://www.shortfactory.com"
+    "https://your-frontend-domain.com",
+    "https://www.your-frontend-domain.com"
 ]
 ```
 
-## API Documentation
+### Static File Serving
 
-FastAPI automatically generates interactive API docs:
-
-- **Swagger UI**: http://localhost:8001/docs
-- **ReDoc**: http://localhost:8001/redoc
-- **OpenAPI JSON**: http://localhost:8001/openapi.json
-
-## Performance Considerations
-
-### 1. Async Endpoints
-
-All endpoints are async for better concurrency:
+Generated assets are served directly:
 
 ```python
-async def my_endpoint(request):
-    result = await some_async_operation()
-    return result
-```
-
-### 2. Background Tasks
-
-For long-running operations, consider background tasks:
-
-```python
-from fastapi import BackgroundTasks
-
-@router.post("/generate")
-async def generate(request: Request, background_tasks: BackgroundTasks):
-    background_tasks.add_task(long_running_task, request)
-    return {"status": "processing"}
-```
-
-### 3. Caching
-
-Consider adding caching for expensive operations:
-
-```python
-from functools import lru_cache
-
-@lru_cache(maxsize=100)
-def expensive_operation(param: str):
-    # cached result
-    pass
-```
-
-## Security Considerations
-
-### 1. Input Validation
-
-All inputs are validated via Pydantic:
-
-```python
-class Request(BaseModel):
-    topic: str = Field(..., min_length=1, max_length=500)
-```
-
-### 2. Rate Limiting
-
-**TODO**: Implement rate limiting for production:
-
-```python
-from slowapi import Limiter
-
-limiter = Limiter(key_func=get_remote_address)
-
-@app.post("/api/stories/generate")
-@limiter.limit("10/minute")
-async def generate_stories(request):
-    pass
-```
-
-### 3. API Keys
-
-**TODO**: Add API key authentication for production:
-
-```python
-from fastapi.security import APIKeyHeader
-
-api_key_header = APIKeyHeader(name="X-API-Key")
-
-async def verify_api_key(api_key: str = Depends(api_key_header)):
-    if api_key != settings.API_KEY:
-        raise HTTPException(status_code=403)
-```
-
-## Gotchas and Notes
-
-### 1. Async vs Sync Agents
-
-⚠️ **Important**: Mix async and sync carefully:
-
-```python
-# ImageGenAgent is async
-@router.post("/generate-image")
-async def generate_image(request):
-    agent = ImageGenAgent()
-    result = await agent.generate_images(scenes)  # await required
-    return result
-
-# StoryFinderAgent is sync
-@router.post("/generate-stories")
-async def generate_stories(request):
-    agent = StoryFinderAgent()
-    result = agent.find_stories(topic)  # no await
-    return result
-```
-
-### 2. Static File Paths
-
-Static files must use `/generated_assets/` prefix:
-
-```python
-# Correct
-video_url = "/generated_assets/videos/video.mp4"
-
-# Wrong
-video_url = "/assets/videos/video.mp4"  # 404 error
-```
-
-### 3. Error Decorator Order
-
-Decorators are applied bottom-up:
-
-```python
-@router.post("/endpoint")
-@with_fallback(mock_fn)  # Applied second
-async def my_endpoint():  # Applied first
-    pass
-```
-
-### 4. Request Body Size
-
-FastAPI has default limits. For large files, increase:
-
-```python
-app = FastAPI(
-    max_request_size=10 * 1024 * 1024  # 10MB
+app.mount("/generated_assets", 
+    StaticFiles(directory="generated_assets"),
+    name="generated_assets"
 )
 ```
+
+**URL Format**:
+```
+http://localhost:8001/generated_assets/images/scene_1.png
+http://localhost:8001/generated_assets/audio/scene_1.mp3
+http://localhost:8001/generated_assets/videos/final_video.mp4
+```
+
+---
 
 ## Dependencies
 
 ### External Libraries
 
-- `fastapi` - Web framework
-- `uvicorn` - ASGI server
-- `pydantic` - Data validation
-- `python-multipart` - Form data support
+- **fastapi**: Web framework
+- **uvicorn**: ASGI server
+- **pydantic**: Data validation
+- **asgi-correlation-id**: Request tracing
+- **python-multipart**: File upload support
 
 ### Internal Dependencies
 
-- `src/agents/*` - Agent implementations
-- `src/core/config` - Configuration
-- `src/models/models` - Shared data models
+- `src.core.config`: Configuration settings
+- `src.core.logging`: Structured logging
+- `src.agents.*`: Agent implementations
+- `src.models.models`: Shared data models
 
-## Migration Notes
+### Environment Variables
 
-### Recent Changes
+See `src.core.config` for full list. Key variables:
 
-1. **Error Handling Fix** (2025-01): Removed `extra` parameter from logging in `error_handling.py`
-2. **Dev Mode Routes** (2025-01): Added `/api/dev/generate-image` and `/api/dev/generate-video`
-3. **Static Files** (2025-01): Changed path from `/assets` to `/generated_assets`
+```bash
+# Server
+PORT=8001
+
+# Feature Flags
+USE_REAL_LLM=true
+USE_REAL_IMAGE=true
+USE_REAL_VOICE=true
+DEV_MODE=true
+
+# API Keys
+GEMINI_API_KEY=your_key
+ELEVENLABS_API_KEY=your_key
+```
 
 ---
 
-**Last Updated**: 2025-01-21
-**Version**: 1.0
+## Common Tasks
+
+### Adding a New Endpoint
+
+1. **Create/update router file** in `routes/`:
+   ```python
+   # routes/my_resource.py
+   from fastapi import APIRouter
+   
+   router = APIRouter()
+   
+   @router.post("/action")
+   async def perform_action(request: MyRequest):
+       # Implementation
+       return response
+   ```
+
+2. **Create schemas** in `schemas/`:
+   ```python
+   # schemas/my_resource.py
+   from pydantic import BaseModel
+   
+   class MyRequest(BaseModel):
+       field1: str
+       field2: int
+   
+   class MyResponse(BaseModel):
+       result: str
+   ```
+
+3. **Register router** in `main.py`:
+   ```python
+   from src.api.routes import my_resource
+   
+   app.include_router(
+       my_resource.router,
+       prefix="/api/my-resource",
+       tags=["my-resource"]
+   )
+   ```
+
+4. **Test endpoint**:
+   ```bash
+   curl -X POST http://localhost:8001/api/my-resource/action \
+     -H "Content-Type: application/json" \
+     -d '{"field1": "value", "field2": 42}'
+   ```
+
+### Adding Error Handling
+
+1. **Use `with_fallback` decorator**:
+   ```python
+   @router.post("/generate")
+   @with_fallback(lambda req: get_mock_data(req))
+   async def generate(request: Request):
+       # Implementation
+       pass
+   ```
+
+2. **Or handle manually**:
+   ```python
+   from fastapi import HTTPException
+   
+   @router.post("/generate")
+   async def generate(request: Request):
+       try:
+           result = await process(request)
+           return result
+       except ValueError as e:
+           raise HTTPException(
+               status_code=400,
+               detail=str(e)
+           )
+   ```
+
+### Testing Endpoints
+
+1. **Unit tests** in `tests/unit/test_api.py`:
+   ```python
+   from fastapi.testclient import TestClient
+   from src.api.main import app
+   
+   client = TestClient(app)
+   
+   def test_generate_stories():
+       response = client.post(
+           "/api/stories/generate",
+           json={"topic": "AI", "category": "tech"}
+       )
+       assert response.status_code == 200
+       assert len(response.json()) > 0
+   ```
+
+2. **Integration tests** with real agents:
+   ```python
+   @pytest.mark.integration
+   async def test_full_pipeline():
+       response = client.post("/api/videos/generate", json=script)
+       assert response.status_code == 200
+       assert "video_url" in response.json()
+   ```
+
+### Debugging API Issues
+
+1. **Enable detailed logging**:
+   ```python
+   import logging
+   logging.basicConfig(level=logging.DEBUG)
+   ```
+
+2. **Check request/response in logs**:
+   ```python
+   logger.debug("Request received", request=request.dict())
+   logger.debug("Response sent", response=response.dict())
+   ```
+
+3. **Use FastAPI docs**: Visit `http://localhost:8001/docs` for interactive API documentation
+
+4. **Test with curl**:
+   ```bash
+   curl -v http://localhost:8001/api/stories/generate \
+     -H "Content-Type: application/json" \
+     -d '{"topic": "test"}'
+   ```
+
+---
+
+## Gotchas and Notes
+
+### Known Issues
+
+1. **Long Request Timeouts**: Video generation can take 5-10 minutes. Ensure:
+   - Uvicorn `timeout_keep_alive` is set to 600+ seconds
+   - Frontend has appropriate timeout settings
+   - Consider implementing async job queue for production
+
+2. **CORS in Production**: Change `allow_origins=["*"]` to specific domains
+
+3. **File Upload Limits**: Default limit is 100MB (configurable in settings)
+
+4. **Static File Caching**: Browser may cache generated assets. Use cache-busting query params:
+   ```
+   /generated_assets/images/scene_1.png?v=123456
+   ```
+
+5. **Error Messages in Production**: Set `DEV_MODE=false` to hide detailed error messages
+
+### Common Mistakes
+
+1. **Forgetting async/await**:
+   ```python
+   # Wrong
+   @router.post("/generate")
+   def generate(request):  # Missing async
+       result = agent.process(request)  # Missing await
+   
+   # Correct
+   @router.post("/generate")
+   async def generate(request):
+       result = await agent.process(request)
+   ```
+
+2. **Not validating request data**:
+   ```python
+   # Wrong
+   @router.post("/generate")
+   async def generate(data: dict):  # No validation
+   
+   # Correct
+   @router.post("/generate")
+   async def generate(request: MyRequest):  # Pydantic validation
+   ```
+
+3. **Hardcoding URLs**:
+   ```python
+   # Wrong
+   return {"video_url": "http://localhost:8001/video.mp4"}
+   
+   # Correct
+   from fastapi import Request
+   return {"video_url": f"{request.base_url}generated_assets/video.mp4"}
+   ```
+
+### Performance Considerations
+
+1. **Concurrent Requests**: FastAPI handles concurrent requests well, but agents may have rate limits
+
+2. **Memory Usage**: Video generation is memory-intensive. Monitor memory usage and implement cleanup
+
+3. **Database Connections**: Use connection pooling if adding database support
+
+4. **Caching**: Consider caching LLM responses for identical requests
+
+---
+
+## Security Considerations
+
+### Current State
+
+- No authentication/authorization implemented
+- All endpoints are public
+- API keys stored in environment variables
+- CORS allows all origins
+
+### Production Recommendations
+
+1. **Add Authentication**:
+   ```python
+   from fastapi.security import HTTPBearer
+   
+   security = HTTPBearer()
+   
+   @router.post("/generate")
+   async def generate(
+       request: Request,
+       token: str = Depends(security)
+   ):
+       # Verify token
+       pass
+   ```
+
+2. **Rate Limiting**:
+   ```python
+   from slowapi import Limiter
+   
+   limiter = Limiter(key_func=get_remote_address)
+   
+   @router.post("/generate")
+   @limiter.limit("5/minute")
+   async def generate(request: Request):
+       pass
+   ```
+
+3. **Input Sanitization**: Already handled by Pydantic, but add custom validators for sensitive fields
+
+4. **HTTPS Only**: Configure reverse proxy (nginx) to enforce HTTPS
+
+5. **API Key Rotation**: Implement key rotation strategy
+
+---
+
+## Deployment
+
+### Local Development
+
+```bash
+# Start server
+python -m src.api.main
+
+# Or use uvicorn directly
+uvicorn src.api.main:app --reload --port 8001
+```
+
+### Docker Deployment
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8001"]
+```
+
+### Cloud Run Deployment
+
+```yaml
+# cloud-run.yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: shortfactory-api
+spec:
+  template:
+    spec:
+      containers:
+      - image: gcr.io/project/shortfactory-api
+        env:
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: gemini-api-key
+              key: key
+        resources:
+          limits:
+            memory: 2Gi
+            cpu: 2
+```
+
+---
+
+## Related Documentation
+
+- [Agents Documentation](../agents/README.md) - Agent implementations
+- [Core Documentation](../core/README.md) - Configuration and utilities
+- [Models Documentation](../models/README.md) - Data models
+- [Developer Guide](../DEVELOPER_GUIDE.md) - General development guide
+
+---
+
+## Future Improvements
+
+1. **WebSocket Support**: Real-time progress updates for video generation
+2. **Job Queue**: Async job processing with Celery/Redis
+3. **Database Integration**: Store scripts, videos, and user data
+4. **Authentication**: User accounts and API key management
+5. **Rate Limiting**: Prevent abuse and manage costs
+6. **Caching Layer**: Redis for LLM response caching
+7. **GraphQL API**: Alternative to REST for complex queries
+8. **API Versioning**: Support multiple API versions
+
+---
+
+**For questions or issues, see the main [Developer Guide](../DEVELOPER_GUIDE.md) or check existing tickets in `/tickets`.**

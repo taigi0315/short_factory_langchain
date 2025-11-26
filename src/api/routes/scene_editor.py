@@ -53,16 +53,18 @@ async def generate_scene_image(request: SceneImageRequest):
         
         # Generate image
         # Create a minimal scene object for image generation
-        from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings
-        
+        from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VisualSegment
+
         scene = Scene(
             scene_number=request.scene_number,
             scene_type=SceneType.EXPLANATION,  # Default
-            dialogue="",
+            content=[VisualSegment(
+                segment_text="",
+                image_prompt=request.prompt
+            )],
             voice_tone=VoiceTone.FRIENDLY,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.FRIENDLY),
             image_style=ImageStyle(request.style) if request.style else ImageStyle.CINEMATIC,
-            image_create_prompt=request.prompt,
             needs_animation=False,
             transition_to_next=TransitionType.FADE
         )
@@ -72,9 +74,15 @@ async def generate_scene_image(request: SceneImageRequest):
         
         if not image_paths or request.scene_number not in image_paths:
             raise HTTPException(status_code=500, detail="Image generation failed")
-        
-        image_path = image_paths[request.scene_number]
-        
+
+        # image_paths is now Dict[int, List[str]]
+        image_paths_list = image_paths[request.scene_number]
+        if not image_paths_list or len(image_paths_list) == 0:
+            raise HTTPException(status_code=500, detail="Image generation returned empty list")
+
+        # Take the first image path
+        image_path = image_paths_list[0] if isinstance(image_paths_list, list) else image_paths_list
+
         # Convert to URL
         relative_path = os.path.relpath(image_path, settings.GENERATED_ASSETS_DIR)
         image_url = f"/generated_assets/{relative_path}"

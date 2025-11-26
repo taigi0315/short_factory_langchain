@@ -36,18 +36,21 @@ async def generate_image(request: ImageGenerationRequest):
     )
     
     try:
-        # Agent returns dict {scene_num: path}
+        # Agent returns dict {scene_num: List[str]}
         result = await agent.generate_images([scene])
-        path = result.get(request.scene_number)
-        
-        if not path:
+        paths = result.get(request.scene_number)
+
+        if not paths or len(paths) == 0:
             raise HTTPException(status_code=500, detail="Image generation failed")
-            
+
+        # Take the first image path (for single image scenes)
+        path = paths[0] if isinstance(paths, list) else paths
+
         # Convert absolute path to relative URL for frontend
         # Assuming generated_assets is served statically
         relative_path = path.split("generated_assets/")[-1]
         url = f"/generated_assets/{relative_path}"
-        
+
         return ImageGenerationResponse(image_path=path, url=url)
         
     except Exception as e:

@@ -1,148 +1,66 @@
-# Implementation Roadmap
-**Generated:** 2025-11-22
-**Architect:** Architect Agent
+# Implementation Roadmap: Codebase Improvements
 
-## Executive Summary
-- Total tickets approved: 5
-- Estimated timeline: 1-2 weeks
-- Critical path: TICKET-016 -> TICKET-019
-- Key milestones: Audio Sync, Voice Quality, Image Ratio, AI Video Integration
+**Status**: 🟢 Ready for Execution
+**Start Date**: 2025-11-26
+**Estimated Duration**: 2-3 Weeks
 
-## Strategic Context
-This implementation plan addresses:
-1. **Video Production Quality** - 3 tickets (016, 018, 019)
-2. **Creative Intelligence** - 2 tickets (017, 020)
+This roadmap defines the sequence of execution for the approved code improvement tickets. The order is designed to minimize merge conflicts and build a solid foundation before adding complexity.
 
-### Architectural Vision
-Where we're headed:
-- **Premium Output:** Moving from "slideshows" to "AI-generated videos".
-- **Emotional Resonance:** Better voice and story structure.
-- **Platform Readiness:** Vertical video support for social media.
+## Phase 1: Foundation & Quality (Week 1)
+*Goal: Establish the structural backbone and ensure safety for future changes.*
 
-### Expected Outcomes
-After completing this roadmap:
-- Video duration perfectly matches audio.
-- Voices sound natural and emotional.
-- Images are 9:16 vertical.
-- Important scenes are real AI videos.
-- Scripts follow a professional narrative structure.
+1.  **[TICKET-036] Refactor Agent Base Class** (Critical)
+    *   *Why First?*: It changes the inheritance hierarchy of every agent. Doing this later would require rewriting code twice.
+    *   *Dependencies*: None.
+    *   *Output*: `src/agents/base_agent.py` and updated agents.
 
----
+2.  **[TICKET-041] Extract Hardcoded Config** (Medium)
+    *   *Why Second?*: The new `BaseAgent` should use the centralized settings immediately.
+    *   *Dependencies*: Can be done in parallel with 036, but best merged after.
+    *   *Output*: Updated `src/core/config.py`.
 
-## Phase 1: Foundation & Quality (Sprint 1)
-**Focus:** Core quality improvements and architectural foundations.
-**Duration:** 1 week
+3.  **[TICKET-037] Comprehensive Unit Test Suite** (Critical)
+    *   *Why Third?*: Now that the structure (`BaseAgent`) is stable, we write tests against it. Writing tests before 036 would mean rewriting them immediately.
+    *   *Dependencies*: TICKET-036.
+    *   *Output*: ~80% test coverage.
 
-### Implementation Sequence
-Work on tickets in this order:
+## Phase 2: Reliability & Standardization (Week 2)
+*Goal: Make the system robust, consistent, and easy to read.*
 
-#### Week 1
-1. **TICKET-016: Video Assembly & Audio Sync**
-   - **Status:** ✅ Complete (2025-11-22)
-   - **Priority:** Critical
-   - **Effort:** 2 days
-   - **Why first:** Foundation for all video timing. Blocks TICKET-019.
-   - **Success metric:** Zero gaps/overlaps in generated video.
+4.  **[TICKET-039] Standardize Error Handling** (High)
+    *   *Why Fourth?*: Builds upon the `BaseAgent` and `Config` work. Adds retry logic to the clean base.
+    *   *Dependencies*: TICKET-036, TICKET-041.
+    *   *Output*: `src/core/retry.py` and standardized error logs.
 
-2. **TICKET-020: Script Writer Prompt Enhancement**
-   - **Priority:** High
-   - **Effort:** 1 day
-   - **Why now:** Improves content quality immediately without code changes.
-   - **Success metric:** Scripts follow 5-part story arc.
+5.  **[TICKET-040] Add Type Hints** (High)
+    *   *Why Fifth?*: Can be done anytime, but easier once the major structural changes (Base Class, Error Handling) are in place.
+    *   *Dependencies*: None (soft dependency on 036).
+    *   *Output*: `mypy` passing.
 
-3. **TICKET-018: Image Aspect Ratio Enforcement**
-   - **Priority:** High
-   - **Effort:** 1 day
-   - **Why now:** Cost efficiency (stop generating wrong ratio).
-   - **Success metric:** 100% of images are 9:16.
+6.  **[TICKET-038] Remove Unnecessary Comments** (High)
+    *   *Why Sixth?*: Cleanup task. Best done after the code has settled to avoid "cleaning" code that gets deleted.
+    *   *Dependencies*: None.
+    *   *Output*: Cleaner codebase.
 
-4. **TICKET-017: Audio Quality & Expressiveness**
-   - **Priority:** Medium
-   - **Effort:** 1 day
-   - **Why now:** High user impact for low effort.
-   - **Success metric:** Distinct emotional tones in audio.
+## Phase 3: Performance & Validation (Week 3)
+*Goal: Optimize for scale and validate the entire system.*
 
-5. **TICKET-031: Improve Story Finder Agent Quality**
-   - **Status:** ✅ Complete (2025-11-24)
-   - **Priority:** High
-   - **Effort:** 1 day
-   - **Success metric:** Dynamic routing and search enabled for News/Real Story.
+7.  **[TICKET-042] Refactor Async Patterns** (Medium)
+    *   *Why Seventh?*: Optimization step. Requires a stable codebase to ensure we don't introduce regressions while changing I/O patterns.
+    *   *Dependencies*: TICKET-039 (Error handling needs to be async-aware).
+    *   *Output*: Non-blocking I/O.
 
-6. **TICKET-032: Support Multiple Images per Dialogue**
-   - **Status:** ✅ Complete (2025-11-24)
-   - **Priority:** Medium
-   - **Effort:** 1-2 days
-   - **Success metric:** Multiple images per scene supported.
+8.  **[TICKET-043] Integration Tests** (Medium)
+    *   *Why Last?*: Validates the final state of the system, including all refactors and optimizations.
+    *   *Dependencies*: All previous tickets.
+    *   *Output*: End-to-end confidence.
 
-7. **TICKET-033: Dynamic Visual Segmentation**
-   - **Status:** ✅ Complete (2025-11-24)
-   - **Priority:** High
-   - **Effort:** 2-3 days
-   - **Success metric:** Scenes split into visual segments with synced audio.
+## Execution Strategy
 
-8. **TICKET-035: Refactor Agent Architecture**
-   - **Status:** ✅ Complete
-   - **Priority:** High
-   - **Effort:** 3-4 days
-   - **Success metric:** Director Agent active, Script Writer specialized, full pipeline working.
-
----
-
-## Phase 2: Advanced Features (Sprint 2)
-**Focus:** AI Video Integration
-**Duration:** 1 week
-**Dependencies:** Phase 1 complete
-
-### Implementation Sequence
-
-#### Week 2
-1. **TICKET-019: AI Video Generation Integration**
-   - **Priority:** High (Strategic)
-   - **Effort:** 3-4 days
-   - **Depends on:** TICKET-016 (Sync logic)
-   - **Why later:** Complex integration, needs stable foundation.
-   - **Success metric:** "Important" scenes are rendered as video clips.
-
----
-
-## Dependency Graph
-```
-TICKET-016 (Video Assembly)
-  └─> TICKET-019 (AI Video Gen)
-
-TICKET-020 (Script Prompt)
-  └─> TICKET-019 (Better video prompts)
-
-TICKET-018 (Aspect Ratio) -> Independent
-TICKET-017 (Audio Quality) -> Independent
-```
-
-## Critical Path
-1. TICKET-016 → TICKET-019
-   Total: ~1 week
-
-## Resource Requirements
-**Skills needed:**
-- Backend engineer: 1 week (Video/Audio logic)
-- Prompt engineer: 2 days (Script/Image prompts)
-
-## Risk Management
-### High-Risk Tickets
-1. **TICKET-019 (AI Video):**
-   - **Risk:** API costs and latency.
-   - **Mitigation:** Strict "selective generation" logic.
-   - **Contingency:** Fallback to static images if API fails/timeout.
-
-2. **TICKET-016 (Sync):**
-   - **Risk:** Audio/Video desync.
-   - **Mitigation:** Unit tests for duration calculation.
-
-## Success Metrics
-### Short-term (After Phase 1)
-- Video duration = Audio duration (+/- 0.1s).
-- All images vertical.
-- Scripts have clear hooks.
-
-### Long-term (After Phase 2)
-- Hybrid video (Static + AI Video) generation working.
-- "Premium" feel achieved.
+-   **Parallelism**:
+    -   TICKET-041 (Config) and TICKET-038 (Comments) can be picked up by a second developer while TICKET-036/037 are in progress.
+    -   TICKET-040 (Type Hints) is also a good parallel task.
+-   **Checkpoints**:
+    -   After Phase 1: Full regression test (manual).
+    -   After Phase 2: Code freeze for major refactors.
+    -   After Phase 3: Performance benchmarking.
