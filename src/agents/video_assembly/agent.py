@@ -9,8 +9,17 @@ import structlog
 
 logger = structlog.get_logger()
 
-class VideoAssemblyAgent:
+from src.agents.base_agent import BaseAgent
+
+class VideoAssemblyAgent(BaseAgent):
     def __init__(self):
+        super().__init__(
+            agent_name="VideoAssemblyAgent",
+            require_llm=False
+        )
+
+    def _setup(self):
+        """Agent-specific setup."""
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "videos")
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -196,9 +205,6 @@ class VideoAssemblyAgent:
         # Create a temporary VideoScript with enhanced scenes
         enhanced_script = VideoScript(
             title=directed_script.original_script.title,
-            topic=directed_script.original_script.topic,
-            target_audience=directed_script.original_script.target_audience,
-            overall_tone=directed_script.original_script.overall_tone,
             overall_style=directed_script.original_script.overall_style,
             global_visual_style=directed_script.original_script.global_visual_style,
             main_character_description=directed_script.original_script.main_character_description,
@@ -221,18 +227,12 @@ class VideoAssemblyAgent:
         
         if effect_name == "ken_burns_zoom_in":
             # Zoom from 1.0 to 1.3
-            return clip.with_effects([
-                lambda c: c.resized(lambda t: 1 + 0.3 * t / duration)
-                           .with_position('center')
-            ])
+            return clip.resized(lambda t: 1 + 0.3 * t / duration).with_position('center')
             
         elif effect_name == "ken_burns_zoom_out":
             # Zoom from 1.3 to 1.0
             # Start zoomed in (1.3) and shrink
-            return clip.with_effects([
-                lambda c: c.resized(lambda t: 1.3 - 0.3 * t / duration)
-                           .with_position('center')
-            ])
+            return clip.resized(lambda t: 1.3 - 0.3 * t / duration).with_position('center')
             
         elif effect_name == "pan_left":
             # Pan from right to left

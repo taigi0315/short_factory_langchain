@@ -13,57 +13,47 @@ from src.agents.story_finder.prompts import (
 )
 from src.agents.story_finder.models import StoryList, StoryIdea
 from src.core.config import settings
+from src.agents.base_agent import BaseAgent
 
 # Setup logging
 logger = logging.getLogger(__name__)
 
 
-class StoryFinderAgent:
+class StoryFinderAgent(BaseAgent):
     def __init__(self):
         """
         Initialize StoryFinderAgent with API validation.
         Raises ValueError if API key is missing in real mode.
         """
-        # Validate API key if using real LLM
-        if settings.USE_REAL_LLM:
-            if not settings.GEMINI_API_KEY:
-                raise ValueError(
-                    "GEMINI_API_KEY is required when USE_REAL_LLM=true. "
-                    "Please set it in your .env file or environment variables."
-                )
-            logger.info("✅ StoryFinderAgent initializing with REAL Gemini LLM")
-            
-            # Initialize LLM with error handling and retries
-            self.llm = ChatGoogleGenerativeAI(
-                model=settings.llm_model_name,
-                google_api_key=settings.GEMINI_API_KEY,
-                temperature=0.7,
-                max_retries=3,  # Retry failed requests
-                request_timeout=30.0,  # 30 second timeout
-            )
-            
-            # Initialize Search Tool (Tavily)
-            self.search_tool = None
-            if settings.TAVILY_API_KEY:
-                try:
-                    self.search_tool = TavilySearchResults(
-                        tavily_api_key=settings.TAVILY_API_KEY,
-                        max_results=3
-                    )
-                    logger.info("✅ Tavily Search Tool initialized")
-                except Exception as e:
-                    logger.error(f"⚠️ Failed to initialize Tavily Search Tool: {e}. Search will be disabled.")
-                    self.search_tool = None
-            else:
-                logger.warning("⚠️ TAVILY_API_KEY not found. Search capabilities disabled.")
+        super().__init__(
+            agent_name="StoryFinderAgent",
+            temperature=0.7,
+            max_retries=3,
+            request_timeout=30.0
+        )
 
-            # Build the dynamic chain
+    def _setup(self):
+        """Agent-specific setup."""
+        # Initialize Search Tool (Tavily)
+        self.search_tool = None
+        if not self.mock_mode and settings.TAVILY_API_KEY:
+            try:
+                self.search_tool = TavilySearchResults(
+                    tavily_api_key=settings.TAVILY_API_KEY,
+                    max_results=3
+                )
+                logger.info("✅ Tavily Search Tool initialized")
+            except Exception as e:
+                logger.error(f"⚠️ Failed to initialize Tavily Search Tool: {e}. Search will be disabled.")
+                self.search_tool = None
+        elif not self.mock_mode:
+            logger.warning("⚠️ TAVILY_API_KEY not found. Search capabilities disabled.")
+
+        # Build the dynamic chain
+        if not self.mock_mode:
             self.chain = self._build_chain()
             logger.info(f"StoryFinderAgent initialized successfully. Model: {settings.llm_model_name}")
-            
         else:
-            logger.info("⚠️ StoryFinderAgent in MOCK mode (USE_REAL_LLM=false)")
-            self.llm = None
             self.chain = None
 
     def _build_chain(self):
@@ -98,6 +88,12 @@ class StoryFinderAgent:
         # Helper for robust parsing
         def clean_and_parse(message):
             text = message.content
+            logger.info(f"LLM Raw Output: {text}")
+            
+            if not text or text.strip().lower() == "null":
+                logger.error("LLM returned empty or null content")
+                raise ValueError("LLM returned empty or null content")
+
             # Remove markdown code blocks
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0].strip()
@@ -107,7 +103,13 @@ class StoryFinderAgent:
             # Fix invalid escapes commonly returned by Gemini
             text = text.replace("\\$", "$")
             
-            return story_parser.parse(text)
+            logger.info(f"Cleaned JSON Text: {text}")
+            
+            try:
+                return story_parser.parse(text)
+            except Exception as e:
+                logger.error(f"Parsing failed for text: {text}. Error: {e}")
+                raise
 
         # News Chain
         news_chain = (
@@ -203,6 +205,13 @@ class StoryFinderAgent:
         # Real LLM mode
         request_id = str(uuid.uuid4())[:8]
         
+        # Handle Auto Mood
+        if mood.lower() == "auto":
+            import random
+            moods = ["Suspenseful", "Inspirational", "Educational", "Humorous", "Dark/Gritty", "Upbeat"]
+            mood = random.choice(moods)
+            logger.info(f"[{request_id}] Auto mood selected: {mood}")
+
         logger.info(
             f"[{request_id}] Story generation started - Subject: {subject[:50]}..., "
             f"Category: {category}, Mood: {mood}, Num stories: {num_stories}"

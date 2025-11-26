@@ -17,6 +17,7 @@ class TestScriptWriterAgent(unittest.TestCase):
             title="Test Video",
             main_character_description="A test character",
             overall_style="Educational",
+            global_visual_style="Cinematic",
             scenes=[
                 Scene(
                     scene_number=1,
@@ -24,20 +25,55 @@ class TestScriptWriterAgent(unittest.TestCase):
                     voice_tone=VoiceTone.EXCITED,
                     elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.EXCITED),
                     image_style=ImageStyle.CINEMATIC,
-                    image_create_prompt="Test prompt",
+                    image_create_prompt="Test prompt 1",
                     needs_animation=False,
-                    transition_to_next=TransitionType.FADE
+                    transition_to_next=TransitionType.FADE,
+                    content=[]
+                ),
+                Scene(
+                    scene_number=2,
+                    scene_type=SceneType.EXPLANATION,
+                    voice_tone=VoiceTone.CALM,
+                    elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
+                    image_style=ImageStyle.CINEMATIC,
+                    image_create_prompt="Test prompt 2",
+                    needs_animation=False,
+                    transition_to_next=TransitionType.FADE,
+                    content=[]
+                ),
+                Scene(
+                    scene_number=3,
+                    scene_type=SceneType.EXPLANATION,
+                    voice_tone=VoiceTone.CALM,
+                    elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
+                    image_style=ImageStyle.CINEMATIC,
+                    image_create_prompt="Test prompt 3",
+                    needs_animation=False,
+                    transition_to_next=TransitionType.FADE,
+                    content=[]
+                ),
+                Scene(
+                    scene_number=4,
+                    scene_type=SceneType.CONCLUSION,
+                    voice_tone=VoiceTone.CONFIDENT,
+                    elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CONFIDENT),
+                    image_style=ImageStyle.CINEMATIC,
+                    image_create_prompt="Conclusion prompt",
+                    needs_animation=False,
+                    transition_to_next=TransitionType.NONE,
+                    content=[]
                 )
             ],
             conclusion=Scene(
-                scene_number=2,
+                scene_number=5,
                 scene_type=SceneType.CONCLUSION,
                 voice_tone=VoiceTone.CALM,
                 elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
                 image_style=ImageStyle.CINEMATIC,
                 image_create_prompt="Conclusion prompt",
                 needs_animation=False,
-                transition_to_next=TransitionType.NONE
+                transition_to_next=TransitionType.NONE,
+                content=[]
             ),
             music_suggestion="Happy music",
             video_description="Description",
@@ -50,7 +86,8 @@ class TestScriptWriterAgent(unittest.TestCase):
                  image_style=ImageStyle.CINEMATIC,
                  image_create_prompt="Test prompt",
                  needs_animation=False,
-                 transition_to_next=TransitionType.FADE
+                 transition_to_next=TransitionType.FADE,
+                 content=[]
             )
         )
         
@@ -59,7 +96,7 @@ class TestScriptWriterAgent(unittest.TestCase):
         agent.chain.invoke.return_value = dummy_script
         
         # Run method
-        result = agent.generate_script("coffee", max_video_scenes=1)
+        result = agent.generate_script("coffee", max_scenes=1)
         
         # Verify
         self.assertEqual(result.title, "Test Video")

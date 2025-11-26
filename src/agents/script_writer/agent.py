@@ -11,7 +11,9 @@ from src.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-class ScriptWriterAgent:
+from src.agents.base_agent import BaseAgent
+
+class ScriptWriterAgent(BaseAgent):
     # Mapping for common LLM mistakes
     VOICE_TONE_FIXES = {
         "explanation": VoiceTone.SERIOUS,
@@ -50,28 +52,19 @@ class ScriptWriterAgent:
         Initialize ScriptWriterAgent with API validation.
         Raises ValueError if API key is missing in real mode.
         """
-        # Validate API key if using real LLM
-        if settings.USE_REAL_LLM:
-            if not settings.GEMINI_API_KEY:
-                raise ValueError(
-                    "GEMINI_API_KEY is required when USE_REAL_LLM=true. "
-                    "Please set it in your .env file or environment variables."
-                )
-            logger.info("✅ ScriptWriterAgent initializing with REAL Gemini LLM")
-            
-            self.llm = ChatGoogleGenerativeAI(
-                model=settings.llm_model_name,
-                google_api_key=settings.GEMINI_API_KEY,
-                temperature=0.7,
-                max_retries=3,
-                request_timeout=30.0,
-            )
+        super().__init__(
+            agent_name="ScriptWriterAgent",
+            temperature=0.7,
+            max_retries=3,
+            request_timeout=30.0
+        )
+
+    def _setup(self):
+        """Agent-specific setup."""
+        if not self.mock_mode:
             self.chain = SCRIPT_WRITER_AGENT_TEMPLATE | self.llm | VIDEO_SCRIPT_PARSER
             logger.info(f"ScriptWriterAgent initialized successfully. Model: {settings.llm_model_name}")
-            
         else:
-            logger.info("⚠️ ScriptWriterAgent in MOCK mode (USE_REAL_LLM=false)")
-            self.llm = None
             self.chain = None
     
     def _validate_and_fix_script(self, script: VideoScript) -> VideoScript:

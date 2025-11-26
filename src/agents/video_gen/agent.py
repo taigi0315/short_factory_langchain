@@ -31,21 +31,22 @@ from src.agents.video_gen.providers.luma import LumaVideoProvider
 
 logger = structlog.get_logger()
 
-class VideoGenAgent:
+from src.agents.base_agent import BaseAgent
+
+class VideoGenAgent(BaseAgent):
     """Enhanced video generation with real images and audio."""
     
     def __init__(self):
+        super().__init__(
+            agent_name="VideoGenAgent",
+            require_llm=False
+        )
+
+    def _setup(self):
+        """Agent-specific setup."""
         # Use centralized config
-        self.use_real_video = settings.USE_REAL_LLM # Using LLM flag as proxy for "Real Mode" generally, or could use specific flag if added
-        # Actually, let's use the new settings if available, or default to True if not explicitly set
-        # But TICKET-014 said "USE_REAL_VIDEO" in config.
-        # Let's assume settings has it (we just added it).
-        # Wait, we didn't add USE_REAL_VIDEO to config.py, we added VIDEO_RESOLUTION etc.
-        # We should check if USE_REAL_VIDEO exists or just use a default.
-        # Let's check if 'USE_REAL_VIDEO' is in settings. It is not in the pydantic model we just edited.
-        # We added VIDEO_RESOLUTION, VIDEO_FPS, VIDEO_QUALITY.
-        # We should probably use USE_REAL_IMAGE and USE_REAL_VOICE as indicators, or just always try real if assets are provided.
-        # Let's assume if we are called with real assets, we generate real video.
+        # Using LLM flag as proxy for "Real Mode" generally
+        self.use_real_video = not self.mock_mode
         
         self.output_dir = Path(settings.GENERATED_ASSETS_DIR) / "videos"
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -452,11 +453,11 @@ class VideoGenAgent:
             return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
     
     def _create_title_card(self, title: str, duration: float = 3.0) -> VideoClip:
-        """Create a title card with black background and colorful centered text."""
+        """Create a title card with transparent background and colorful centered text at the top."""
         w, h = self.resolution
         
-        # Black background
-        bg = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
+        # Transparent background (so it overlays on the video)
+        # We don't need a separate bg clip if we just return the text clip
         
         # Create title text with gradient
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
@@ -480,10 +481,9 @@ class VideoGenAgent:
         max_width = int(w * 0.85)
         lines = self._wrap_text(title, font, max_width, draw)
         
-        # Calculate positioning (center of screen)
+        # Calculate positioning (Top of screen, e.g., 15% down)
         line_height = int(font_size * 1.3)
-        total_height = len(lines) * line_height
-        start_y = (h - total_height) // 2
+        start_y = int(h * 0.15)
         
         # Colorful gradient colors (vibrant pink to orange)
         colors = [
@@ -502,10 +502,10 @@ class VideoGenAgent:
             color_idx = i % len(colors)
             text_color = colors[color_idx]
             
-            # Shadow for depth
-            shadow_color = (30, 30, 30, 255)
-            for adj in range(-3, 4):
-                for adj2 in range(-3, 4):
+            # Shadow for depth (stronger shadow for visibility over video)
+            shadow_color = (0, 0, 0, 255)
+            for adj in range(-4, 5):
+                for adj2 in range(-4, 5):
                     if adj != 0 or adj2 != 0:
                         draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
             
@@ -516,10 +516,10 @@ class VideoGenAgent:
         img_np = np.array(img)
         title_clip = ImageClip(img_np, transparent=True).with_duration(duration)
         
-        # Composite over black background with fade
+        # Fade in/out
         title_clip = title_clip.with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)])
         
-        return CompositeVideoClip([bg, title_clip])
+        return title_clip
     
     def _apply_ken_burns(self, clip: VideoClip, duration: float) -> VideoClip:
         """Apply Ken Burns effect (slow zoom)."""
@@ -637,8 +637,8 @@ class VideoGenAgent:
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Smaller font size - 3% of height instead of 5%
-        font_size = int(h * 0.03)
+        # Larger font size - 4% of height (approx 30% bigger than 3%)
+        font_size = int(h * 0.04)
         
         # Load font
         try:
@@ -660,12 +660,13 @@ class VideoGenAgent:
         line_height = int(font_size * 1.2)  # 20% line spacing
         total_text_height = len(lines) * line_height
         
-        # Position at 80% from top (user requested)
-        start_y = int(h * 0.80) - (total_text_height // 2)
+        # Position at 85% from top (bottom area)
+        start_y = int(h * 0.85) - (total_text_height // 2)
         
         # Draw text with outline/shadow for visibility
         shadow_color = (0, 0, 0, 255)
-        text_color = (255, 255, 255, 255)
+        # Vibrant Yellow/Gold for subtitles
+        text_color = (255, 215, 0, 255)
         
         for i, line in enumerate(lines):
             # Center each line

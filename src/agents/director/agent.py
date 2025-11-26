@@ -45,7 +45,9 @@ CAMERA_MOVEMENT_TO_EFFECT = {
 }
 
 
-class DirectorAgent:
+from src.agents.base_agent import BaseAgent
+
+class DirectorAgent(BaseAgent):
     """
     Cinematic Director Agent
     
@@ -59,12 +61,17 @@ class DirectorAgent:
     
     def __init__(self):
         """Initialize the Director Agent"""
-        self.llm = ChatGoogleGenerativeAI(
-            model=settings.llm_model_name,
+        super().__init__(
+            agent_name="DirectorAgent",
             temperature=0.7,
-            google_api_key=settings.GEMINI_API_KEY
+            max_retries=3,
+            request_timeout=30.0
         )
-        logger.info("DirectorAgent initialized")
+    
+    def _setup(self):
+        """Agent-specific setup."""
+        # DirectorAgent only needs LLM which is initialized by BaseAgent
+        pass
     
     async def analyze_script(self, script: VideoScript) -> DirectedScript:
         """

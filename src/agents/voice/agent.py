@@ -29,17 +29,28 @@ VOICE_MAPPING = {
     VoiceTone.SARCASTIC: "2EiwWnXFnvU5JabPnv8n",
 }
 
-class VoiceAgent:
+from src.agents.base_agent import BaseAgent
+
+class VoiceAgent(BaseAgent):
     def __init__(self):
+        super().__init__(
+            agent_name="VoiceAgent",
+            require_llm=False
+        )
+
+    def _setup(self):
+        """Agent-specific setup."""
         # Use centralized config
-        self.use_real_voice = settings.USE_REAL_VOICE
+        # Override mock mode based on voice setting
+        self.mock_mode = not settings.USE_REAL_VOICE
+        
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "audio")
         os.makedirs(self.output_dir, exist_ok=True)
         
-        if self.use_real_voice:
+        if not self.mock_mode:
             if not settings.ELEVENLABS_API_KEY:
                 logger.warning("USE_REAL_VOICE is True but ELEVENLABS_API_KEY is missing. Falling back to mock.")
-                self.use_real_voice = False
+                self.mock_mode = True
                 self.client = None
             else:
                 self.client = ElevenLabsClient(settings.ELEVENLABS_API_KEY)
@@ -47,6 +58,9 @@ class VoiceAgent:
         else:
             self.client = None
             logger.info("VoiceAgent initialized in MOCK mode (gTTS)")
+            
+        # Update use_real_voice for internal logic
+        self.use_real_voice = not self.mock_mode
 
     async def generate_voiceovers(self, scenes: List[Scene]) -> Dict[int, str]:
         """
