@@ -3,7 +3,14 @@ import uuid
 from typing import Optional
 from pydantic import ValidationError
 from langchain_google_genai import ChatGoogleGenerativeAI
-from src.agents.script_writer.prompts import SCRIPT_WRITER_AGENT_TEMPLATE, VIDEO_SCRIPT_PARSER
+from langchain_core.runnables import RunnableBranch
+from src.agents.script_writer.prompts import (
+    SCRIPT_WRITER_AGENT_TEMPLATE, 
+    VIDEO_SCRIPT_PARSER,
+    REAL_STORY_TEMPLATE,
+    EDUCATIONAL_TEMPLATE,
+    CREATIVE_TEMPLATE
+)
 from src.models.models import VideoScript, VoiceTone, SceneType, ImageStyle
 from src.core.config import settings
 
@@ -62,8 +69,29 @@ class ScriptWriterAgent(BaseAgent):
     def _setup(self):
         """Agent-specific setup."""
         if not self.mock_mode:
-            self.chain = SCRIPT_WRITER_AGENT_TEMPLATE | self.llm | VIDEO_SCRIPT_PARSER
-            logger.info(f"ScriptWriterAgent initialized successfully. Model: {settings.llm_model_name}")
+            # Define the router logic
+            # Check 'category' input and return the correct Prompt Object
+            prompt_router = RunnableBranch(
+                (lambda x: x.get("category") in ["Real Story", "News"], REAL_STORY_TEMPLATE),
+                (lambda x: x.get("category") in ["Educational", "Explainer"], EDUCATIONAL_TEMPLATE),
+                CREATIVE_TEMPLATE  # Fallback for Fiction or Auto
+            )
+            
+            # Build the chain with the router
+            self.chain = (
+                {
+                    "subject": lambda x: x["subject"],
+                    "language": lambda x: x["language"],
+                    "max_video_scenes": lambda x: x["max_video_scenes"],
+                    "min_scenes": lambda x: x["min_scenes"],
+                    "category": lambda x: x.get("category", "Creative"),
+                    "format_instructions": lambda x: VIDEO_SCRIPT_PARSER.get_format_instructions()
+                }
+                | prompt_router
+                | self.llm
+                | VIDEO_SCRIPT_PARSER
+            )
+            logger.info(f"ScriptWriterAgent initialized successfully with Router. Model: {settings.llm_model_name}")
         else:
             self.chain = None
     
@@ -153,6 +181,7 @@ class ScriptWriterAgent(BaseAgent):
         self,
         subject: str,
         language: str = "English",
+        category: str = "Creative",
         max_scenes: Optional[int] = None,
         max_retries: int = 3
     ) -> VideoScript:
@@ -162,6 +191,7 @@ class ScriptWriterAgent(BaseAgent):
         Args:
             subject: Topic/story description to generate script for
             language: Language for the script (default: English)
+            category: Story category (News, Educational, Creative) for style routing
             max_scenes: Maximum number of scenes (default: settings.MAX_SCENES)
             max_retries: Maximum number of retry attempts (default: 3)
             
@@ -192,8 +222,8 @@ class ScriptWriterAgent(BaseAgent):
         
         logger.info(
             f"[{request_id}] Script generation started - Subject: {subject[:50]}..., "
-            f"Language: {language}, Min scenes: {settings.MIN_SCENES}, "
-            f"Max scenes: {max_video_scenes}"
+            f"Category: {category}, Language: {language}, "
+            f"Min scenes: {settings.MIN_SCENES}, Max scenes: {max_video_scenes}"
         )
         
         last_error = None
@@ -204,6 +234,7 @@ class ScriptWriterAgent(BaseAgent):
                 result = self.chain.invoke({
                     "subject": subject,
                     "language": language,
+                    "category": category,
                     "max_video_scenes": max_video_scenes,
                     "min_scenes": settings.MIN_SCENES
                 })
