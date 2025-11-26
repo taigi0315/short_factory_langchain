@@ -166,6 +166,7 @@ class DirectorAgent(BaseAgent):
             peak_moment=peak_scene
         )
     
+    def _map_emotional_arc(self, script: VideoScript, story_beats: EmotionalArc) -> EmotionalArc:
         """Map emotional journey through the video"""
         return story_beats
     
