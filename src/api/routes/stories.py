@@ -30,7 +30,7 @@ async def generate_stories(request: StoryGenerationRequest):
         StoryIdeaResponse(
             title=story.title,
             premise=story.summary,
-            genre=request.category,
+            genre=f"{story.category} • {story.mood}",
             target_audience="General",
             estimated_duration="30-60s"
         ) for story in story_list.stories

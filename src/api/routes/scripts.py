@@ -86,13 +86,29 @@ async def generate_script(request: ScriptGenerationRequest):
                    scene_1_content=len(first_scene.content) if first_scene.content else 0,
                    scene_1_prompt=first_scene.image_create_prompt[:50] + "..." if first_scene.image_create_prompt else "None",
                    scene_1_dialogue=first_scene.dialogue[:50] + "..." if first_scene.dialogue else "None")
+        
+        if first_scene.content:
+            first_segment = first_scene.content[0]
+            logger.info("Verifying segment type", 
+                       segment_type=type(first_segment).__name__,
+                       segment_data=str(first_segment))
 
     try:
-        return ScriptGenerationResponse(script=script)
+        logger.info("Creating ScriptGenerationResponse...")
+        response = ScriptGenerationResponse(script=script)
+        
+        logger.info("Validating response model...")
+        # Explicitly validate to catch errors here instead of letting FastAPI do it silently
+        ScriptGenerationResponse.model_validate(response)
+        
+        logger.info("Response validation successful. Returning response.")
+        return response
     except Exception as e:
         logger.error("Failed to create or serialize response",
                     error=str(e),
                     error_type=type(e).__name__,
                     exc_info=True)
-        raise
+        # Return a 500 with the specific validation error
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Response validation failed: {str(e)}")
 

@@ -14,10 +14,21 @@ from src.agents.image_gen.gemini_image_client import GeminiImageClient
 
 logger = structlog.get_logger()
 
-class ImageGenAgent:
+from src.agents.base_agent import BaseAgent
+
+class ImageGenAgent(BaseAgent):
     def __init__(self):
+        super().__init__(
+            agent_name="ImageGenAgent",
+            require_llm=False
+        )
+
+    def _setup(self):
+        """Agent-specific setup."""
         # Use centralized config
+        # Override mock mode based on image setting
         self.mock_mode = not settings.USE_REAL_IMAGE
+        
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "images")
         self.cache_dir = os.path.join(self.output_dir, "cache")
         os.makedirs(self.output_dir, exist_ok=True)
@@ -25,6 +36,18 @@ class ImageGenAgent:
         
         # API configuration - use Gemini for image generation
         self.api_key = settings.GEMINI_API_KEY
+        
+        if not self.mock_mode and not self.api_key:
+             logger.error("GEMINI_API_KEY not set. Cannot generate images in real mode.")
+             raise ValueError(
+                 "GEMINI_API_KEY is required for real image generation. "
+                 "Set USE_REAL_IMAGE=false to use mock mode, or provide a valid API key."
+             )
+        
+        logger.info(
+            "ImageGenAgent setup complete", 
+            mode="REAL" if not self.mock_mode else "MOCK"
+        )
 
     async def generate_images(
         self, 

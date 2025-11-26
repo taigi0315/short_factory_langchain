@@ -6,6 +6,18 @@ def get_enum_values(enum_class):
     """Extract all values from an Enum class"""
     return [e.value for e in enum_class]
 
+def _get_scene_description(scene_type):
+    """Get description for scene type"""
+    descriptions = {
+        'explanation': 'Character directly explains concepts (most common)',
+        'visual_demo': 'Show examples, demonstrations, processes',
+        'comparison': 'Side-by-side comparisons, before/after',
+        'story_telling': 'Narrative elements, historical context',
+        'hook': 'Opening attention-grabber only',
+        'conclusion': 'Summary and wrap-up only'
+    }
+    return descriptions.get(scene_type, 'Scene type description')
+
 def create_dynamic_prompt():
     """Create prompt template with dynamic enum values from Pydantic models"""
     
@@ -19,8 +31,18 @@ def create_dynamic_prompt():
     # Create PydanticOutputParser for VideoScript
     parser = PydanticOutputParser(pydantic_object=VideoScript)
     
-    # Dynamic prompt template with enum values
-    dynamic_prompt = f"""
+    # Example content for prompt (escaped for PromptTemplate)
+    example_content = """```json
+"content": [
+  {{
+    "segment_text": "It was a dark and stormy night...",
+    "image_prompt": "Our character looking curious and engaged, in a cozy library surrounded by books, warm and inviting atmosphere"
+  }}
+]
+```"""
+
+    # Base Prompt Structure (Shared)
+    base_prompt_structure = f"""
 # Agent 1: Video Story Generation Master
 
 You are the **Master Story Creator** for an AI video generation system. Your role is equivalent to being a **movie director, screenwriter, and creative director** all in one. You have complete creative control over the entire video experience.
@@ -32,6 +54,9 @@ You are the **Master Story Creator** for an AI video generation system. Your rol
 
 ## Your Mission
 Transform the given subject into an engaging, educational video script in the specified language that will captivate viewers from start to finish. You must think like a master storyteller who understands pacing, emotional engagement, visual storytelling, and educational effectiveness.
+
+## Persona & Visual Style
+__PERSONA_SECTION__
 
 ## Core Responsibilities
 1. **Story Architecture**: Design compelling narrative flow using proven story arc structure
@@ -106,22 +131,21 @@ Choose the most appropriate scene type for each part of your story arc.
 
 ## Scene Description Guidelines (TICKET-035: Narrative Focus)
 
-The `image_create_prompt` field should provide **narrative context** for each scene. Focus on WHAT is happening and WHERE, not HOW it should be filmed. The Director Agent will handle all cinematic details (camera angles, lighting, composition).
+The `content` field is a list of `VisualSegment` objects. Each segment represents a visual beat within the scene.
+**CRITICAL**: You MUST provide at least one `VisualSegment` in the `content` list for every scene.
 
-### Essential Elements to Include:
+### VisualSegment Structure:
+- `segment_text`: The specific portion of dialogue corresponding to this visual.
+- `image_prompt`: The **narrative context** for the visual. Focus on WHAT is happening and WHERE.
+
+### Essential Elements for `image_prompt`:
 1. **Character Action**: What the character is doing, their expression, and emotional state
 2. **Setting**: Location and environment that serves the story
 3. **Atmosphere**: Mood and feeling of the scene
 4. **Key Visual Elements**: Important objects or details that support the narrative
 
-### Example Scene Descriptions:
-```
-"Our character looking curious and engaged, in a cozy library surrounded by books, warm and inviting atmosphere"
-
-"The character explaining with enthusiasm, in a modern workspace with technology visible, energetic and focused mood"
-
-"Our character looking surprised and delighted, in a vibrant marketplace with colorful stalls, lively and exciting atmosphere"
-```
+### Example Scene Content:
+{example_content}
 
 ### Scene Description Writing Rules:
 - Focus on **narrative context**, not technical details
@@ -375,30 +399,87 @@ Always use these exact enum values to ensure compatibility with the video genera
 
 {{format_instructions}}
 """
+
+    # Define Personas
     
-    return dynamic_prompt, parser
+    # 1. REAL_STORY_PROMPT (News & Real Story)
+    real_story_persona = """
+You are a **BBC/Netflix Documentary Director**.
+**Visual Rules**: "Strictly 8K Photorealism. DO NOT use terms like 'cartoon', 'illustration', or 'vector'. Describe camera lenses (35mm), lighting (cinematic), and textures (pores, dust)."
+**Tone**: Serious, Investigative, Dramatic.
 
-def _get_scene_description(scene_type):
-    """Get description for scene type"""
-    descriptions = {
-        'explanation': 'Character directly explains concepts (most common)',
-        'visual_demo': 'Show examples, demonstrations, processes',
-        'comparison': 'Side-by-side comparisons, before/after',
-        'story_telling': 'Narrative elements, historical context',
-        'hook': 'Opening attention-grabber only',
-        'conclusion': 'Summary and wrap-up only'
+## VISUAL STYLE ENFORCEMENT (STRICT)
+- **Style**: Hyper-Realistic, Cinematic 8K, Shot on ARRI Alexa.
+- **Forbidden**: Cartoons, 3D characters, Anime, Vectors.
+- **Image Prompts Must Include**: "Depth of field", "Film grain", "Natural lighting", "Skin texture".
+- **Example Prompt**: "A hyper-realistic close-up of a bank vault door, rusty metal texture, dim dramatic lighting, cinematic composition, shot on 50mm lens."
+"""
+
+    # 2. EDUCATIONAL_PROMPT (Educational & Explainer)
+    educational_persona = """
+You are a **Lead Animator for a high-end Tech Explainer channel** (like Kurzgesagt or Apple).
+**Visual Rules**: "Use 3D Isometric Renders, Clean Vector Art, or Modern Motion Graphics. White/Clean backgrounds. Focus on clarity."
+**Tone**: Clear, Encouraging, authoritative.
+
+## VISUAL STYLE ENFORCEMENT (STRICT)
+- **Style**: High-end 3D Isometric Render (Blender/Octane) OR Modern Vector Flat Design.
+- **Forbidden**: Gritty realism, messy backgrounds, disturbing imagery.
+- **Image Prompts Must Include**: "Soft studio lighting", "Clean background", "Vibrant colors", "Minimalist".
+- **Example Prompt**: "A clean 3D isometric render of a bank vault, floating coins, soft pastel blue background, soft shadows, high quality Octane render."
+"""
+
+    # 3. CREATIVE_PROMPT (Fiction & Fun)
+    creative_persona = """
+You are a **Movie Director**.
+**Visual Rules**: "Artistic freedom allowed. Cyberpunk, Watercolor, Noir, or Disney-style 3D."
+**Tone**: Entertaining, Emotional.
+"""
+
+    # Combine to create full templates
+    real_story_prompt = base_prompt_structure.replace(
+        "__PERSONA_SECTION__", real_story_persona
+    )
+    
+    educational_prompt = base_prompt_structure.replace(
+        "__PERSONA_SECTION__", educational_persona
+    )
+    
+    creative_prompt = base_prompt_structure.replace(
+        "__PERSONA_SECTION__", creative_persona
+    )
+    
+    return {
+        "real_story": real_story_prompt,
+        "educational": educational_prompt,
+        "creative": creative_prompt,
+        "parser": parser
     }
-    return descriptions.get(scene_type, 'Scene type description')
 
-# Create the dynamic prompt and parser
-SCRIPT_WRITER_AGENT_PROMPT, VIDEO_SCRIPT_PARSER = create_dynamic_prompt()
+# Create the dynamic prompts and parser
+_prompts_data = create_dynamic_prompt()
+VIDEO_SCRIPT_PARSER = _prompts_data["parser"]
 
-# Create PromptTemplate with format instructions
-SCRIPT_WRITER_AGENT_TEMPLATE = PromptTemplate(
-    template=SCRIPT_WRITER_AGENT_PROMPT,
+# Create PromptTemplates
+REAL_STORY_TEMPLATE = PromptTemplate(
+    template=_prompts_data["real_story"],
     input_variables=["subject", "language", "max_video_scenes", "min_scenes"],
     partial_variables={"format_instructions": VIDEO_SCRIPT_PARSER.get_format_instructions()}
 )
+
+EDUCATIONAL_TEMPLATE = PromptTemplate(
+    template=_prompts_data["educational"],
+    input_variables=["subject", "language", "max_video_scenes", "min_scenes"],
+    partial_variables={"format_instructions": VIDEO_SCRIPT_PARSER.get_format_instructions()}
+)
+
+CREATIVE_TEMPLATE = PromptTemplate(
+    template=_prompts_data["creative"],
+    input_variables=["subject", "language", "max_video_scenes", "min_scenes"],
+    partial_variables={"format_instructions": VIDEO_SCRIPT_PARSER.get_format_instructions()}
+)
+
+# Default/Legacy template (maps to Creative for now, or we can keep the old one if needed, but Creative is good default)
+SCRIPT_WRITER_AGENT_TEMPLATE = CREATIVE_TEMPLATE
 
 # Legacy static prompt for backward compatibility
 STATIC_SCRIPT_WRITER_AGENT_PROMPT = """

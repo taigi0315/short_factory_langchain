@@ -68,9 +68,9 @@ class Settings(BaseSettings):
         description="Minimum number of scenes in generated scripts"
     )
     MAX_SCENES: int = Field(
-        default=8,
+        default=15,
         ge=2,
-        le=20,
+        le=40,
         description="Maximum number of scenes in generated scripts"
     )
     DEFAULT_SCENE_DURATION: float = Field(

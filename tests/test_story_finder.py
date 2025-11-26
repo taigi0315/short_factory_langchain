@@ -24,7 +24,14 @@ class TestStoryFinderAgent(unittest.TestCase):
         
         # Create a dummy response
         dummy_stories = StoryList(stories=[
-            StoryIdea(title="Test Story", summary="Summary", hook="Hook", keywords=["test"])
+            StoryIdea(
+                title="Test Story", 
+                summary="Summary", 
+                hook="Hook", 
+                keywords=["test"],
+                category="Educational",
+                mood="Exciting"
+            )
         ])
         
         # Mock the chain's invoke method

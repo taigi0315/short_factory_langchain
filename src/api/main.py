@@ -92,10 +92,12 @@ os.makedirs("generated_assets", exist_ok=True)
 app.mount("/generated_assets", StaticFiles(directory="generated_assets"), name="generated_assets")
 
 # Import routers
-from src.api.routes import stories, scripts, dev, scene_editor
+# Import routers
+from src.api.routes import stories, scripts, dev, scene_editor, videos
 
 app.include_router(stories.router, prefix="/api/stories", tags=["stories"])
 app.include_router(scripts.router, prefix="/api/scripts", tags=["scripts"])
+app.include_router(videos.router, prefix="/api/videos", tags=["videos"])
 app.include_router(dev.router, prefix="/api/dev", tags=["dev"])
 app.include_router(scene_editor.router)  # Already has prefix in router definition
 

@@ -10,25 +10,29 @@ from src.models.models import VideoScript, Scene, SceneType, VoiceTone, ImageSty
 
 def get_mock_stories(request: StoryGenerationRequest) -> List[StoryIdeaResponse]:
     """Returns mock story ideas for testing/demo."""
+    # Handle Auto category/mood for mock data
+    category = request.category if request.category and request.category.lower() != "auto" else "News"
+    mood = request.mood if request.mood and request.mood.lower() != "auto" else "Inspirational"
+
     return [
         StoryIdeaResponse(
-            title=f"Mock Story 1: The {request.category} {request.topic}",
-            premise=f"A {request.mood} story about {request.topic}.",
-            genre=request.category,
+            title=f"Mock Story 1: The {category} {request.topic}",
+            premise=f"A {mood} story about {request.topic}.",
+            genre=f"{category} • {mood}",
             target_audience="General Audience",
             estimated_duration="30s"
         ),
         StoryIdeaResponse(
             title=f"Mock Story 2: {request.topic} Chronicles",
             premise=f"An exploration of {request.topic} in an unexpected way.",
-            genre=request.category,
+            genre=f"History • Suspenseful",
             target_audience="Curious Minds",
             estimated_duration="45s"
         ),
         StoryIdeaResponse(
             title=f"Mock Story 3: The Secret of {request.topic}",
             premise=f"Uncover the hidden truth about {request.topic}.",
-            genre="Documentary",
+            genre=f"Educational • Mysterious",
             target_audience="Knowledge Seekers",
             estimated_duration="60s"
         )

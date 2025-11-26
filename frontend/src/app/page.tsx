@@ -120,7 +120,8 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/scripts/generate', {
+      // Bypass Next.js proxy to debug 500 error
+      const res = await fetch('http://localhost:8001/api/scripts/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -131,6 +132,19 @@ export default function Home() {
           duration: selectedStory.estimated_duration
         }),
       });
+
+      console.log('Response status:', res.status);
+
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          throw new Error(json.detail || `Server error: ${res.status}`);
+        } catch (e) {
+          // If it's not JSON, use the text directly
+          throw new Error(text || `Server error: ${res.status}`);
+        }
+      }
 
       const data = await res.json();
       if (data.script) {
@@ -149,7 +163,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Failed to generate script', error);
-      alert('Failed to generate script. Using mock data for demo.');
+      alert(`Failed to generate script: ${(error as Error).message}\n\nCheck console for details.`);
     } finally {
       setLoading(false);
     }
@@ -279,7 +293,7 @@ export default function Home() {
                 disabled={!topic || loading}
                 className={`w-full py-4 rounded-xl font-bold text-lg transition-all transform duration-200 border-2 ${!topic || loading
                   ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 border-transparent text-white shadow-xl hover:shadow-blue-500/40 hover:scale-[1.02] hover:brightness-110'
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 border-transparent text-white shadow-xl hover:from-green-500 hover:to-teal-500 hover:shadow-green-500/40 hover:scale-[1.02]'
                   }`}
               >
                 {loading ? 'Generating Ideas...' : 'Generate Ideas ✨'}
@@ -517,7 +531,8 @@ export default function Home() {
                         console.log('Image generation complete. Final imageMap:', imageMap);
 
                         // 2. Generate Video
-                        const res = await fetch('/api/dev/generate-video-from-script', {
+                        // Bypass Next.js proxy to avoid timeouts
+                        const res = await fetch('http://localhost:8001/api/dev/generate-video-from-script', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
