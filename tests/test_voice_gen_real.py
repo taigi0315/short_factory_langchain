@@ -12,7 +12,6 @@ from src.core.config import settings
 MOCK_SCENE = Scene(
     scene_number=1,
     scene_type=SceneType.EXPLANATION,
-    dialogue="This is a test dialogue.",
     voice_tone=VoiceTone.ENTHUSIASTIC,
     elevenlabs_settings=ElevenLabsSettings(
         stability=0.5, similarity_boost=0.75, style=0.0, speed=1.0, loudness=0.0
@@ -20,7 +19,8 @@ MOCK_SCENE = Scene(
     image_style=ImageStyle.CINEMATIC,
     image_create_prompt="test prompt",
     needs_animation=False,
-    transition_to_next=TransitionType.FADE
+    transition_to_next=TransitionType.FADE,
+    content=[]
 )
 
 @pytest.fixture
