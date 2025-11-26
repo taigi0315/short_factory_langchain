@@ -62,6 +62,76 @@ Story Finder → Script Writer → Director → Image Gen → Voice Gen → Vide
 ### Root Files
 
 - `__init__.py`: Package initialization
+- `base_agent.py`: **Base class for all agents** (see below)
+
+---
+
+## Base Agent Architecture
+
+### BaseAgent Class (`base_agent.py`)
+
+**Purpose**: Provides common initialization logic and standardized behavior for all agents in the system.
+
+**Added in**: TICKET-036 (Nov 2025)
+
+All agents in the ShortFactory pipeline inherit from `BaseAgent`, which provides:
+- **API key validation**: Ensures required API keys are present in real mode
+- **LLM initialization**: Standardized LLM setup with retry logic
+- **Mock mode handling**: Automatic mock mode detection and configuration
+- **Logging setup**: Consistent structured logging across all agents
+
+**Usage**:
+```python
+from src.agents.base_agent import BaseAgent
+
+class MyAgent(BaseAgent):
+    def __init__(self):
+        super().__init__(
+            agent_name="MyAgent",
+            temperature=0.7,
+            max_retries=3,
+            request_timeout=30.0,
+            require_llm=True  # Set to False for non-LLM agents
+        )
+    
+    def _setup(self):
+        """Agent-specific setup logic."""
+        # Initialize agent-specific components here
+        self.my_tool = MyTool()
+        
+        # Build chains, configure providers, etc.
+        if not self.mock_mode:
+            self.chain = self._build_chain()
+```
+
+**Key Features**:
+- **Template Method Pattern**: Defines initialization skeleton, subclasses override `_setup()`
+- **Dependency Injection**: LLM and configuration injected via base class
+- **Automatic Mock Mode**: Detects `USE_REAL_LLM` setting and configures accordingly
+- **Error Handling**: Validates API keys and provides clear error messages
+
+**Parameters**:
+- `agent_name` (str): Name of the agent for logging
+- `temperature` (float): LLM temperature setting (default: 0.7)
+- `max_retries` (int): Number of retry attempts for LLM calls (default: 3)
+- `request_timeout` (float): Timeout for LLM requests in seconds (default: 30.0)
+- `require_llm` (bool): Whether this agent requires LLM (default: True)
+
+**Benefits**:
+- **Reduced Duplication**: Eliminated ~200 lines of duplicated initialization code
+- **Consistency**: All agents behave identically for common operations
+- **Maintainability**: Changes to initialization logic made in one place
+- **Testability**: Shared test fixtures reduce test duplication
+
+**Example Agents Using BaseAgent**:
+All 7 agents in the pipeline inherit from `BaseAgent`:
+- `StoryFinderAgent` (with LLM)
+- `ScriptWriterAgent` (with LLM)
+- `DirectorAgent` (with LLM)
+- `ImageGenAgent` (without LLM, `require_llm=False`)
+- `VoiceAgent` (without LLM, `require_llm=False`)
+- `VideoGenAgent` (without LLM, `require_llm=False`)
+- `VideoAssemblyAgent` (without LLM, `require_llm=False`)
 
 ---
 
@@ -441,7 +511,7 @@ NANOBANANA_API_KEY=your_nanobanana_key  # Optional
 ### Adding a New Agent
 
 1. Create new subdirectory: `src/agents/my_agent/`
-2. Create `agent.py` with main agent class
+2. Create `agent.py` with main agent class **inheriting from `BaseAgent`**
 3. Create `models.py` for data structures (if needed)
 4. Create `prompts.py` for LLM prompts (if needed)
 5. Add to pipeline in appropriate location
@@ -451,15 +521,27 @@ Example structure:
 ```python
 # src/agents/my_agent/agent.py
 import structlog
+from src.agents.base_agent import BaseAgent
 from src.core.config import settings
 
 logger = structlog.get_logger()
 
-class MyAgent:
+class MyAgent(BaseAgent):
     def __init__(self):
-        logger.info("MyAgent initialized")
+        super().__init__(
+            agent_name="MyAgent",
+            temperature=0.7,
+            require_llm=True  # Set to False if agent doesn't need LLM
+        )
+    
+    def _setup(self):
+        """Agent-specific initialization."""
+        # Initialize agent-specific components
+        if not self.mock_mode:
+            self.chain = self._build_chain()
     
     async def process(self, input_data):
+        """Main processing method."""
         # Implementation
         pass
 ```
