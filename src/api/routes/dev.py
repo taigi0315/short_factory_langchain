@@ -4,7 +4,7 @@ from src.agents.image_gen.agent import ImageGenAgent
 from src.agents.video_gen.agent import VideoGenAgent
 from src.core.config import settings
 import os
-from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VideoScript
+from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VideoScript, VisualSegment
 from typing import Optional
 
 router = APIRouter()
@@ -30,7 +30,7 @@ async def generate_image(request: ImageGenerationRequest):
         voice_tone=VoiceTone.CALM, # Default
         elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
         image_style=request.style,
-        image_create_prompt=request.prompt,
+        content=[VisualSegment(segment_text="Dev test image", image_prompt=request.prompt)],
         needs_animation=False,
         transition_to_next=TransitionType.NONE
     )
@@ -195,11 +195,16 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         
         # Prepare response - wrap in try-catch to ensure we return success even if path conversion has issues
         try:
+            logger.info("Preparing response data...", video_path=str(video_path))
+            
             # Convert absolute path to relative URL for frontend
             relative_path = os.path.relpath(video_path, settings.GENERATED_ASSETS_DIR)
-            video_url = f"/generated_assets/{relative_path}"
+            logger.info("Calculated relative path", relative_path=relative_path)
             
-            response_data = {"video_url": video_url, "video_path": video_path}
+            video_url = f"/generated_assets/{relative_path}"
+            logger.info("Generated video URL", video_url=video_url)
+            
+            response_data = {"video_url": video_url, "video_path": str(video_path)}
             logger.info("Sending success response to frontend", response=response_data)
             
             return response_data
@@ -207,11 +212,14 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         except Exception as path_error:
             # If path conversion fails, still return the absolute path
             logger.warning("Path conversion failed, using absolute path", error=str(path_error))
-            return {"video_url": f"/generated_assets/videos/{os.path.basename(video_path)}", "video_path": video_path}
+            return {"video_url": f"/generated_assets/videos/{os.path.basename(video_path)}", "video_path": str(video_path)}
         
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
         logger.error("Video generation failed", exc_info=True, error_type=type(e).__name__, error_message=str(e))
+        # Log the full traceback to help debugging
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Video generation failed: {str(e)}")
