@@ -19,6 +19,16 @@ def create_dynamic_prompt():
     # Create PydanticOutputParser for VideoScript
     parser = PydanticOutputParser(pydantic_object=VideoScript)
     
+    # Example content for prompt (escaped for PromptTemplate)
+    example_content = """```json
+"content": [
+  {{
+    "segment_text": "It was a dark and stormy night...",
+    "image_prompt": "Our character looking curious and engaged, in a cozy library surrounded by books, warm and inviting atmosphere"
+  }}
+]
+```"""
+
     # Dynamic prompt template with enum values
     dynamic_prompt = f"""
 # Agent 1: Video Story Generation Master
@@ -106,22 +116,21 @@ Choose the most appropriate scene type for each part of your story arc.
 
 ## Scene Description Guidelines (TICKET-035: Narrative Focus)
 
-The `image_create_prompt` field should provide **narrative context** for each scene. Focus on WHAT is happening and WHERE, not HOW it should be filmed. The Director Agent will handle all cinematic details (camera angles, lighting, composition).
+The `content` field is a list of `VisualSegment` objects. Each segment represents a visual beat within the scene.
+**CRITICAL**: You MUST provide at least one `VisualSegment` in the `content` list for every scene.
 
-### Essential Elements to Include:
+### VisualSegment Structure:
+- `segment_text`: The specific portion of dialogue corresponding to this visual.
+- `image_prompt`: The **narrative context** for the visual. Focus on WHAT is happening and WHERE.
+
+### Essential Elements for `image_prompt`:
 1. **Character Action**: What the character is doing, their expression, and emotional state
 2. **Setting**: Location and environment that serves the story
 3. **Atmosphere**: Mood and feeling of the scene
 4. **Key Visual Elements**: Important objects or details that support the narrative
 
-### Example Scene Descriptions:
-```
-"Our character looking curious and engaged, in a cozy library surrounded by books, warm and inviting atmosphere"
-
-"The character explaining with enthusiasm, in a modern workspace with technology visible, energetic and focused mood"
-
-"Our character looking surprised and delighted, in a vibrant marketplace with colorful stalls, lively and exciting atmosphere"
-```
+### Example Scene Content:
+{example_content}
 
 ### Scene Description Writing Rules:
 - Focus on **narrative context**, not technical details

@@ -255,6 +255,11 @@ class Scene(BaseModel):
             "informative": VoiceTone.SERIOUS,
             "conclusion": VoiceTone.CONFIDENT,
             "hook": VoiceTone.EXCITED,
+            "optimistic": VoiceTone.FRIENDLY,
+            "analytical": VoiceTone.SERIOUS,
+            "mystery_setup": VoiceTone.MYSTERIOUS,
+            "suspenseful": VoiceTone.MYSTERIOUS,
+            "urgent": VoiceTone.DRAMATIC,
         }
         
         if v in fixes:

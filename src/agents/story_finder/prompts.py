@@ -99,9 +99,11 @@ Avoid generic summaries. Look for the "weird" or "surprising".
 {search_context}
 
 **Your Task:**
-Generate {num_stories} unique story hooks.
+Generate {num_stories} distinct story angles.
+Generate a **MIX** of different angles (e.g., 1 News, 1 History, 1 Educational, 1 Fiction/Hypothetical) to provide variety.
 
 IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+IMPORTANT: The `category` and `mood` fields in the JSON must be specific (e.g., "News", "Suspenseful"). Do NOT use "Auto" or "Unspecified" as values.
 
 {format_instructions}
 """,
