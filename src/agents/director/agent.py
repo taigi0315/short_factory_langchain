@@ -70,7 +70,6 @@ class DirectorAgent(BaseAgent):
     
     def _setup(self):
         """Agent-specific setup."""
-        # DirectorAgent only needs LLM which is initialized by BaseAgent
         pass
     
     async def analyze_script(self, script: VideoScript) -> DirectedScript:
@@ -86,25 +85,20 @@ class DirectorAgent(BaseAgent):
         logger.info("Analyzing script for cinematic direction", title=script.title, scenes=len(script.scenes))
         
         try:
-            # 1. Identify story beats
             story_beats = self._identify_story_beats(script)
             logger.info("Identified story beats", beats=len(story_beats.beats))
             
-            # 2. Map emotional arc
             emotional_arc = self._map_emotional_arc(script, story_beats)
             logger.info("Mapped emotional arc", peak_scene=emotional_arc.peak_moment)
             
-            # 3. Generate cinematic direction for each scene using LLM
             directed_scenes = await self._generate_cinematic_direction(
                 script, story_beats, emotional_arc
             )
             logger.info("Generated cinematic direction", directed_scenes=len(directed_scenes))
             
-            # 4. Ensure visual continuity
             directed_scenes = self._ensure_visual_continuity(directed_scenes)
             logger.info("Ensured visual continuity")
             
-            # 5. Create directed script
             directed_script = DirectedScript(
                 original_script=script,
                 directed_scenes=directed_scenes,
@@ -119,14 +113,12 @@ class DirectorAgent(BaseAgent):
             
         except Exception as e:
             logger.error("Failed to analyze script", error=str(e), exc_info=True)
-            # Fallback to basic direction
             return self._create_fallback_direction(script)
     
     def _identify_story_beats(self, script: VideoScript) -> EmotionalArc:
         """Identify narrative beats in the script"""
         beats = []
         
-        # Analyze scene types to identify beats
         hook_scenes = [s for s in script.scenes if s.scene_type == SceneType.HOOK]
         explanation_scenes = [s for s in script.scenes if s.scene_type == SceneType.EXPLANATION]
         demo_scenes = [s for s in script.scenes if s.scene_type == SceneType.VISUAL_DEMO]
@@ -174,9 +166,7 @@ class DirectorAgent(BaseAgent):
             peak_moment=peak_scene
         )
     
-    def _map_emotional_arc(self, script: VideoScript, story_beats: EmotionalArc) -> EmotionalArc:
         """Map emotional journey through the video"""
-        # Already created in _identify_story_beats
         return story_beats
     
     async def _generate_cinematic_direction(
@@ -190,16 +180,13 @@ class DirectorAgent(BaseAgent):
         directed_scenes = []
         
         for i, scene in enumerate(script.scenes):
-            # Find which beat this scene belongs to
             beat = next((b for b in story_beats.beats if scene.scene_number in b.scene_numbers), None)
             beat_name = beat.beat_name if beat else "Development"
             beat_emotion = beat.emotional_tone if beat else "calm"
             
-            # Get previous and next scenes for context
             prev_scene = script.scenes[i-1] if i > 0 else None
             next_scene = script.scenes[i+1] if i < len(script.scenes) - 1 else None
             
-            # Generate direction for this scene
             direction, visual_segments = await self._generate_scene_direction(
                 scene, beat_name, beat_emotion, prev_scene, next_scene, i == emotional_arc.peak_moment
             )
@@ -231,22 +218,17 @@ class DirectorAgent(BaseAgent):
             # Call LLM (Gemini doesn't support response_format, we rely on prompt instructions)
             response = self.llm.invoke(prompt)
             
-            # Extract JSON from response (handle markdown code blocks)
             content = response.content.strip()
             
-            # Try to extract JSON from markdown code blocks
             if "```json" in content:
-                # Extract content between ```json and ```
                 json_start = content.find("```json") + 7
                 json_end = content.find("```", json_start)
                 content = content[json_start:json_end].strip()
             elif "```" in content:
-                # Extract content between ``` and ```
                 json_start = content.find("```") + 3
                 json_end = content.find("```", json_start)
                 content = content[json_start:json_end].strip()
             
-            # Parse response
             direction_data = json.loads(content)
             
             # Create CinematicDirection object
@@ -269,13 +251,10 @@ class DirectorAgent(BaseAgent):
             visual_segments_data = direction_data.get("visual_segments", [])
             visual_segments = []
             
-            # If LLM returned segments, use them to update the original segments
             if visual_segments_data and hasattr(scene, 'content') and scene.content:
-                # We expect the LLM to return a list of prompts corresponding to the input segments
                 for i, segment_data in enumerate(visual_segments_data):
                     if i < len(scene.content):
                         original_segment = scene.content[i]
-                        # Create a new VisualSegment with the enhanced prompt
                         from src.models.models import VisualSegment
                         new_segment = VisualSegment(
                             segment_text=original_segment.segment_text,
@@ -283,7 +262,6 @@ class DirectorAgent(BaseAgent):
                         )
                         visual_segments.append(new_segment)
             
-            # If no segments returned or mismatch, fallback to using enhanced_image_prompt for all
             if not visual_segments and hasattr(scene, 'content') and scene.content:
                  from src.models.models import VisualSegment
                  for segment in scene.content:
