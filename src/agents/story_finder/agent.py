@@ -15,7 +15,6 @@ from src.agents.story_finder.models import StoryList, StoryIdea
 from src.core.config import settings
 from src.agents.base_agent import BaseAgent
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +33,6 @@ class StoryFinderAgent(BaseAgent):
 
     def _setup(self):
         """Agent-specific setup."""
-        # Initialize Search Tool (Tavily)
         self.search_tool = None
         if not self.mock_mode and settings.TAVILY_API_KEY:
             try:
@@ -49,7 +47,6 @@ class StoryFinderAgent(BaseAgent):
         elif not self.mock_mode:
             logger.warning("⚠️ TAVILY_API_KEY not found. Search capabilities disabled.")
 
-        # Build the dynamic chain
         if not self.mock_mode:
             self.chain = self._build_chain()
             logger.info(f"StoryFinderAgent initialized successfully. Model: {settings.llm_model_name}")
@@ -59,7 +56,6 @@ class StoryFinderAgent(BaseAgent):
     def _build_chain(self):
         """Build the dynamic router chain."""
         
-        # 1. Search Step (Conditional)
         def search_step(inputs):
             category = inputs.get("category", "").lower()
             subject = inputs.get("subject", "")
@@ -68,7 +64,6 @@ class StoryFinderAgent(BaseAgent):
             if category in ["fiction", "educational"] or not self.search_tool:
                 return ""
             
-            # Perform search
             try:
                 logger.info(f"Searching web for: {subject} ({category})")
                 # Optimize query based on category
@@ -180,7 +175,6 @@ class StoryFinderAgent(BaseAgent):
         Raises:
             Exception: If LLM generation fails after retries
         """
-        # Mock mode - return early
         if not settings.USE_REAL_LLM:
             logger.info("Returning mock stories (Mock Mode)")
             return StoryList(stories=[
@@ -202,7 +196,6 @@ class StoryFinderAgent(BaseAgent):
                 ),
             ])
         
-        # Real LLM mode
         request_id = str(uuid.uuid4())[:8]
         
         # Handle Auto Mood
@@ -218,7 +211,6 @@ class StoryFinderAgent(BaseAgent):
         )
         
         try:
-            # Invoke the chain
             result = self.chain.invoke({
                 "subject": subject,
                 "num_stories": num_stories,

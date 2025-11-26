@@ -14,14 +14,12 @@ from src.agents.script_writer.prompts import (
 from src.models.models import VideoScript, VoiceTone, SceneType, ImageStyle
 from src.core.config import settings
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
 
 from src.agents.base_agent import BaseAgent
 
 class ScriptWriterAgent(BaseAgent):
-    # Mapping for common LLM mistakes
     VOICE_TONE_FIXES = {
         "explanation": VoiceTone.SERIOUS,
         "narrative": VoiceTone.CALM,
@@ -69,15 +67,12 @@ class ScriptWriterAgent(BaseAgent):
     def _setup(self):
         """Agent-specific setup."""
         if not self.mock_mode:
-            # Define the router logic
-            # Check 'category' input and return the correct Prompt Object
             prompt_router = RunnableBranch(
                 (lambda x: x.get("category") in ["Real Story", "News"], REAL_STORY_TEMPLATE),
                 (lambda x: x.get("category") in ["Educational", "Explainer"], EDUCATIONAL_TEMPLATE),
-                CREATIVE_TEMPLATE  # Fallback for Fiction or Auto
+                CREATIVE_TEMPLATE
             )
             
-            # Build the chain with the router
             self.chain = (
                 {
                     "subject": lambda x: x["subject"],
@@ -113,7 +108,6 @@ class ScriptWriterAgent(BaseAgent):
         Raises:
             ValueError: If script has too few scenes
         """
-        # Validate scene count
         if len(script.scenes) < settings.MIN_SCENES:
             raise ValueError(
                 f"Script has {len(script.scenes)} scenes, "
@@ -127,11 +121,9 @@ class ScriptWriterAgent(BaseAgent):
             )
             script.scenes = script.scenes[:settings.MAX_SCENES]
         
-        # Fix invalid enum values
         fixes_applied = []
         
         for i, scene in enumerate(script.scenes):
-            # Fix voice_tone if it's a string (shouldn't be, but LLM might output wrong)
             if isinstance(scene.voice_tone, str):
                 original_value = scene.voice_tone
                 if original_value in self.VOICE_TONE_FIXES:
@@ -144,7 +136,6 @@ class ScriptWriterAgent(BaseAgent):
                         f"'{original_value}' → '{scene.voice_tone.value}'"
                     )
             
-            # Fix scene_type if it's a string
             if isinstance(scene.scene_type, str):
                 original_value = scene.scene_type
                 if original_value in self.SCENE_TYPE_FIXES:
@@ -157,7 +148,6 @@ class ScriptWriterAgent(BaseAgent):
                         f"'{original_value}' → '{scene.scene_type.value}'"
                     )
             
-            # Fix image_style if it's a string
             if isinstance(scene.image_style, str):
                 original_value = scene.image_style
                 if original_value in self.IMAGE_STYLE_FIXES:
@@ -216,7 +206,6 @@ class ScriptWriterAgent(BaseAgent):
             )
             return get_mock_script(dummy_req).script
         
-        # Real LLM mode with retry logic
         request_id = str(uuid.uuid4())[:8]
         max_video_scenes = max_scenes if max_scenes is not None else settings.MAX_SCENES
         
@@ -230,7 +219,6 @@ class ScriptWriterAgent(BaseAgent):
         
         for attempt in range(max_retries):
             try:
-                # Invoke the chain
                 result = self.chain.invoke({
                     "subject": subject,
                     "language": language,
@@ -239,7 +227,6 @@ class ScriptWriterAgent(BaseAgent):
                     "min_scenes": settings.MIN_SCENES
                 })
                 
-                # Validate and fix the script
                 result = self._validate_and_fix_script(result)
                 
                 logger.info(
