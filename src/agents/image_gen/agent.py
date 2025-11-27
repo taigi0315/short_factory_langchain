@@ -25,8 +25,6 @@ class ImageGenAgent(BaseAgent):
 
     def _setup(self):
         """Agent-specific setup."""
-        # Use centralized config
-        # Override mock mode based on image setting
         self.mock_mode = not settings.USE_REAL_IMAGE
         
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "images")
@@ -34,7 +32,6 @@ class ImageGenAgent(BaseAgent):
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.cache_dir, exist_ok=True)
         
-        # API configuration - use Gemini for image generation
         self.api_key = settings.GEMINI_API_KEY
         
         if not self.mock_mode and not self.api_key:
@@ -71,7 +68,6 @@ class ImageGenAgent(BaseAgent):
         if self.mock_mode:
             return await self._generate_mock_images(scenes)
         
-        # Real mode - use Gemini
         if not self.api_key:
              logger.error("GEMINI_API_KEY not set. Cannot generate images in real mode.")
              raise ValueError(
@@ -81,15 +77,12 @@ class ImageGenAgent(BaseAgent):
 
         client = GeminiImageClient(self.api_key)
         
-        # Import workflow manager if workflow_id provided
         workflow_manager = None
         if workflow_id:
             from src.core.workflow_state import workflow_manager as wf_mgr
             workflow_manager = wf_mgr
         
-        # Generate images one by one to enable incremental checkpoints
         for scene in scenes:
-            # Retry logic: up to 3 attempts with exponential backoff
             max_retries = 3
             last_error = None
             
@@ -104,13 +97,8 @@ class ImageGenAgent(BaseAgent):
                     scene_image_paths = await self._generate_scene_images(client, scene)
                     image_paths[scene.scene_number] = scene_image_paths
                     
-                    # Save checkpoint after each successful scene (saving the first image as representative or all?)
-                    # Workflow manager might expect a single path or we need to update it too.
-                    # For now, let's assume we save the first image path for simple checkpointing, 
-                    # or update workflow manager later. 
-                    # If we pass a list to save_image, it might break if it expects str.
-                    # Let's check workflow_manager usage. It's imported dynamically.
-                    # Assuming for now we just save the first one or skip if complex.
+                    image_paths[scene.scene_number] = scene_image_paths
+                    
                     if workflow_manager and scene_image_paths:
                         # TODO: Update workflow manager to support list of images
                         workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
@@ -118,7 +106,6 @@ class ImageGenAgent(BaseAgent):
                                   workflow_id=workflow_id,
                                   progress=f"{len(image_paths)}/{len(scenes)}")
                     
-                    # Success! Break out of retry loop
                     logger.info(
                         "Images generated successfully",
                         scene_number=scene.scene_number,
@@ -137,7 +124,6 @@ class ImageGenAgent(BaseAgent):
                         error_type=type(e).__name__
                     )
                     
-                    # If this was the last attempt, handle failure
                     if attempt == max_retries:
                         logger.error(
                             "All retry attempts exhausted for scene",
@@ -146,7 +132,6 @@ class ImageGenAgent(BaseAgent):
                             final_error=str(e)
                         )
                         
-                        # Save failure state if workflow tracking is enabled
                         if workflow_manager:
                             from src.core.workflow_state import WorkflowStep
                             workflow_manager.mark_failed(
@@ -156,12 +141,10 @@ class ImageGenAgent(BaseAgent):
                                 type(e).__name__
                             )
                         
-                        # Raise the error to stop video generation
                         raise RuntimeError(
                             f"Image generation failed for scene {scene.scene_number} after {max_retries} attempts: {e}"
                         ) from e
                     else:
-                        # Wait before retrying (exponential backoff: 2s, 4s)
                         wait_time = 2 ** attempt
                         logger.info(
                             f"Waiting {wait_time}s before retry...",
@@ -180,9 +163,7 @@ class ImageGenAgent(BaseAgent):
         """
         Generates images for a DirectedScript using the Director's enhanced visual segments.
         
-        TICKET-035: This method uses the Director Agent's enhanced image prompts from
-        DirectedScene.visual_segments instead of the Script Writer's basic descriptions.
-        
+
         Args:
             directed_script: DirectedScript with cinematic direction
             workflow_id: Optional workflow ID for checkpoint saving
@@ -196,16 +177,11 @@ class ImageGenAgent(BaseAgent):
             workflow_id=workflow_id
         )
         
-        # Create temporary Scene objects with Director's enhanced visual segments
-        # This allows us to reuse the existing generate_images infrastructure
         enhanced_scenes = []
         for directed_scene in directed_script.directed_scenes:
-            # Copy the original scene
             scene = directed_scene.original_scene
             
-            # Override content with Director's enhanced visual segments
             if directed_scene.visual_segments:
-                # Create a new Scene with the enhanced segments
                 enhanced_scene = Scene(
                     scene_number=scene.scene_number,
                     scene_type=scene.scene_type,
@@ -218,10 +194,8 @@ class ImageGenAgent(BaseAgent):
                 )
                 enhanced_scenes.append(enhanced_scene)
             else:
-                # Fallback to original scene if no visual segments
                 enhanced_scenes.append(scene)
         
-        # Delegate to existing generate_images method
         return await self.generate_images(enhanced_scenes, workflow_id)
 
     async def _generate_scene_images(
@@ -231,10 +205,8 @@ class ImageGenAgent(BaseAgent):
     ) -> List[str]:
         """Generate one or more images for a single scene based on visual segments."""
         prompts = []
-        # Use content segments if available (TICKET-033)
         if scene.content:
             prompts = [seg.image_prompt for seg in scene.content]
-        # Fallback for backward compatibility or if content is empty (shouldn't happen with new prompt)
         elif scene.image_prompts:
             prompts = scene.image_prompts
         else:
@@ -243,16 +215,9 @@ class ImageGenAgent(BaseAgent):
         generated_paths = []
         
         for i, prompt in enumerate(prompts):
-            # Create a temporary scene object or just pass prompt to helper if refactored
-            # But _enhance_prompt takes a Scene. 
-            # We should probably refactor _enhance_prompt or just temporarily modify the scene object 
-            # (which is risky if async/parallel, but here we are sequential per scene).
-            # Better: Create a helper that takes prompt + style.
-            
             enhanced_prompt = self._enhance_prompt_text(prompt, scene.image_style)
             model = self._select_model(scene)
             
-            # Check cache
             cache_key = self._cache_key(enhanced_prompt, model)
             cache_path = os.path.join(self.cache_dir, f"{cache_key}.png")
             
@@ -315,13 +280,13 @@ class ImageGenAgent(BaseAgent):
             ImageStyle.SPLIT_SCREEN: "photorealistic split-screen, professional photography, realistic dual perspective",
         }
         
-        # Default to photorealistic cinematic if style not found
+
         style_suffix = style_enhancers.get(
             style, 
             "photorealistic, high quality, professional photography, realistic lighting and textures, cinematic"
         )
         
-        # Add quality modifiers emphasizing realism
+
         quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting"
         
         enhanced = f"{prompt}, {style_suffix}, {quality_suffix}"
@@ -367,20 +332,18 @@ class ImageGenAgent(BaseAgent):
             f"https://placehold.co/1280x720/2563eb/ffffff/png?text=Scene+{scene.scene_number}-{index}:{prompt_slug}"
         )
         
-        # Run synchronous requests in executor to avoid blocking async loop
         loop = asyncio.get_event_loop()
         try:
             await loop.run_in_executor(None, self._download_sync, image_url, filepath)
             return filepath
         except Exception as e:
             logger.error("Failed to download mock image", error=str(e))
-            # Create a dummy file if download fails
+
             with open(filepath, "wb") as f:
                 f.write(b"Placeholder")
             return filepath
 
     def _download_sync(self, url: str, filepath: str):
-        """Helper for synchronous download."""
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             with open(filepath, "wb") as f:

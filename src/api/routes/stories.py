@@ -15,17 +15,17 @@ async def generate_stories(request: StoryGenerationRequest):
     Generate story ideas using LLM.
     Falls back to mock data if LLM unavailable.
     """
-    # Instantiate the agent
+
     agent = StoryFinderAgent()
     
-    # Generate stories with dynamic routing
+
     story_list = agent.find_stories(
         subject=request.topic,
         category=request.category,
         mood=request.mood
     )
     
-    # Map internal model to API response
+
     return [
         StoryIdeaResponse(
             title=story.title,

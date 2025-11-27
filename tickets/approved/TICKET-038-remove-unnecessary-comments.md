@@ -355,25 +355,25 @@ if workflow_manager and scene_image_paths:
 ### Files to Clean Up (estimated ~25 files)
 
 **Agents** (~7 files):
-- `src/agents/story_finder/agent.py` - Remove ~10 comments
-- `src/agents/script_writer/agent.py` - Remove ~8 comments
-- `src/agents/director/agent.py` - Remove ~12 comments
-- `src/agents/image_gen/agent.py` - Remove ~15 comments
-- `src/agents/voice/agent.py` - Remove ~6 comments
-- `src/agents/video_gen/agent.py` - Remove ~8 comments
-- `src/agents/video_assembly/agent.py` - Remove ~10 comments
+- [x] `src/agents/story_finder/agent.py` - Remove ~10 comments
+- [x] `src/agents/script_writer/agent.py` - Remove ~8 comments
+- [x] `src/agents/director/agent.py` - Remove ~12 comments
+- [x] `src/agents/image_gen/agent.py` - Remove ~15 comments
+- [x] `src/agents/voice/agent.py` - Remove ~6 comments
+- [x] `src/agents/video_gen/agent.py` - Remove ~8 comments
+- [x] `src/agents/video_assembly/agent.py` - Remove ~10 comments
 
 **API Routes** (~5 files):
-- `src/api/routes/stories.py` - Remove ~5 comments
-- `src/api/routes/scripts.py` - Remove ~5 comments
-- `src/api/routes/videos.py` - Remove ~8 comments
-- `src/api/routes/scene_editor.py` - Remove ~6 comments
-- `src/api/routes/dev.py` - Remove ~4 comments
+- [x] `src/api/routes/stories.py` - Remove ~5 comments
+- [x] `src/api/routes/scripts.py` - Remove ~8 comments
+- [x] `src/api/routes/videos.py` - Remove ~5 comments
+- [x] `src/api/routes/scene_editor.py` - Remove ~10 comments
+- [x] `src/api/routes/dev.py` - Remove ~5 comments
 
 **Core** (~3 files):
-- `src/core/config.py` - Remove ~3 comments
-- `src/core/logging.py` - Remove ~2 comments
-- `src/core/workflow_state.py` - Remove ~5 comments
+- [x] `src/core/config.py` - Remove ~3 comments
+- [x] `src/core/logging.py` - Remove ~3 comments
+- [x] `src/core/workflow_state.py` - Remove ~8 comments
 
 **Total**: ~107 unnecessary comments to remove
 

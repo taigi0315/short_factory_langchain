@@ -8,7 +8,7 @@ narrative flow, and emotional impact.
 import structlog
 from typing import List, Optional
 import json
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 
 from src.core.config import settings
 from src.models.models import VideoScript, Scene, SceneType, TransitionType
@@ -212,7 +212,7 @@ class DirectorAgent(BaseAgent):
     ) -> tuple[CinematicDirection, List["VisualSegment"]]:
         """Generate cinematic direction for a single scene using LLM"""
         
-        # Create prompt for LLM
+
         prompt = self._create_director_prompt(scene, beat_name, beat_emotion, prev_scene, next_scene, is_peak)
         
         try:
@@ -232,7 +232,7 @@ class DirectorAgent(BaseAgent):
             
             direction_data = json.loads(content)
             
-            # Create CinematicDirection object
+
             direction = CinematicDirection(
                 shot_type=ShotType(direction_data.get("shot_type", "medium")),
                 camera_movement=CameraMovement(direction_data.get("camera_movement", "static")),
@@ -361,7 +361,7 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
     def _create_fallback_scene_direction(self, scene: Scene, emotion: str) -> tuple[CinematicDirection, List["VisualSegment"]]:
         """Create basic direction when LLM fails"""
         
-        # Use emotion-to-visual mapping
+
         visual_guide = EMOTION_TO_VISUAL.get(emotion, EMOTION_TO_VISUAL["calm"])
         
         direction = CinematicDirection(
@@ -377,7 +377,7 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
             director_notes=f"Fallback direction for {emotion} emotion"
         )
         
-        # Create fallback segments
+
         visual_segments = []
         if hasattr(scene, 'content') and scene.content:
              from src.models.models import VisualSegment
@@ -395,7 +395,7 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
         for i in range(len(directed_scenes)):
             current = directed_scenes[i]
             
-            # Add connection notes if missing
+
             if i > 0 and not current.direction.connection_from_previous:
                 prev = directed_scenes[i-1]
                 current.direction.connection_from_previous = (

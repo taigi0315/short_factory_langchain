@@ -2,7 +2,7 @@ import logging
 import uuid
 from typing import Optional
 from pydantic import ValidationError
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 from langchain_core.runnables import RunnableBranch
 from src.agents.script_writer.prompts import (
     SCRIPT_WRITER_AGENT_TEMPLATE, 
@@ -191,7 +191,7 @@ class ScriptWriterAgent(BaseAgent):
         Raises:
             Exception: If LLM generation fails after all retries
         """
-        # Mock mode - return early
+
         if not settings.USE_REAL_LLM:
             logger.info("Returning mock script (Mock Mode)")
             from src.api.mock_data import get_mock_script
@@ -251,8 +251,8 @@ class ScriptWriterAgent(BaseAgent):
                         f"Script generation failed with validation errors."
                     )
                     
+
             except ValueError as e:
-                # Scene count errors
                 last_error = e
                 logger.error(
                     f"[{request_id}] Scene count validation failed on attempt {attempt + 1}/{max_retries}: {str(e)}"
@@ -276,6 +276,6 @@ class ScriptWriterAgent(BaseAgent):
                 else:
                     logger.error(f"[{request_id}] All retry attempts exhausted")
         
-        # If we get here, all retries failed
+
         logger.error(f"[{request_id}] Script generation failed after {max_retries} attempts")
         raise last_error if last_error else Exception("Script generation failed")

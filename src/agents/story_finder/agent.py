@@ -2,7 +2,7 @@ import os
 import logging
 import uuid
 from typing import Optional
-from langchain_google_genai import ChatGoogleGenerativeAI
+
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.runnables import RunnableBranch, RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -77,10 +77,9 @@ class StoryFinderAgent(BaseAgent):
                 logger.error(f"Search failed: {e}")
                 return ""
 
-        # 2. Define Branching Logic for Prompts
-        # Each branch is: (condition_callable, runnable_chain)
+
         
-        # Helper for robust parsing
+
         def clean_and_parse(message):
             text = message.content
             logger.info(f"LLM Raw Output: {text}")
@@ -89,7 +88,7 @@ class StoryFinderAgent(BaseAgent):
                 logger.error("LLM returned empty or null content")
                 raise ValueError("LLM returned empty or null content")
 
-            # Remove markdown code blocks
+
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0].strip()
             elif "```" in text:
@@ -106,42 +105,42 @@ class StoryFinderAgent(BaseAgent):
                 logger.error(f"Parsing failed for text: {text}. Error: {e}")
                 raise
 
-        # News Chain
+
         news_chain = (
             NEWS_PROMPT 
             | self.llm 
             | clean_and_parse
         )
         
-        # Real Story Chain
+
         real_story_chain = (
             REAL_STORY_PROMPT 
             | self.llm 
             | clean_and_parse
         )
         
-        # Educational Chain
+
         educational_chain = (
             EDUCATIONAL_PROMPT 
             | self.llm 
             | clean_and_parse
         )
         
-        # Fiction Chain
+
         fiction_chain = (
             FICTION_PROMPT 
             | self.llm 
             | clean_and_parse
         )
         
-        # Default Chain
+
         default_chain = (
             DEFAULT_PROMPT 
             | self.llm 
             | clean_and_parse
         )
         
-        # Router
+
         branch = RunnableBranch(
             (lambda x: x["category"].lower() == "news", news_chain),
             (lambda x: x["category"].lower() == "real_story", real_story_chain),
@@ -150,8 +149,7 @@ class StoryFinderAgent(BaseAgent):
             default_chain
         )
         
-        # Full Chain
-        # We use RunnablePassthrough.assign to add 'search_context' to the inputs
+
         full_chain = (
             RunnablePassthrough.assign(search_context=search_step)
             | branch
@@ -198,7 +196,7 @@ class StoryFinderAgent(BaseAgent):
         
         request_id = str(uuid.uuid4())[:8]
         
-        # Handle Auto Mood
+
         if mood.lower() == "auto":
             import random
             moods = ["Suspenseful", "Inspirational", "Educational", "Humorous", "Dark/Gritty", "Upbeat"]

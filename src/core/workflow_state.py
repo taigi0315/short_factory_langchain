@@ -105,11 +105,11 @@ class WorkflowStateManager:
         Returns:
             WorkflowState: Initial workflow state
         """
-        # Create workflow directory
+
         workflow_dir = self._get_workflow_dir(workflow_id)
         workflow_dir.mkdir(parents=True, exist_ok=True)
         
-        # Create initial state
+
         state = WorkflowState(
             workflow_id=workflow_id,
             topic=topic,
@@ -117,7 +117,7 @@ class WorkflowStateManager:
             status=WorkflowStatus.PENDING
         )
         
-        # Save state
+
         self.save_state(state)
         
         logger.info("Workflow created", workflow_id=workflow_id, topic=topic)
@@ -435,5 +435,5 @@ class WorkflowStateManager:
         return workflows
 
 
-# Global instance
+
 workflow_manager = WorkflowStateManager()

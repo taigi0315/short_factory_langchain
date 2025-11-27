@@ -120,7 +120,7 @@ class Settings(BaseSettings):
         description="Delay in seconds between successful scene image generations to prevent rate limiting"
     )
     
-    # Video Upload Settings (TICKET-023)
+    # Video Upload Settings
     MAX_VIDEO_UPLOAD_SIZE_MB: int = Field(default=100, description="Maximum video upload size in MB")
     ALLOWED_VIDEO_FORMATS: List[str] = Field(default=[".mp4", ".mov", ".webm"], description="Allowed video formats")
     
@@ -169,8 +169,8 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
-        case_sensitive = False  # Allow USE_REAL_LLM or use_real_llm
-        extra = "ignore"  # Ignore deprecated env vars like NANO_BANANA_API_KEY
+        case_sensitive = False
+        extra = "ignore"
 
 
 settings = Settings()

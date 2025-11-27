@@ -52,7 +52,7 @@ def configure_logging():
     root_logger.handlers = [handler]
     root_logger.setLevel(logging.INFO)
     
-    # Silence noisy loggers
+
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)

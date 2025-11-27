@@ -17,10 +17,10 @@ async def generate_script(request: ScriptGenerationRequest):
     Generate video script using LLM.
     Falls back to mock data if LLM unavailable.
     """
-    # Instantiate the script writer agent
+
     script_agent = ScriptWriterAgent()
     
-    # Prepare comprehensive subject for script writer
+
     full_subject = (
         f"Title: {request.story_title}\n"
         f"Premise: {request.story_premise}\n"
@@ -29,7 +29,7 @@ async def generate_script(request: ScriptGenerationRequest):
         f"Duration: {request.duration}"
     )
     
-    # Generate the script
+
     script = script_agent.generate_script(full_subject)
     
     logger.info("Script generated", title=script.title, scenes=len(script.scenes))
@@ -71,7 +71,7 @@ async def generate_script(request: ScriptGenerationRequest):
                            segment_count=len(directed_scene.visual_segments))
                 scene.content = directed_scene.visual_segments
 
-            # Update video_prompt if available
+
             if direction.enhanced_video_prompt:
                 scene.video_prompt = direction.enhanced_video_prompt
 
@@ -108,7 +108,7 @@ async def generate_script(request: ScriptGenerationRequest):
                     error=str(e),
                     error_type=type(e).__name__,
                     exc_info=True)
-        # Return a 500 with the specific validation error
+
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=f"Response validation failed: {str(e)}")
 
