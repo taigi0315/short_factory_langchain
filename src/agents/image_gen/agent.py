@@ -252,6 +252,9 @@ class ImageGenAgent(BaseAgent):
                 filepath = os.path.join(self.output_dir, filename)
                 shutil.copy(cache_path, filepath)
                 
+                # Crop to 9:16 if image is square (Gemini generates 1024x1024)
+                filepath = self._crop_to_aspect_ratio(filepath, settings.IMAGE_ASPECT_RATIO)
+                
                 logger.info("Image saved", filepath=filepath)
                 generated_paths.append(filepath)
                 
@@ -295,6 +298,78 @@ class ImageGenAgent(BaseAgent):
     def _enhance_prompt(self, scene: Scene) -> str:
         """Legacy wrapper for backward compatibility if needed."""
         return self._enhance_prompt_text(scene.image_create_prompt, scene.image_style)
+    
+    def _crop_to_aspect_ratio(self, filepath: str, target_aspect: str) -> str:
+        """
+        Crop image to target aspect ratio.
+        Gemini generates 1024x1024 square images, so we need to crop to 9:16 for vertical video.
+        
+        Args:
+            filepath: Path to the image file
+            target_aspect: Target aspect ratio (e.g., "9:16", "16:9", "1:1")
+            
+        Returns:
+            Path to the cropped image (same filepath, modified in place)
+        """
+        from PIL import Image
+        
+        # Parse aspect ratio
+        if ":" not in target_aspect:
+            logger.warning(f"Invalid aspect ratio format: {target_aspect}, skipping crop")
+            return filepath
+        
+        try:
+            width_ratio, height_ratio = map(int, target_aspect.split(":"))
+        except ValueError:
+            logger.warning(f"Could not parse aspect ratio: {target_aspect}, skipping crop")
+            return filepath
+        
+        # Open image
+        try:
+            img = Image.open(filepath)
+            current_width, current_height = img.size
+            
+            logger.info(f"Cropping image from {current_width}x{current_height} to {target_aspect} aspect ratio")
+            
+            # Calculate target dimensions
+            current_aspect = current_width / current_height
+            target_aspect_value = width_ratio / height_ratio
+            
+            if abs(current_aspect - target_aspect_value) < 0.01:
+                # Already correct aspect ratio
+                logger.info("Image already has correct aspect ratio, skipping crop")
+                return filepath
+            
+            # Determine crop dimensions
+            if current_aspect > target_aspect_value:
+                # Image is too wide, crop width
+                new_width = int(current_height * target_aspect_value)
+                new_height = current_height
+                left = (current_width - new_width) // 2
+                top = 0
+                right = left + new_width
+                bottom = current_height
+            else:
+                # Image is too tall, crop height
+                new_width = current_width
+                new_height = int(current_width / target_aspect_value)
+                left = 0
+                top = (current_height - new_height) // 2
+                right = current_width
+                bottom = top + new_height
+            
+            # Crop image
+            cropped_img = img.crop((left, top, right, bottom))
+            
+            # Save cropped image (overwrite original)
+            cropped_img.save(filepath)
+            logger.info(f"Image cropped to {cropped_img.size[0]}x{cropped_img.size[1]}")
+            
+            return filepath
+            
+        except Exception as e:
+            logger.error(f"Failed to crop image: {e}, using original")
+            return filepath
 
     def _select_model(self, scene: Scene) -> str:
         """Select appropriate model based on scene requirements."""
