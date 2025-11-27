@@ -97,31 +97,26 @@ class VideoAssemblyAgent(BaseAgent):
             
         final_video = concatenate_videoclips(clips, method="compose")
         
+        # Add title overlay using PIL (more reliable than ImageMagick)
         try:
             print(f"Adding title overlay: {script.title}")
-            
-            txt_clip = (TextClip(
-                text=script.title,
-                font="Arial-Bold", 
-                font_size=70, 
-                color='white',
-                stroke_color='black',
-                stroke_width=2,
-                method='caption',
-                size=(final_video.w * 0.8, None),
-                text_align='center'
-            )
-            .with_position(('center', 80))
-            .with_duration(3)
-            .with_effects([])
-            )
-            
-            final_video = CompositeVideoClip([final_video, txt_clip])
-            
+            title_clip = self._create_title_overlay(script.title, final_video.w, final_video.h)
+            final_video = CompositeVideoClip([final_video, title_clip])
+            logger.info("Title overlay added successfully")
         except Exception as e:
-            logger.warning("Failed to add title overlay. Is ImageMagick installed?", error=str(e))
+            logger.warning("Failed to add title overlay", error=str(e))
             print(f"WARNING: Could not add title overlay: {e}")
-            # Continue without title
+        
+        # Add subtitles for each scene
+        try:
+            print("Adding subtitles...")
+            subtitle_clips = self._create_subtitles(script, clips, final_video.w, final_video.h)
+            if subtitle_clips:
+                final_video = CompositeVideoClip([final_video] + subtitle_clips)
+                logger.info(f"Added {len(subtitle_clips)} subtitle clips")
+        except Exception as e:
+            logger.warning("Failed to add subtitles", error=str(e))
+            print(f"WARNING: Could not add subtitles: {e}")
         
         output_filename = f"{script.title.replace(' ', '_')}_final.mp4"
         output_path = os.path.join(self.output_dir, output_filename)
@@ -285,3 +280,226 @@ class VideoAssemblyAgent(BaseAgent):
             durations.append(duration)
             
         return durations
+
+    def _create_title_overlay(self, title: str, video_width: int, video_height: int):
+        """
+        Create a title overlay using PIL to avoid ImageMagick dependency.
+        
+        Args:
+            title: Title text to display
+            video_width: Width of the video
+            video_height: Height of the video
+            
+        Returns:
+            TextClip with title overlay
+        """
+        from PIL import Image, ImageDraw, ImageFont
+        import numpy as np
+        
+        # Create image for title with transparency
+        img_width = int(video_width * 0.9)
+        img_height = 150
+        
+        # Create transparent image
+        img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Try to load a font, fall back to default if needed
+        try:
+            # Try common system fonts
+            font_size = 60
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+        except:
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                # Fall back to default font
+                font = ImageFont.load_default()
+        
+        # Word wrap the title if too long
+        words = title.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            if bbox[2] - bbox[0] < img_width - 40:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        # Draw text with stroke (outline)
+        y_offset = 20
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            x = (img_width - text_width) // 2
+            
+            # Draw black outline
+            for adj_x in range(-2, 3):
+                for adj_y in range(-2, 3):
+                    draw.text((x + adj_x, y_offset + adj_y), line, font=font, fill=(0, 0, 0, 255))
+            
+            # Draw white text
+            draw.text((x, y_offset), line, font=font, fill=(255, 255, 255, 255))
+            y_offset += bbox[3] - bbox[1] + 10
+        
+        # Convert PIL image to numpy array for MoviePy
+        img_array = np.array(img)
+        
+        # Create ImageClip from numpy array
+        from moviepy import ImageClip
+        title_clip = ImageClip(img_array, duration=3)
+        title_clip = title_clip.with_position(('center', 50))
+        
+        return title_clip
+
+    def _create_subtitles(self, script: VideoScript, scene_clips: List, video_width: int, video_height: int):
+        """
+        Create subtitle overlays for each scene based on dialogue segments.
+        
+        Args:
+            script: VideoScript with scene information
+            scene_clips: List of video clips for each scene
+            video_width: Width of the video
+            video_height: Height of the video
+            
+        Returns:
+            List of TextClip objects for subtitles
+        """
+        from PIL import Image, ImageDraw, ImageFont
+        import numpy as np
+        
+        subtitle_clips = []
+        current_time = 0.0
+        
+        # Skip first 3 seconds (title overlay duration)
+        current_time = 3.0
+        
+        for i, scene in enumerate(script.scenes):
+            if i >= len(scene_clips):
+                break
+                
+            scene_clip = scene_clips[i]
+            scene_duration = scene_clip.duration
+            
+            # Get subtitle text from scene content
+            if hasattr(scene, 'content') and scene.content:
+                # Multiple segments per scene
+                segment_texts = [seg.segment_text for seg in scene.content if seg.segment_text]
+                
+                if segment_texts:
+                    # Calculate duration for each segment
+                    segment_duration = scene_duration / len(segment_texts)
+                    
+                    for seg_text in segment_texts:
+                        if seg_text.strip():
+                            subtitle_clip = self._create_subtitle_clip(
+                                seg_text, 
+                                video_width, 
+                                video_height,
+                                start_time=current_time,
+                                duration=segment_duration
+                            )
+                            subtitle_clips.append(subtitle_clip)
+                            current_time += segment_duration
+                else:
+                    # No segment text, skip
+                    current_time += scene_duration
+            else:
+                # No content, skip
+                current_time += scene_duration
+        
+        return subtitle_clips
+
+    def _create_subtitle_clip(self, text: str, video_width: int, video_height: int, start_time: float, duration: float):
+        """
+        Create a single subtitle clip using PIL.
+        
+        Args:
+            text: Subtitle text
+            video_width: Width of the video
+            video_height: Height of the video
+            start_time: When subtitle should appear
+            duration: How long subtitle should display
+            
+        Returns:
+            ImageClip with subtitle
+        """
+        from PIL import Image, ImageDraw, ImageFont
+        import numpy as np
+        
+        # Create image for subtitle
+        img_width = int(video_width * 0.9)
+        img_height = 120
+        
+        img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Load font
+        try:
+            font_size = 40
+            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+        except:
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+        
+        # Word wrap
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            if bbox[2] - bbox[0] < img_width - 40:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        # Limit to 2 lines
+        lines = lines[:2]
+        
+        # Draw text with background
+        y_offset = 10
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (img_width - text_width) // 2
+            
+            # Draw semi-transparent black background
+            padding = 10
+            draw.rectangle(
+                [x - padding, y_offset - padding, x + text_width + padding, y_offset + text_height + padding],
+                fill=(0, 0, 0, 180)
+            )
+            
+            # Draw white text
+            draw.text((x, y_offset), line, font=font, fill=(255, 255, 255, 255))
+            y_offset += text_height + 5
+        
+        # Convert to numpy array
+        img_array = np.array(img)
+        
+        # Create ImageClip
+        from moviepy import ImageClip
+        subtitle_clip = ImageClip(img_array, duration=duration)
+        subtitle_clip = subtitle_clip.with_position(('center', video_height - 200))
+        subtitle_clip = subtitle_clip.with_start(start_time)
+        
+        return subtitle_clip
+
