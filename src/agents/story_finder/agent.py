@@ -2,6 +2,7 @@ import os
 import logging
 import uuid
 from typing import Optional
+from json_repair import repair_json
 
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.runnables import RunnableBranch, RunnablePassthrough
@@ -96,6 +97,13 @@ class StoryFinderAgent(BaseAgent):
             
             # Fix invalid escapes commonly returned by Gemini
             text = text.replace("\\$", "$")
+            
+            # Use json_repair to fix malformed JSON
+            try:
+                text = repair_json(text)
+                logger.info(f"Repaired JSON Text: {text}")
+            except Exception as e:
+                logger.warning(f"json_repair failed: {e}. Using original text.")
             
             logger.info(f"Cleaned JSON Text: {text}")
             
