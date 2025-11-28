@@ -156,7 +156,7 @@ class Scene(BaseModel):
     
     # Image related
     image_style: ImageStyle
-    # image_create_prompt, image_prompts, image_ratios are replaced by content
+    image_style: ImageStyle
     character_pose: Optional[str] = Field(default=None, description="Character pose: 'pointing', 'thinking', 'surprised'")
     background_description: Optional[str] = Field(default=None, description="Background setting description")
     
@@ -171,13 +171,13 @@ class Scene(BaseModel):
     hook_technique: Optional[HookTechnique] = Field(default=None, description="Specific hook technique used (only for hook scenes)")
     video_importance: int = Field(default=5, ge=0, le=10, description="Importance score for video generation (0-10)")
     
-    # Manual workflow fields (TICKET-023)
+    # Manual workflow fields
     uploaded_video_path: Optional[str] = Field(default=None, description="Path to manually uploaded video file")
     selected_effect: str = Field(default="ken_burns_zoom_in", description="User-selected video effect for image animation")
     image_path: Optional[str] = Field(default=None, description="Path to generated image file")
     audio_path: Optional[str] = Field(default=None, description="Path to generated audio file")
     
-    # VideoEffectAgent recommendations (TICKET-025)
+    # VideoEffectAgent recommendations
     recommended_effect: Optional[str] = Field(default=None, description="AI-recommended video effect")
     recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
     effect_reasoning: Optional[str] = Field(default=None, description="Reasoning for effect recommendation")

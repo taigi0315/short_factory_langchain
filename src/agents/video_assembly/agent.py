@@ -98,9 +98,10 @@ class VideoAssemblyAgent(BaseAgent):
         final_video = concatenate_videoclips(clips, method="compose")
         
         # Add title overlay using PIL (more reliable than ImageMagick)
+        # Title persists throughout the entire video
         try:
             print(f"Adding title overlay: {script.title}")
-            title_clip = self._create_title_overlay(script.title, final_video.w, final_video.h)
+            title_clip = self._create_title_overlay(script.title, final_video.w, final_video.h, final_video.duration)
             final_video = CompositeVideoClip([final_video, title_clip])
             logger.info("Title overlay added successfully")
         except Exception as e:
@@ -281,7 +282,7 @@ class VideoAssemblyAgent(BaseAgent):
             
         return durations
 
-    def _create_title_overlay(self, title: str, video_width: int, video_height: int):
+    def _create_title_overlay(self, title: str, video_width: int, video_height: int, video_duration: float):
         """
         Create a title overlay using PIL to avoid ImageMagick dependency.
         
@@ -289,6 +290,7 @@ class VideoAssemblyAgent(BaseAgent):
             title: Title text to display
             video_width: Width of the video
             video_height: Height of the video
+            video_duration: Duration of the entire video (title persists throughout)
             
         Returns:
             TextClip with title overlay
@@ -298,16 +300,16 @@ class VideoAssemblyAgent(BaseAgent):
         
         # Create image for title with transparency
         img_width = int(video_width * 0.9)
-        img_height = 150
+        img_height = 200  # Increased for larger font
         
         # Create transparent image
         img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Try to load a font, fall back to default if needed
+        # Try to load a bold font, fall back to default if needed
         try:
-            # Try common system fonts
-            font_size = 60
+            # Try common system fonts - use bold variant
+            font_size = 80  # Increased from 60 to 80
             font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
         except:
             try:
@@ -334,28 +336,38 @@ class VideoAssemblyAgent(BaseAgent):
         if current_line:
             lines.append(' '.join(current_line))
         
-        # Draw text with stroke (outline)
+        # Colorful gradient colors for title
+        gradient_colors = [
+            (255, 50, 100, 255),   # Pink-Red
+            (100, 150, 255, 255),  # Blue
+            (255, 200, 50, 255),   # Yellow-Orange
+            (150, 100, 255, 255),  # Purple
+            (50, 255, 150, 255),   # Cyan-Green
+        ]
+        
+        # Draw text with stroke (outline) and gradient effect
         y_offset = 20
-        for line in lines:
+        for line_idx, line in enumerate(lines):
             bbox = draw.textbbox((0, 0), line, font=font)
             text_width = bbox[2] - bbox[0]
             x = (img_width - text_width) // 2
             
-            # Draw black outline
-            for adj_x in range(-2, 3):
-                for adj_y in range(-2, 3):
+            # Draw black outline (thicker for bold effect)
+            for adj_x in range(-3, 4):
+                for adj_y in range(-3, 4):
                     draw.text((x + adj_x, y_offset + adj_y), line, font=font, fill=(0, 0, 0, 255))
             
-            # Draw white text
-            draw.text((x, y_offset), line, font=font, fill=(255, 255, 255, 255))
-            y_offset += bbox[3] - bbox[1] + 10
+            # Draw colorful text (cycle through gradient colors)
+            color = gradient_colors[line_idx % len(gradient_colors)]
+            draw.text((x, y_offset), line, font=font, fill=color)
+            y_offset += bbox[3] - bbox[1] + 15  # Increased spacing
         
         # Convert PIL image to numpy array for MoviePy
         img_array = np.array(img)
         
-        # Create ImageClip from numpy array
+        # Create ImageClip from numpy array - persist throughout entire video
         from moviepy import ImageClip
-        title_clip = ImageClip(img_array, duration=3)
+        title_clip = ImageClip(img_array, duration=video_duration)
         title_clip = title_clip.with_position(('center', 50))
         
         return title_clip
@@ -379,8 +391,8 @@ class VideoAssemblyAgent(BaseAgent):
         subtitle_clips = []
         current_time = 0.0
         
-        # Skip first 3 seconds (title overlay duration)
-        current_time = 3.0
+        # Title now persists throughout video, so subtitles start immediately
+        current_time = 0.0
         
         for i, scene in enumerate(script.scenes):
             if i >= len(scene_clips):
@@ -434,23 +446,41 @@ class VideoAssemblyAgent(BaseAgent):
         """
         from PIL import Image, ImageDraw, ImageFont
         import numpy as np
+        import random
         
         # Create image for subtitle
         img_width = int(video_width * 0.9)
-        img_height = 120
+        img_height = 150  # Increased for better line spacing
         
         img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Load font
+        # Load bold font
         try:
-            font_size = 40
+            font_size = 52  # Increased from 45 to 52
             font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
         except:
             try:
                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
             except:
                 font = ImageFont.load_default()
+        
+        # Random vibrant colors for subtitles (5-10 colors)
+        subtitle_colors = [
+            (255, 100, 100, 255),  # Bright Red
+            (100, 200, 255, 255),  # Bright Blue
+            (255, 220, 100, 255),  # Bright Yellow
+            (255, 150, 255, 255),  # Bright Pink
+            (100, 255, 150, 255),  # Bright Green
+            (255, 180, 100, 255),  # Bright Orange
+            (200, 150, 255, 255),  # Bright Purple
+            (100, 255, 255, 255),  # Bright Cyan
+            (255, 255, 150, 255),  # Light Yellow
+            (255, 150, 200, 255),  # Light Pink
+        ]
+        
+        # Pick a random color for this dialogue
+        text_color = random.choice(subtitle_colors)
         
         # Word wrap
         words = text.split()
@@ -473,7 +503,7 @@ class VideoAssemblyAgent(BaseAgent):
         # Limit to 2 lines
         lines = lines[:2]
         
-        # Draw text with background
+        # Draw text with background and better spacing
         y_offset = 10
         for line in lines:
             bbox = draw.textbbox((0, 0), line, font=font)
@@ -482,15 +512,21 @@ class VideoAssemblyAgent(BaseAgent):
             x = (img_width - text_width) // 2
             
             # Draw semi-transparent black background
-            padding = 10
+            padding = 12
             draw.rectangle(
                 [x - padding, y_offset - padding, x + text_width + padding, y_offset + text_height + padding],
-                fill=(0, 0, 0, 180)
+                fill=(0, 0, 0, 200)  # Slightly more opaque
             )
             
-            # Draw white text
-            draw.text((x, y_offset), line, font=font, fill=(255, 255, 255, 255))
-            y_offset += text_height + 5
+            # Draw black outline for bold effect
+            for adj_x in range(-2, 3):
+                for adj_y in range(-2, 3):
+                    if adj_x != 0 or adj_y != 0:
+                        draw.text((x + adj_x, y_offset + adj_y), line, font=font, fill=(0, 0, 0, 255))
+            
+            # Draw colorful text
+            draw.text((x, y_offset), line, font=font, fill=text_color)
+            y_offset += text_height + 15  # Increased from 5 to 15 for better line spacing
         
         # Convert to numpy array
         img_array = np.array(img)
@@ -498,7 +534,8 @@ class VideoAssemblyAgent(BaseAgent):
         # Create ImageClip
         from moviepy import ImageClip
         subtitle_clip = ImageClip(img_array, duration=duration)
-        subtitle_clip = subtitle_clip.with_position(('center', video_height - 200))
+        # Position higher - moved from 150 to 120 from bottom
+        subtitle_clip = subtitle_clip.with_position(('center', video_height - 120))
         subtitle_clip = subtitle_clip.with_start(start_time)
         
         return subtitle_clip

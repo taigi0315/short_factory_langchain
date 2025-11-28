@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 class TestScriptWriterAgent(unittest.TestCase):
-    @patch('src.agents.script_writer.agent.ChatGoogleGenerativeAI')
+    @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
     def test_generate_script(self, mock_llm_class):
         # Setup mock
         mock_llm = MagicMock()

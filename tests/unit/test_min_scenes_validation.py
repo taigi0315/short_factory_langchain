@@ -13,7 +13,7 @@ import pytest
 from pydantic import ValidationError
 from src.models.models import (
     VideoScript, Scene, SceneType, VoiceTone, ImageStyle, 
-    TransitionType, ElevenLabsSettings
+    TransitionType, ElevenLabsSettings, VisualSegment
 )
 from src.core.config import settings
 
@@ -23,12 +23,14 @@ def create_test_scene(scene_number: int) -> Scene:
     return Scene(
         scene_number=scene_number,
         scene_type=SceneType.EXPLANATION,
-        dialogue=f"Test dialogue for scene {scene_number}",
+        content=[VisualSegment(
+            segment_text=f"Test dialogue for scene {scene_number}",
+            image_prompt=f"Test image prompt {scene_number}"
+        )],
         text_overlay="",
         voice_tone=VoiceTone.FRIENDLY,
         elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.FRIENDLY),
         image_style=ImageStyle.SINGLE_CHARACTER,
-        image_create_prompt=f"Test image prompt {scene_number}",
         character_pose="standing",
         background_description="simple background",
         needs_animation=False,
@@ -51,6 +53,7 @@ def test_min_scenes_validation_too_few():
             title="Test Video",
             main_character_description="Test character",
             overall_style="educational",
+            global_visual_style="Cinematic",
             scenes=too_few_scenes
         )
     
@@ -74,6 +77,7 @@ def test_min_scenes_validation_exact_min():
         title="Test Video",
         main_character_description="Test character",
         overall_style="educational",
+        global_visual_style="Cinematic",
         scenes=exact_min_scenes
     )
     
@@ -94,6 +98,7 @@ def test_max_scenes_validation_too_many():
             title="Test Video",
             main_character_description="Test character",
             overall_style="educational",
+            global_visual_style="Cinematic",
             scenes=too_many_scenes
         )
     
@@ -117,6 +122,7 @@ def test_max_scenes_validation_exact_max():
         title="Test Video",
         main_character_description="Test character",
         overall_style="educational",
+        global_visual_style="Cinematic",
         scenes=exact_max_scenes
     )
     
@@ -138,6 +144,7 @@ def test_valid_scene_count_range():
         title="Test Video",
         main_character_description="Test character",
         overall_style="educational",
+        global_visual_style="Cinematic",
         scenes=mid_range_scenes
     )
     

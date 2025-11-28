@@ -9,14 +9,6 @@ from moviepy import (
     VideoFileClip, ImageClip, AudioFileClip, CompositeVideoClip,
     concatenate_videoclips, TextClip, ColorClip, VideoClip
 )
-# In MoviePy v2, effects are often in vfx
-# We need to check how to access fadein/fadeout/resize/crop
-# Usually they are methods on the clip, or in vfx
-from moviepy.video.fx import FadeIn, FadeOut, Resize, Crop
-# Wait, let's check if we can just import vfx and use vfx.fadein
-# Or if they are available as methods.
-# MoviePy 2.x usually has them as methods or effects classes.
-# Let's try to import vfx and see.
 import moviepy.video.fx as vfx
 from PIL import Image, ImageDraw, ImageFont
 from src.core.config import settings
@@ -44,20 +36,15 @@ class VideoGenAgent(BaseAgent):
 
     def _setup(self):
         """Agent-specific setup."""
-        # Use centralized config
-        # Using LLM flag as proxy for "Real Mode" generally
         self.use_real_video = not self.mock_mode
         
         self.output_dir = Path(settings.GENERATED_ASSETS_DIR) / "videos"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Resolution settings - VERTICAL for YouTube Shorts (9:16 aspect ratio)
-        # Format: (width, height) - portrait orientation
         self.resolution = (1080, 1920) if settings.VIDEO_RESOLUTION == "1080p" else (720, 1280)
         self.fps = settings.VIDEO_FPS
         self.preset = settings.VIDEO_QUALITY
         
-        # Initialize video generation provider
         self.video_provider = self._get_video_provider()
 
     def _get_video_provider(self) -> VideoGenerationProvider:
@@ -100,7 +87,6 @@ class VideoGenAgent(BaseAgent):
             reverse=True
         )
         
-        # Select top N scenes
         selected_scenes = sorted_scenes[:max_ai_videos]
         selected_numbers = {s.scene_number for s in selected_scenes}
         
@@ -127,22 +113,17 @@ class VideoGenAgent(BaseAgent):
         logger.info("Generating video for script", title=script.title)
         
         try:
-            # Determine which scenes should get AI video generation
             ai_video_scene_numbers = self._select_scenes_for_ai_video(script.scenes)
             logger.info("Selected scenes for AI video generation", 
                        scene_numbers=ai_video_scene_numbers,
                        max_allowed=settings.MAX_AI_VIDEOS_PER_SCRIPT)
             
-            # Create scene clips
             scene_clips = []
             
-            # Sort scenes by number
             sorted_scenes = sorted(script.scenes, key=lambda s: s.scene_number)
             
-            # Ensure we have enough images
             if len(images) < len(sorted_scenes):
                 logger.warning("Not enough images for scenes. Reusing last image.", image_count=len(images), scene_count=len(sorted_scenes))
-                # Pad images with the last one
                 while len(images) < len(sorted_scenes):
                     images.append(images[-1] if images else "placeholder.jpg")
 
@@ -156,16 +137,12 @@ class VideoGenAgent(BaseAgent):
                     audio_clip = None
                 else:
                     audio_clip = AudioFileClip(audio_path)
-                    
-                    # Speed up audio by 10% (TICKET-027 Issue 6)
                     audio_clip = audio_clip.with_effects([vfx.MultiplySpeed(1.1)])
                     
                     duration = audio_clip.duration
                 
-                # Determine if this scene should use AI video generation
                 should_use_ai_video = scene.scene_number in ai_video_scene_numbers
                 
-                # Create visual clip
                 clip = await self._create_scene_clip(
                     scene, 
                     image_path, 
@@ -174,29 +151,23 @@ class VideoGenAgent(BaseAgent):
                     force_ai_video=should_use_ai_video
                 )
                 
-                # Set audio
                 if audio_clip:
                     clip = clip.with_audio(audio_clip)
                     
                 scene_clips.append(clip)
             
-            # Overlay title card on top of first scene (first 3 seconds)
             if scene_clips:
                 try:
                     title_overlay = self._create_title_card(script.title, duration=3.0)
                     first_scene = scene_clips[0]
                     
-                    # Ensure title doesn't exceed first scene duration
                     title_duration = min(3.0, first_scene.duration)
                     title_overlay = title_overlay.with_duration(title_duration)
                     
-                    # Preserve audio from first scene
                     first_scene_audio = first_scene.audio if hasattr(first_scene, 'audio') else None
                     
-                    # Composite title on top of first scene
                     composited = CompositeVideoClip([first_scene.without_audio(), title_overlay])
                     
-                    # Re-attach audio if it existed
                     if first_scene_audio:
                         composited = composited.with_audio(first_scene_audio)
                     
@@ -206,19 +177,15 @@ class VideoGenAgent(BaseAgent):
                     logger.error("Failed to overlay title card, skipping", 
                                 error=str(title_error),
                                 exc_info=True)
-                    # Continue without title card if it fails
             
-            # Apply transitions
             final_video = self._apply_transitions(scene_clips)
             
-            # Render video
             timestamp = int(time.time())
             safe_title = "".join([c for c in script.title if c.isalnum() or c in (' ', '-', '_')]).strip().replace(' ', '_')
             output_path = self.output_dir / f"video_{safe_title}_{timestamp}.mp4"
             
             logger.info("Rendering video...", output_path=str(output_path))
             
-            # Run in thread executor to avoid blocking async loop
             import asyncio
             try:
                 await asyncio.to_thread(
@@ -231,7 +198,6 @@ class VideoGenAgent(BaseAgent):
                     logger=None 
                 )
                 
-                # Verify the file was created
                 if not os.path.exists(output_path):
                     raise RuntimeError(f"Video file was not created at {output_path}")
                     
@@ -246,7 +212,6 @@ class VideoGenAgent(BaseAgent):
                            exc_info=True)
                 raise RuntimeError(f"Failed to render video: {str(render_error)}") from render_error
             
-            # Cleanup
             try:
                 final_video.close()
                 for clip in scene_clips:
@@ -284,31 +249,24 @@ class VideoGenAgent(BaseAgent):
                 logger.warning("Image/Video not found. Using color placeholder.", image_path=image_path)
                 return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
-            # AI Video Generation (Image-to-Video)
-            # Only generate AI video if this scene was selected based on importance
             if force_ai_video and self.video_provider:
                 try:
                     logger.info("Generating AI video for scene", scene_number=scene.scene_number, provider=type(self.video_provider).__name__)
                     
-                    # Generate video using provider
                     video_path = await self.video_provider.generate_video(
                         image_path, 
                         scene.video_prompt or "Animate this image"
                     )
                     
-                    # If provider returned a valid video path, use it
                     if video_path and os.path.exists(video_path) and video_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm')):
                         logger.info("AI video generated successfully", path=video_path)
                         image_path = video_path
-                        # Continue to video processing logic below
                     else:
                         logger.warning("Provider returned invalid video path or static image, falling back to static/Ken Burns", path=video_path)
-                        # If it returned the image path (Mock), we just fall through to static handling
                         
                 except Exception as gen_error:
                      logger.error("AI video generation failed, falling back to static", error=str(gen_error))
             
-            # Check if it's a video file (either original or generated)
             is_video = image_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm'))
             
             if is_video:
@@ -316,7 +274,6 @@ class VideoGenAgent(BaseAgent):
                     logger.debug("Loading video clip", path=image_path)
                     clip = VideoFileClip(image_path)
                     
-                    # Resize and crop video to fill screen
                     w, h = clip.size
                     target_w, target_h = self.resolution
                     
@@ -329,9 +286,7 @@ class VideoGenAgent(BaseAgent):
                         height=target_h
                     )
                     
-                    # Sync duration
                     if clip.duration < duration:
-                        # Freeze last frame
                         logger.info("Video shorter than audio, freezing last frame", 
                                   video_duration=clip.duration, 
                                   target_duration=duration)
@@ -339,7 +294,6 @@ class VideoGenAgent(BaseAgent):
                         frozen = clip.to_ImageClip(t=clip.duration - 0.05).with_duration(remaining)
                         clip = concatenate_videoclips([clip, frozen])
                     else:
-                        # Trim
                         logger.info("Video longer than audio, trimming", 
                                   video_duration=clip.duration, 
                                   target_duration=duration)
@@ -351,13 +305,10 @@ class VideoGenAgent(BaseAgent):
                                path=image_path)
                     return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             else:
-                # Image handling
                 try:
-                    # Load and resize image
                     logger.debug("Loading image", path=image_path)
                     img_clip = ImageClip(image_path)
                     
-                    # Resize to FIT within resolution (maintain aspect ratio, no cropping)
                     w, h = img_clip.size
                     target_w, target_h = self.resolution
                     
@@ -365,30 +316,20 @@ class VideoGenAgent(BaseAgent):
                                original_size=f"{w}x{h}",
                                target_size=f"{target_w}x{target_h}")
                     
-                    # Calculate scaling to FIT (contain, not cover)
-                    # This ensures the entire image is visible without cropping
                     scale = min(target_w / w, target_h / h)
                     img_clip = img_clip.resized(scale)
                     
-                    # Center the image with black padding if needed
-                    # No cropping - the entire image will be visible
                     if img_clip.w < target_w or img_clip.h < target_h:
-                        # Create black background
                         bg = ColorClip(size=self.resolution, color=(0, 0, 0))
-                        # Center the image on the background
                         x_pos = (target_w - img_clip.w) // 2
                         y_pos = (target_h - img_clip.h) // 2
                         img_clip = CompositeVideoClip([
-                            bg.with_duration(1),  # Temporary duration
+                            bg.with_duration(1),
                             img_clip.with_position((x_pos, y_pos))
                         ])
                     
-                    
-                    # Set duration
                     clip = img_clip.with_duration(duration)
                     
-                    # Apply effect based on scene settings
-                    # Priority: selected_effect > recommended_effect > default (ken_burns)
                     effect = scene.selected_effect
                     if not effect and hasattr(scene, 'recommended_effect') and scene.recommended_effect:
                         effect = scene.recommended_effect
@@ -396,7 +337,7 @@ class VideoGenAgent(BaseAgent):
                                    scene_number=scene.scene_number,
                                    effect=effect)
                     if not effect:
-                        effect = "ken_burns_zoom_in"  # Default
+                        effect = "ken_burns_zoom_in"
                         logger.warning("No effect specified, using default", 
                                       scene_number=scene.scene_number,
                                       effect=effect)
@@ -410,7 +351,6 @@ class VideoGenAgent(BaseAgent):
                                scene_number=scene.scene_number,
                                effect=effect)
                     
-                    # Apply the selected effect (only if duration is reasonable)
                     if duration > 1.0:
                         try:
                             clip = self._apply_effect_to_clip(clip, effect, duration)
@@ -429,7 +369,6 @@ class VideoGenAgent(BaseAgent):
                                image_path=image_path)
                     return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
-            # Add text overlay if needed
             if scene.text_overlay:
                 try:
                     text_clip = self._create_text_overlay_pil(
@@ -449,21 +388,15 @@ class VideoGenAgent(BaseAgent):
                        scene_number=scene.scene_number,
                        error=str(e),
                        exc_info=True)
-            # Return a simple black clip as last resort
             return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
     
     def _create_title_card(self, title: str, duration: float = 3.0) -> VideoClip:
         """Create a title card with transparent background and colorful centered text at the top."""
         w, h = self.resolution
         
-        # Transparent background (so it overlays on the video)
-        # We don't need a separate bg clip if we just return the text clip
-        
-        # Create title text with gradient
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Larger font for title - 5% of height
         font_size = int(h * 0.05)
         
         try:
@@ -477,46 +410,37 @@ class VideoGenAgent(BaseAgent):
         except:
             font = ImageFont.load_default()
         
-        # Wrap title text
         max_width = int(w * 0.85)
         lines = self._wrap_text(title, font, max_width, draw)
         
-        # Calculate positioning (Top of screen, e.g., 15% down)
         line_height = int(font_size * 1.3)
         start_y = int(h * 0.15)
         
-        # Colorful gradient colors (vibrant pink to orange)
         colors = [
             (255, 100, 150, 255),  # Pink
             (255, 150, 100, 255),  # Coral
             (255, 200, 100, 255),  # Orange-yellow
         ]
         
-        # Draw title with colorful gradient effect
         for i, line in enumerate(lines):
             line_w = draw.textlength(line, font=font)
             x = (w - line_w) // 2
             y = start_y + (i * line_height)
             
-            # Choose color based on line index
             color_idx = i % len(colors)
             text_color = colors[color_idx]
             
-            # Shadow for depth (stronger shadow for visibility over video)
             shadow_color = (0, 0, 0, 255)
             for adj in range(-4, 5):
                 for adj2 in range(-4, 5):
                     if adj != 0 or adj2 != 0:
                         draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
             
-            # Main colorful text
             draw.text((x, y), line, font=font, fill=text_color)
         
-        # Convert to clip
         img_np = np.array(img)
         title_clip = ImageClip(img_np, transparent=True).with_duration(duration)
         
-        # Fade in/out
         title_clip = title_clip.with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)])
         
         return title_clip
@@ -539,31 +463,24 @@ class VideoGenAgent(BaseAgent):
             Clip with effect applied
         """
         if effect == "ken_burns_zoom_in":
-            # Zoom in: 1.0 to 1.2 over duration
             return clip.resized(lambda t: 1 + 0.2 * t / duration)
         
         elif effect == "ken_burns_zoom_out":
-            # Zoom out: 1.2 to 1.0 over duration
             return clip.resized(lambda t: 1.2 - 0.2 * t / duration)
         
         elif effect == "pan_left":
-            # Pan left: move from right to left
             return clip.with_position(lambda t: (-100 * t / duration, 0))
         
         elif effect == "pan_right":
-            # Pan right: move from left to right
             return clip.with_position(lambda t: (100 * t / duration, 0))
         
         elif effect == "tilt_up":
-            # Tilt up: move from bottom to top
             return clip.with_position(lambda t: (0, -100 * t / duration))
         
         elif effect == "tilt_down":
-            # Tilt down: move from top to bottom
             return clip.with_position(lambda t: (0, 100 * t / duration))
         
         elif effect == "shake":
-            # Shake effect: random small movements
             import random
             def shake_pos(t):
                 x = random.randint(-10, 10)
@@ -572,11 +489,9 @@ class VideoGenAgent(BaseAgent):
             return clip.with_position(shake_pos)
         
         elif effect == "dolly_zoom":
-            # Dolly zoom (Vertigo effect): zoom in while moving back
             return clip.resized(lambda t: 1 + 0.3 * t / duration)
         
         elif effect == "crane_up":
-            # Crane up: zoom out while moving up
             def crane_transform(t):
                 scale = 1.1 - 0.1 * t / duration
                 y_pos = -50 * t / duration
@@ -584,19 +499,15 @@ class VideoGenAgent(BaseAgent):
             return clip.resized(crane_transform).with_position(lambda t: (0, -50 * t / duration))
         
         elif effect == "crane_down":
-            # Crane down: zoom in while moving down
             return clip.resized(lambda t: 1 + 0.1 * t / duration).with_position(lambda t: (0, 50 * t / duration))
         
         elif effect == "orbit":
-            # Orbit: slow rotation
             return clip.rotated(lambda t: 5 * t / duration)
         
         elif effect == "static" or effect == "none":
-            # No effect
             return clip
         
         else:
-            # Unknown effect, log warning and return static
             logger.warning(f"Unknown effect '{effect}', using static")
             return clip
 
@@ -633,14 +544,11 @@ class VideoGenAgent(BaseAgent):
         """Create text overlay using PIL with text wrapping and better sizing."""
         w, h = resolution
         
-        # Create transparent image
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Larger font size - 4% of height (approx 30% bigger than 3%)
         font_size = int(h * 0.04)
         
-        # Load font
         try:
             try:
                 font = ImageFont.truetype("Arial.ttf", font_size)
@@ -652,45 +560,34 @@ class VideoGenAgent(BaseAgent):
         except:
             font = ImageFont.load_default()
         
-        # Text wrapping - use 90% of width for safety
         max_width = int(w * 0.9)
         lines = self._wrap_text(text, font, max_width, draw)
         
-        # Calculate total text block height
-        line_height = int(font_size * 1.2)  # 20% line spacing
+        line_height = int(font_size * 1.2)
         total_text_height = len(lines) * line_height
         
-        # Position at 85% from top (bottom area)
         start_y = int(h * 0.85) - (total_text_height // 2)
         
-        # Draw text with outline/shadow for visibility
         shadow_color = (0, 0, 0, 255)
-        # Vibrant Yellow/Gold for subtitles
         text_color = (255, 215, 0, 255)
         
         for i, line in enumerate(lines):
-            # Center each line
             line_w = draw.textlength(line, font=font)
             x = (w - line_w) // 2
             y = start_y + (i * line_height)
             
-            # Thick outline for readability
             for adj in range(-3, 4):
                 for adj2 in range(-3, 4):
-                    if adj != 0 or adj2 != 0:  # Skip center
+                    if adj != 0 or adj2 != 0:
                         draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
             
-            # Main text
             draw.text((x, y), line, font=font, fill=text_color)
         
-        # Convert to numpy array for MoviePy
         img_np = np.array(img)
         
-        # Create ImageClip
         txt_clip = ImageClip(img_np, transparent=True)
         txt_clip = txt_clip.with_duration(duration)
         
-        # Fade in/out
         txt_clip = txt_clip.with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)])
         
         return txt_clip
@@ -733,7 +630,6 @@ class VideoGenAgent(BaseAgent):
                 logger.warning("Image generation failed, using color placeholder")
                 image_path = "placeholder_for_text_video.jpg"
             else:
-                # Take the first image path
                 image_path = image_paths_list[0] if isinstance(image_paths_list, list) else image_paths_list
                 if not os.path.exists(image_path):
                     logger.warning("Image file not found, using color placeholder")
@@ -903,13 +799,10 @@ class VideoGenAgent(BaseAgent):
                     duration = settings.DEFAULT_SCENE_DURATION
                     audio_clip = None
             
-            # Create visual clip
             if config.use_uploaded_video and video_path and os.path.exists(video_path):
-                # Use uploaded video
                 logger.info("Using uploaded video", scene_number=config.scene_number, path=video_path)
                 clip = await self._load_uploaded_video(video_path, duration)
             elif image_path and os.path.exists(image_path):
-                # Use image + effect
                 logger.info("Using image with effect", 
                            scene_number=config.scene_number,
                            effect=config.effect)
@@ -919,14 +812,12 @@ class VideoGenAgent(BaseAgent):
                     duration
                 )
             else:
-                # Fallback to black screen
                 logger.warning("No video or image found, using black screen", 
                              scene_number=config.scene_number,
                              image_path=image_path,
                              video_path=video_path)
                 clip = ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
             
-            # Add audio
             if audio_clip:
                 clip = clip.with_audio(audio_clip)
             
@@ -975,7 +866,6 @@ class VideoGenAgent(BaseAgent):
         def load_video():
             clip = VideoFileClip(video_path)
             
-            # Resize to target resolution
             w, h = clip.size
             target_w, target_h = self.resolution
             scale = max(target_w / w, target_h / h)
@@ -987,14 +877,11 @@ class VideoGenAgent(BaseAgent):
                 height=target_h
             )
             
-            # Sync duration
             if clip.duration < target_duration:
-                # Freeze last frame
                 remaining = target_duration - clip.duration
                 frozen = clip.to_ImageClip(t=clip.duration - 0.05).with_duration(remaining)
                 clip = concatenate_videoclips([clip, frozen])
             else:
-                # Trim
                 clip = clip.subclipped(0, target_duration)
             
             return clip
@@ -1013,7 +900,6 @@ class VideoGenAgent(BaseAgent):
         def create_clip():
             img_clip = ImageClip(image_path)
             
-            # Resize to cover resolution
             w, h = img_clip.size
             target_w, target_h = self.resolution
             scale = max(target_w / w, target_h / h)
@@ -1027,7 +913,6 @@ class VideoGenAgent(BaseAgent):
             
             clip = img_clip.with_duration(duration)
             
-            # Apply effect
             if effect == "ken_burns_zoom_in":
                 clip = clip.resized(lambda t: 1 + 0.1 * t / duration)
             elif effect == "ken_burns_zoom_out":
@@ -1036,7 +921,6 @@ class VideoGenAgent(BaseAgent):
                 clip = clip.with_position(lambda t: (-50 * t / duration, 0))
             elif effect == "pan_right":
                 clip = clip.with_position(lambda t: (50 * t / duration, 0))
-            # "static" - no effect
             
             return clip
         
@@ -1052,7 +936,5 @@ class VideoGenAgent(BaseAgent):
             
         transition_duration = 0.5
         
-        # Simple concatenation for now to avoid complex crossfade issues with audio
-        # Crossfades often require careful audio handling
         return concatenate_videoclips(clips, method="compose")
 

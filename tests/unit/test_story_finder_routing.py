@@ -17,7 +17,7 @@ class TestStoryFinderRouting(unittest.TestCase):
     
     def setUp(self):
         # Setup common mocks
-        self.mock_llm_patcher = patch('src.agents.story_finder.agent.ChatGoogleGenerativeAI')
+        self.mock_llm_patcher = patch('src.agents.base_agent.ChatGoogleGenerativeAI')
         self.mock_tavily_patcher = patch('src.agents.story_finder.agent.TavilySearchResults')
         self.mock_settings_patcher = patch('src.agents.story_finder.agent.settings')
         

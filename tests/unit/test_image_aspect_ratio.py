@@ -1,9 +1,11 @@
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
 import os
+import tempfile
+import shutil
 from src.agents.image_gen.agent import ImageGenAgent
 from src.agents.image_gen.gemini_image_client import GeminiImageClient
-from src.models.models import Scene, SceneType, VoiceTone, ElevenLabsSettings, ImageStyle, TransitionType
+from src.models.models import Scene, SceneType, VoiceTone, ElevenLabsSettings, ImageStyle, TransitionType, VisualSegment
 from src.core.config import settings
 
 class TestImageAspectRatio(unittest.IsolatedAsyncioTestCase):
@@ -50,6 +52,15 @@ class TestImageAspectRatio(unittest.IsolatedAsyncioTestCase):
             
             agent = ImageGenAgent()
             
+            # Use temp dir to avoid cache hits
+            tmp_dir = tempfile.mkdtemp()
+            self.addCleanup(shutil.rmtree, tmp_dir)
+            
+            agent.output_dir = os.path.join(tmp_dir, "images")
+            agent.cache_dir = os.path.join(tmp_dir, "cache")
+            os.makedirs(agent.output_dir, exist_ok=True)
+            os.makedirs(agent.cache_dir, exist_ok=True)
+            
             # Create a dummy scene
             scene = Scene(
                 scene_number=1,
@@ -57,7 +68,7 @@ class TestImageAspectRatio(unittest.IsolatedAsyncioTestCase):
                 voice_tone=VoiceTone.CALM,
                 elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
                 image_style=ImageStyle.CINEMATIC,
-                image_create_prompt="A test image",
+                content=[VisualSegment(segment_text="test", image_prompt="A test image")],
                 needs_animation=False,
                 transition_to_next=TransitionType.NONE
             )
@@ -70,25 +81,23 @@ class TestImageAspectRatio(unittest.IsolatedAsyncioTestCase):
             
             mock_client_instance.download_image.side_effect = side_effect_download
             
-            # Run generation
+            # Generate images
             await agent.generate_images([scene])
             
-            # Verify generate_image was called with aspect_ratio='9:16'
-            # Note: We need to find the call arguments
+            # Verify client was initialized
+            # Verify generate_image was called with correct aspect ratio
             calls = mock_client_instance.generate_image.call_args_list
             self.assertTrue(len(calls) > 0)
             
-            # Check args of first call
-            _, kwargs = calls[0]
-            self.assertEqual(kwargs.get('aspect_ratio'), '9:16')
-            print("\n✅ Agent passed aspect_ratio='9:16' correctly")
+            call_kwargs = calls[0].kwargs
+            self.assertEqual(call_kwargs['aspect_ratio'], "9:16")
 
     async def test_client_prompt_construction(self):
         """Test that GeminiImageClient appends aspect ratio to prompt."""
         
         client = GeminiImageClient(api_key="fake_key")
         client.model = MagicMock()
-        client.model.generate_content = MagicMock(return_value=MagicMock(parts=[MagicMock(inline_data=MagicMock(data=b'\x89PNG\r\n\x1a\nfake', mime_type='image/png'))]))
+        client.model.generate_content_async = AsyncMock(return_value=MagicMock(parts=[MagicMock(inline_data=MagicMock(data=b'\x89PNG\r\n\x1a\nfake', mime_type='image/png'))]))
         
         prompt = "A beautiful sunset"
         aspect_ratio = "9:16"
@@ -96,12 +105,11 @@ class TestImageAspectRatio(unittest.IsolatedAsyncioTestCase):
         await client.generate_image(prompt=prompt, aspect_ratio=aspect_ratio)
         
         # Verify the prompt sent to the model
-        call_args = client.model.generate_content.call_args
+        call_args = client.model.generate_content_async.call_args
         full_prompt = call_args[0][0][0] # args[0] is list of parts, first part is prompt string
         
-        self.assertIn(f"with {aspect_ratio} aspect ratio", full_prompt)
-        self.assertIn(f"vertical {aspect_ratio} format", full_prompt)
-        print(f"\n✅ Client constructed prompt correctly: '{full_prompt}'")
+        self.assertIn(f"Create an image in {aspect_ratio} aspect ratio", full_prompt)
+        self.assertIn("vertical/portrait orientation", full_prompt)
 
 if __name__ == '__main__':
     unittest.main()

@@ -118,8 +118,13 @@ export default function Home() {
 
     setStep(3);
     setLoading(true);
+    setLoadingStatus('🎬 Generating script...');
 
     try {
+      // Create abort controller with longer timeout for script generation
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes for script generation
+
       // Bypass Next.js proxy to debug 500 error
       const res = await fetch('http://localhost:8001/api/scripts/generate', {
         method: 'POST',
@@ -131,8 +136,10 @@ export default function Home() {
           story_audience: selectedStory.target_audience,
           duration: selectedStory.estimated_duration
         }),
+        signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       console.log('Response status:', res.status);
 
       if (!res.ok) {
@@ -161,11 +168,16 @@ export default function Home() {
       } else {
         throw new Error('No script returned');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to generate script', error);
-      alert(`Failed to generate script: ${(error as Error).message}\n\nCheck console for details.`);
+      if (error.name === 'AbortError') {
+        alert('Script generation is taking longer than expected. The backend is still processing. Please wait a moment and try again, or check the backend logs.');
+      } else {
+        alert(`Failed to generate script: ${error.message}\n\nIf you see a 500 error, the backend may still be processing. Please wait a moment and try again.`);
+      }
     } finally {
       setLoading(false);
+      setLoadingStatus('');
     }
   };
 
@@ -369,7 +381,7 @@ export default function Home() {
               disabled={!selectedStory || loading}
               className={`w-full py-4 rounded-xl font-bold text-lg transition-all transform duration-200 border-2 ${!selectedStory || loading
                 ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-green-600 to-teal-600 border-transparent text-white shadow-xl hover:shadow-green-500/40 hover:scale-[1.02] hover:brightness-110'
+                : '!bg-gradient-to-r !from-green-600 !to-teal-600 border-transparent text-white shadow-xl !hover:from-green-500 !hover:to-teal-500 hover:shadow-green-500/40 hover:scale-105 hover:brightness-110'
                 }`}
             >
               {loading ? 'Processing...' : 'Create Video 🎬'}
@@ -441,148 +453,46 @@ export default function Home() {
                   <button
                     onClick={async () => {
                       setLoading(true);
-                      const controller = new AbortController();
-                      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000); // 30 minutes timeout (increased from 20)
 
                       try {
-                        // Fetch retry configuration from backend
-                        const configRes = await fetch('/api/dev/retry-config');
-                        const retryConfig = configRes.ok ? await configRes.json() : {
-                          max_retries: 5,
-                          retry_delays_seconds: [5, 15, 30, 60],
-                          scene_delay_seconds: 5
-                        };
-
-                        console.log('Using retry configuration:', retryConfig);
-
-                        // 1. Generate images for all scenes SEQUENTIALLY with exponential backoff
-                        const imageMap: Record<number, string> = {};
-                        const MAX_RETRIES = retryConfig.max_retries;
-                        const DELAYS = retryConfig.retry_delays_seconds.map((s: number) => s * 1000); // Convert to ms
-                        const SCENE_DELAY = retryConfig.scene_delay_seconds * 1000; // Convert to ms
-
-                        console.log(`Starting sequential image generation for ${script.scenes.length} scenes...`);
-                        console.log(`Max retries: ${MAX_RETRIES}, Delays: ${retryConfig.retry_delays_seconds}s, Scene spacing: ${retryConfig.scene_delay_seconds}s`);
-
-                        for (let i = 0; i < script.scenes.length; i++) {
-                          const scene = script.scenes[i];
-                          let success = false;
-                          let lastError = null;
-
-                          // Retry loop for each scene
-                          for (let attempt = 0; attempt < MAX_RETRIES && !success; attempt++) {
-                            try {
-                              const attemptLabel = attempt > 0 ? ` (retry ${attempt}/${MAX_RETRIES - 1})` : '';
-                              console.log(`[${i + 1}/${script.scenes.length}] Generating image for scene ${scene.scene_number}${attemptLabel}...`);
-
-                              const res = await fetch('/api/dev/generate-image', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  scene_number: scene.scene_number,
-                                  prompt: scene.image_create_prompt,
-                                  style: scene.image_style
-                                }),
-                              });
-
-                              if (res.ok) {
-                                const data = await res.json();
-                                console.log(`✓ Image generated for scene ${scene.scene_number}`);
-                                imageMap[scene.scene_number] = data.url;
-                                success = true;
-                              } else {
-                                const errorText = await res.text();
-                                lastError = `${res.status} ${res.statusText}: ${errorText}`;
-                                console.error(`✗ Failed to generate image for scene ${scene.scene_number}: ${lastError}`);
-
-                                // If not the last retry, wait with exponential backoff
-                                if (attempt < MAX_RETRIES - 1) {
-                                  const retryDelay = DELAYS[Math.min(attempt, DELAYS.length - 1)];
-                                  console.log(`Waiting ${retryDelay / 1000}s before retry...`);
-                                  await new Promise(resolve => setTimeout(resolve, retryDelay));
-                                }
-                              }
-                            } catch (e) {
-                              lastError = e;
-                              console.error(`✗ Exception generating image for scene ${scene.scene_number}:`, e);
-
-                              // If not the last retry, wait with exponential backoff
-                              if (attempt < MAX_RETRIES - 1) {
-                                const retryDelay = DELAYS[Math.min(attempt, DELAYS.length - 1)];
-                                console.log(`Waiting ${retryDelay / 1000}s before retry...`);
-                                await new Promise(resolve => setTimeout(resolve, retryDelay));
-                              }
-                            }
-                          }
-
-                          // If all retries failed, log error but continue with other scenes
-                          if (!success) {
-                            console.error(`✗ Failed to generate image for scene ${scene.scene_number} after ${MAX_RETRIES} attempts. Last error:`, lastError);
-                            alert(`Warning: Failed to generate image for scene ${scene.scene_number}. Continuing with other scenes...`);
-                          }
-
-                          // Add delay between scenes (except after the last one)
-                          if (i < script.scenes.length - 1 && success) {
-                            console.log(`Waiting ${SCENE_DELAY / 1000}s before next scene...`);
-                            await new Promise(resolve => setTimeout(resolve, SCENE_DELAY));
-                          }
-                        }
-
-                        console.log('Image generation complete. Final imageMap:', imageMap);
-
-                        // 2. Generate Video
-                        // Bypass Next.js proxy to avoid timeouts
-                        const res = await fetch('http://localhost:8001/api/dev/generate-video-from-script', {
+                        // Fire and forget - submit to backend
+                        // Use the main video generation endpoint which handles everything (Director, Image, Voice, Assembly)
+                        fetch('/api/videos/generate', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
-                            script: script,
-                            image_map: imageMap
+                            script: script
                           }),
-                          signal: controller.signal
+                        }).then(res => {
+                          if (res.ok) {
+                            console.log('Video generation job submitted successfully');
+                          } else {
+                            console.error('Video generation job submission failed');
+                          }
+                        }).catch(err => {
+                          console.error('Error submitting video generation job:', err);
                         });
 
-                        clearTimeout(timeoutId);
+                        // Show success message and return to home immediately
+                        alert('✅ Video generation job submitted!\n\nYour video is being generated in the background. This may take 10-15 minutes.\n\nCheck the "generated_assets/videos" folder for your completed video.');
 
-                        if (!res.ok) {
-                          let errorMessage = 'Failed to generate video';
-                          try {
-                            const contentType = res.headers.get('content-type');
-                            if (contentType && contentType.includes('application/json')) {
-                              const errorData = await res.json();
-                              errorMessage = errorData.detail || errorData.message || errorMessage;
-                            } else {
-                              const text = await res.text();
-                              console.error('Non-JSON error response:', text.substring(0, 200));
-                              errorMessage = `Server error (${res.status}): ${res.statusText}`;
-                            }
-                          } catch (parseError) {
-                            console.error('Error parsing error response:', parseError);
-                            errorMessage = `Server error (${res.status})`;
-                          }
-                          throw new Error(errorMessage);
-                        }
-
-                        const data = await res.json();
-
-                        // 3. Show Video
-                        window.open(data.video_url, '_blank');
-                        alert('Video Generated! Opening in new tab...');
+                        // Reset to home screen
+                        setStep(1);
+                        setScript(null);
+                        setSelectedStory(null);
 
                       } catch (e: any) {
-                        clearTimeout(timeoutId);
                         console.error(e);
-                        if (e.name === 'AbortError') {
-                          alert('Video generation timed out after 3 minutes. The video might still be processing on the server.');
-                        } else {
-                          alert(`Failed to generate video:\n\n${e.message || e}`);
-                        }
+                        alert(`Failed to submit video generation:\n\n${e.message || e}`);
                       } finally {
                         setLoading(false);
                       }
                     }}
                     disabled={loading}
-                    className="flex-1 py-3 bg-gradient-to-r from-pink-600 to-red-600 rounded-xl font-bold hover:from-pink-500 hover:to-red-500 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className={`flex-1 py-3 rounded-xl font-bold transition-all transform duration-200 shadow-lg flex items-center justify-center gap-2 ${loading
+                      ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                      : '!bg-gradient-to-r !from-pink-600 !to-red-600 text-white !hover:from-pink-500 !hover:to-red-500 hover:scale-105 !hover:shadow-pink-500/40'
+                      }`}
                   >
                     {loading ? (
                       <>

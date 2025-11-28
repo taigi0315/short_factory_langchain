@@ -20,7 +20,7 @@ class TestStoryFinderAgentV2(unittest.TestCase):
         settings.GEMINI_API_KEY = self.original_gemini_key
         settings.TAVILY_API_KEY = self.original_tavily_key
 
-    @patch('src.agents.story_finder.agent.ChatGoogleGenerativeAI')
+    @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
     @patch('src.agents.story_finder.agent.TavilySearchResults')
     def test_initialization_success(self, mock_tavily, mock_llm):
         """Test successful initialization with all keys present."""
@@ -30,7 +30,7 @@ class TestStoryFinderAgentV2(unittest.TestCase):
         self.assertIsNotNone(agent.chain)
         mock_tavily.assert_called_once()
 
-    @patch('src.agents.story_finder.agent.ChatGoogleGenerativeAI')
+    @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
     def test_initialization_no_tavily(self, mock_llm):
         """Test initialization without Tavily key (should warn but proceed)."""
         settings.TAVILY_API_KEY = None
@@ -39,7 +39,7 @@ class TestStoryFinderAgentV2(unittest.TestCase):
         self.assertIsNone(agent.search_tool)
         self.assertIsNotNone(agent.chain)
 
-    @patch('src.agents.story_finder.agent.ChatGoogleGenerativeAI')
+    @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
     @patch('src.agents.story_finder.agent.TavilySearchResults')
     def test_find_stories_news_category(self, mock_tavily_class, mock_llm_class):
         """Test that 'News' category triggers search."""
@@ -67,7 +67,7 @@ class TestStoryFinderAgentV2(unittest.TestCase):
         # To test the search integration properly, we need to test the _build_chain logic or the search_step function specifically.
         pass 
 
-    @patch('src.agents.story_finder.agent.ChatGoogleGenerativeAI')
+    @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
     @patch('src.agents.story_finder.agent.TavilySearchResults')
     def test_search_step_execution(self, mock_tavily_class, mock_llm_class):
         """Test the internal search step logic."""

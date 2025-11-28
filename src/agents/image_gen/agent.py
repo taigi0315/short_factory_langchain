@@ -268,6 +268,9 @@ class ImageGenAgent(BaseAgent):
         """Enhance the base prompt with photorealistic style and quality modifiers."""
         prompt = base_prompt or "A cinematic scene"
         
+        # Add vertical composition emphasis for 9:16 aspect ratio
+        vertical_composition = "vertical composition, tall portrait orientation, 9:16 aspect ratio optimized, centered subject in vertical frame"
+        
         # Add style modifiers based on image_style - emphasize photorealism
         style_enhancers = {
             ImageStyle.CINEMATIC: "photorealistic, cinematic lighting, professional photography, realistic textures, film grain, bokeh, 4k",
@@ -292,7 +295,7 @@ class ImageGenAgent(BaseAgent):
 
         quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting"
         
-        enhanced = f"{prompt}, {style_suffix}, {quality_suffix}"
+        enhanced = f"{prompt}, {vertical_composition}, {style_suffix}, {quality_suffix}"
         return enhanced
 
     def _enhance_prompt(self, scene: Scene) -> str:

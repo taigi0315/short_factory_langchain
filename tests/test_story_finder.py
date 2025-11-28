@@ -4,7 +4,7 @@ from src.agents.story_finder.agent import StoryFinderAgent
 from src.agents.story_finder.models import StoryList, StoryIdea
 
 class TestStoryFinderAgent(unittest.TestCase):
-    @patch('src.agents.story_finder.agent.ChatGoogleGenerativeAI')
+    @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
     def test_find_stories(self, mock_llm_class):
         # Setup mock
         mock_llm = MagicMock()

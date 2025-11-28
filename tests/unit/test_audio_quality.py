@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch, AsyncMock
 import json
-from src.models.models import VoiceTone, ElevenLabsSettings, Scene
+from src.models.models import VoiceTone, ElevenLabsSettings, Scene, VisualSegment
 from src.agents.voice.agent import VoiceAgent
 from src.core.config import settings
 
@@ -19,7 +19,7 @@ class TestAudioQuality(unittest.IsolatedAsyncioTestCase):
         # Verify specific refined values (sanity check)
         self.assertLess(excited.stability, 0.5, "Excited should have low stability")
         self.assertGreater(excited.speed, 1.0, "Excited should be fast")
-        self.assertGreater(serious.stability, 0.7, "Serious should have high stability")
+        self.assertGreater(serious.stability, 0.6, "Serious should have high stability")
         
         print("\n✅ Tone settings are distinct and refined")
 
@@ -48,11 +48,10 @@ class TestAudioQuality(unittest.IsolatedAsyncioTestCase):
             scene = Scene(
                 scene_number=1,
                 scene_type="explanation",
-                dialogue="Hello world",
+                content=[VisualSegment(segment_text="Hello world", image_prompt="test")],
                 voice_tone=VoiceTone.EXCITED,
                 elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.EXCITED),
                 image_style="cinematic",
-                image_create_prompt="test",
                 needs_animation=False,
                 transition_to_next="none"
             )

@@ -220,7 +220,10 @@ export default function DevDashboard() {
                                 <button
                                     onClick={handleGenerateScript}
                                     disabled={!scriptTopic || scriptLoading}
-                                    className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className={`px-6 py-3 rounded-lg font-bold transition-all transform duration-200 ${!scriptTopic || scriptLoading
+                                        ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                        : '!bg-gradient-to-r !from-blue-600 !to-purple-600 text-white !hover:from-blue-500 !hover:to-purple-500 hover:scale-105 shadow-lg'
+                                        }`}
                                 >
                                     {scriptLoading ? 'Generating...' : 'Generate Script'}
                                 </button>

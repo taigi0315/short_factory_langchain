@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from pathlib import Path
 from src.agents.voice.agent import VoiceAgent
 from src.agents.voice.elevenlabs_client import ElevenLabsClient
-from src.models.models import Scene, VoiceTone, SceneType, TransitionType, ImageStyle, ElevenLabsSettings
+from src.models.models import Scene, VoiceTone, SceneType, TransitionType, ImageStyle, ElevenLabsSettings, VisualSegment
 from src.core.config import settings
 
 # Test data
@@ -20,7 +20,9 @@ MOCK_SCENE = Scene(
     image_create_prompt="test prompt",
     needs_animation=False,
     transition_to_next=TransitionType.FADE,
-    content=[]
+    content=[
+        VisualSegment(segment_text="test dialogue", image_prompt="test prompt")
+    ]
 )
 
 @pytest.fixture

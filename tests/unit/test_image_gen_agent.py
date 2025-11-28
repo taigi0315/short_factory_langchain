@@ -35,7 +35,6 @@ class TestImageGenAgent:
             voice_tone=VoiceTone.EXCITED,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.EXCITED),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt="A mysterious figure in the shadows",
             needs_animation=False,
             transition_to_next=TransitionType.FADE,
             content=[
@@ -121,7 +120,6 @@ class TestImageGenAgent:
             voice_tone=VoiceTone.CALM,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
             image_style=ImageStyle.INFOGRAPHIC,
-            image_create_prompt="Educational diagram",
             needs_animation=False,
             transition_to_next=TransitionType.SLIDE_LEFT,
             content=[
@@ -149,7 +147,6 @@ class TestImageGenAgent:
             voice_tone=VoiceTone.CALM,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
             image_style=ImageStyle.FOUR_CUT_CARTOON,
-            image_create_prompt="Multi-panel scene",
             needs_animation=False,
             transition_to_next=TransitionType.FADE,
             content=[
@@ -217,7 +214,6 @@ class TestImageGenAgent:
                 voice_tone=VoiceTone.CALM,
                 elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
                 image_style=ImageStyle.CINEMATIC,
-                image_create_prompt=f"Scene {i}",
                 needs_animation=False,
                 transition_to_next=TransitionType.FADE,
                 content=[
@@ -272,7 +268,6 @@ class TestImageGenAgentRealMode:
             voice_tone=VoiceTone.EXCITED,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.EXCITED),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt="A mysterious figure",
             needs_animation=False,
             transition_to_next=TransitionType.FADE,
             content=[

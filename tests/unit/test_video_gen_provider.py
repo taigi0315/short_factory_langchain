@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 import os
 from src.agents.video_gen.agent import VideoGenAgent
 from src.agents.video_gen.providers.mock import MockVideoProvider
-from src.models.models import Scene, SceneType, VoiceTone, ElevenLabsSettings, ImageStyle, TransitionType
+from src.models.models import Scene, SceneType, VoiceTone, ElevenLabsSettings, ImageStyle, TransitionType, VisualSegment
 from src.core.config import settings
 
 class TestVideoGenProvider(unittest.IsolatedAsyncioTestCase):
@@ -20,6 +20,7 @@ class TestVideoGenProvider(unittest.IsolatedAsyncioTestCase):
         mock_settings.GENERATED_ASSETS_DIR = "/tmp/test_assets"
         mock_settings.USE_REAL_LLM = False
         mock_settings.DEFAULT_SCENE_DURATION = 2.0
+        mock_settings.MAX_AI_VIDEOS_PER_SCRIPT = 5
         
         # Initialize agent
         agent = VideoGenAgent()
@@ -34,7 +35,7 @@ class TestVideoGenProvider(unittest.IsolatedAsyncioTestCase):
             voice_tone=VoiceTone.CALM,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt="test image",
+            content=[VisualSegment(segment_text="test", image_prompt="test image")],
             needs_animation=True, # Triggers AI video gen
             video_prompt="A cinematic shot of a robot",
             transition_to_next=TransitionType.NONE
@@ -84,7 +85,7 @@ class TestVideoGenProvider(unittest.IsolatedAsyncioTestCase):
                 mock_clip.subclipped.return_value = mock_clip
                 MockVideoFileClip.return_value = mock_clip
                 
-                await agent._create_scene_clip(scene, "test_image.jpg", 2.0, ImageStyle.CINEMATIC)
+                await agent._create_scene_clip(scene, "test_image.jpg", 2.0, ImageStyle.CINEMATIC, force_ai_video=True)
                 
                 # Verify generate_video was called
                 agent.video_provider.generate_video.assert_called_once_with("test_image.jpg", "A cinematic shot of a robot")
