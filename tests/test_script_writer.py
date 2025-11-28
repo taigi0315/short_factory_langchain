@@ -1,14 +1,14 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from src.agents.script_writer.agent import ScriptWriterAgent
 from src.models.models import VideoScript, Scene, SceneType, ImageStyle, VoiceTone, TransitionType, ElevenLabsSettings
 
 from langchain_core.messages import AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-class TestScriptWriterAgent(unittest.TestCase):
+class TestScriptWriterAgent(unittest.IsolatedAsyncioTestCase):
     @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
-    def test_generate_script(self, mock_llm_class):
+    async def test_generate_script(self, mock_llm_class):
         # Setup mock
         mock_llm = MagicMock()
         mock_llm_class.return_value = mock_llm
@@ -69,20 +69,20 @@ class TestScriptWriterAgent(unittest.TestCase):
             ]
         )
         
-        # Mock the chain's invoke method
+        # Mock the chain's ainvoke method
         agent.chain = MagicMock()
-        agent.chain.invoke.return_value = dummy_script
+        agent.chain.ainvoke = AsyncMock(return_value=dummy_script)
         
         # Run method
-        result = agent.generate_script("coffee", max_scenes=1)
+        result = await agent.generate_script("coffee", max_scenes=1)
         
         # Verify
         self.assertEqual(result.title, "Test Video")
-        agent.chain.invoke.assert_called_once()
+        agent.chain.ainvoke.assert_called_once()
 
-class TestScriptWriterRouter(unittest.TestCase):
+class TestScriptWriterRouter(unittest.IsolatedAsyncioTestCase):
     @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
-    def test_router_selection(self, mock_llm_class):
+    async def test_router_selection(self, mock_llm_class):
         # Setup mock LLM
         mock_llm = MagicMock(spec=ChatGoogleGenerativeAI)
         mock_llm_class.return_value = mock_llm
@@ -142,21 +142,26 @@ class TestScriptWriterRouter(unittest.TestCase):
         )
         
         # Mock the LLM response to be an AIMessage
+        # When using chain.ainvoke, the LLM's invoke or ainvoke might be called depending on implementation
+        # We mock both to be safe
         mock_llm.invoke.return_value = AIMessage(content=dummy_script.model_dump_json())
+        mock_llm.ainvoke = AsyncMock(return_value=AIMessage(content=dummy_script.model_dump_json()))
         
         # Initialize agent
         agent = ScriptWriterAgent()
         
         # Test Case 1: News Category -> Should trigger Real Story Prompt
         try:
-            agent.generate_script(subject="Test News", category="News", max_scenes=4)
+            await agent.generate_script(subject="Test News", category="News", max_scenes=4)
             
             # Verify LLM was called
-            mock_llm.invoke.assert_called()
-            
-            # Get the prompt passed to LLM
-            # call_args[0][0] is the PromptValue
-            prompt_value = mock_llm.invoke.call_args[0][0]
+            # Since we are using a real chain with a mock LLM, we need to check if LLM was invoked
+            # The chain execution might use invoke or ainvoke on the LLM
+            if mock_llm.ainvoke.called:
+                prompt_value = mock_llm.ainvoke.call_args[0][0]
+            else:
+                prompt_value = mock_llm.invoke.call_args[0][0]
+                
             prompt_text = prompt_value.to_string()
             
             # Check for Real Story persona
@@ -168,9 +173,16 @@ class TestScriptWriterRouter(unittest.TestCase):
 
         # Test Case 2: Educational Category -> Should trigger Educational Prompt
         try:
-            agent.generate_script(subject="Test Edu", category="Educational", max_scenes=4)
+            mock_llm.invoke.reset_mock()
+            mock_llm.ainvoke.reset_mock()
             
-            prompt_value = mock_llm.invoke.call_args[0][0]
+            await agent.generate_script(subject="Test Edu", category="Educational", max_scenes=4)
+            
+            if mock_llm.ainvoke.called:
+                prompt_value = mock_llm.ainvoke.call_args[0][0]
+            else:
+                prompt_value = mock_llm.invoke.call_args[0][0]
+                
             prompt_text = prompt_value.to_string()
             
             # Check for Educational persona
@@ -182,9 +194,16 @@ class TestScriptWriterRouter(unittest.TestCase):
 
         # Test Case 3: Creative Category (Default) -> Should trigger Creative Prompt
         try:
-            agent.generate_script(subject="Test Creative", category="Fiction", max_scenes=4)
+            mock_llm.invoke.reset_mock()
+            mock_llm.ainvoke.reset_mock()
             
-            prompt_value = mock_llm.invoke.call_args[0][0]
+            await agent.generate_script(subject="Test Creative", category="Fiction", max_scenes=4)
+            
+            if mock_llm.ainvoke.called:
+                prompt_value = mock_llm.ainvoke.call_args[0][0]
+            else:
+                prompt_value = mock_llm.invoke.call_args[0][0]
+                
             prompt_text = prompt_value.to_string()
             
             # Check for Creative persona

@@ -14,6 +14,7 @@ from src.agents.image_gen.gemini_image_client import GeminiImageClient
 
 logger = structlog.get_logger()
 
+from src.core.retry import retry_with_backoff
 from src.agents.base_agent import BaseAgent
 
 class ImageGenAgent(BaseAgent):
@@ -83,75 +84,43 @@ class ImageGenAgent(BaseAgent):
             workflow_manager = wf_mgr
         
         for scene in scenes:
-            max_retries = 3
-            last_error = None
-            
-            for attempt in range(1, max_retries + 1):
-                try:
-                    logger.info(
-                        "Generating images for scene (attempt {}/{})".format(attempt, max_retries),
-                        scene_number=scene.scene_number,
-                        attempt=attempt
+            try:
+                # Use the decorated method which handles retries internally
+                scene_image_paths = await self._generate_scene_images(client, scene)
+                image_paths[scene.scene_number] = scene_image_paths
+                
+                if workflow_manager and scene_image_paths:
+                    # TODO: Update workflow manager to support list of images
+                    workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
+                    logger.info("Checkpoint saved", 
+                              workflow_id=workflow_id,
+                              progress=f"{len(image_paths)}/{len(scenes)}")
+                
+                logger.info(
+                    "Images generated successfully",
+                    scene_number=scene.scene_number,
+                    count=len(scene_image_paths)
+                )
+                    
+            except Exception as e:
+                logger.error(
+                    "Image generation failed for scene after retries",
+                    scene_number=scene.scene_number,
+                    error=str(e)
+                )
+                
+                if workflow_manager:
+                    from src.core.workflow_state import WorkflowStep
+                    workflow_manager.mark_failed(
+                        workflow_id,
+                        WorkflowStep.IMAGE_GENERATION,
+                        f"Image generation failed for scene {scene.scene_number}: {e}",
+                        type(e).__name__
                     )
-                    
-                    scene_image_paths = await self._generate_scene_images(client, scene)
-                    image_paths[scene.scene_number] = scene_image_paths
-                    
-                    image_paths[scene.scene_number] = scene_image_paths
-                    
-                    if workflow_manager and scene_image_paths:
-                        # TODO: Update workflow manager to support list of images
-                        workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
-                        logger.info("Checkpoint saved", 
-                                  workflow_id=workflow_id,
-                                  progress=f"{len(image_paths)}/{len(scenes)}")
-                    
-                    logger.info(
-                        "Images generated successfully",
-                        scene_number=scene.scene_number,
-                        count=len(scene_image_paths),
-                        attempt=attempt
-                    )
-                    break
-                    
-                except Exception as e:
-                    last_error = e
-                    logger.warning(
-                        "Image generation failed for scene (attempt {}/{})".format(attempt, max_retries),
-                        scene_number=scene.scene_number,
-                        attempt=attempt,
-                        error=str(e),
-                        error_type=type(e).__name__
-                    )
-                    
-                    if attempt == max_retries:
-                        logger.error(
-                            "All retry attempts exhausted for scene",
-                            scene_number=scene.scene_number,
-                            total_attempts=max_retries,
-                            final_error=str(e)
-                        )
-                        
-                        if workflow_manager:
-                            from src.core.workflow_state import WorkflowStep
-                            workflow_manager.mark_failed(
-                                workflow_id,
-                                WorkflowStep.IMAGE_GENERATION,
-                                f"Image generation failed for scene {scene.scene_number} after {max_retries} attempts: {e}",
-                                type(e).__name__
-                            )
-                        
-                        raise RuntimeError(
-                            f"Image generation failed for scene {scene.scene_number} after {max_retries} attempts: {e}"
-                        ) from e
-                    else:
-                        wait_time = 2 ** attempt
-                        logger.info(
-                            f"Waiting {wait_time}s before retry...",
-                            scene_number=scene.scene_number,
-                            wait_seconds=wait_time
-                        )
-                        await asyncio.sleep(wait_time)
+                
+                raise RuntimeError(
+                    f"Image generation failed for scene {scene.scene_number}: {e}"
+                ) from e
         
         return image_paths
 
@@ -198,6 +167,7 @@ class ImageGenAgent(BaseAgent):
         
         return await self.generate_images(enhanced_scenes, workflow_id)
 
+    @retry_with_backoff(operation_name="image generation")
     async def _generate_scene_images(
         self, 
         client: GeminiImageClient, 

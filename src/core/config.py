@@ -89,6 +89,34 @@ class Settings(BaseSettings):
     )
 
     # ========================================
+    # Standardized Retry Settings
+    # ========================================
+    DEFAULT_MAX_RETRIES: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Default maximum number of retries for operations"
+    )
+    DEFAULT_RETRY_INITIAL_DELAY: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=10.0,
+        description="Default initial retry delay in seconds"
+    )
+    DEFAULT_RETRY_MAX_DELAY: float = Field(
+        default=60.0,
+        ge=1.0,
+        le=300.0,
+        description="Default maximum retry delay in seconds"
+    )
+    DEFAULT_RETRY_EXPONENTIAL_BASE: float = Field(
+        default=2.0,
+        ge=1.1,
+        le=10.0,
+        description="Default exponential backoff base"
+    )
+
+    # ========================================
     # Video Generation Settings
     # ========================================
     VIDEO_RESOLUTION: str = Field(default="1080p", description="Video resolution (1080p or 720p)")

@@ -13,6 +13,7 @@ from src.agents.script_writer.prompts import (
 )
 from src.models.models import VideoScript, VoiceTone, SceneType, ImageStyle
 from src.core.config import settings
+from src.core.retry import retry_with_backoff
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ class ScriptWriterAgent(BaseAgent):
         
         return script
     
-    def generate_script(
+    async def generate_script(
         self,
         subject: str,
         language: str = "English",
@@ -215,67 +216,63 @@ class ScriptWriterAgent(BaseAgent):
             f"Min scenes: {settings.MIN_SCENES}, Max scenes: {max_video_scenes}"
         )
         
-        last_error = None
-        
-        for attempt in range(max_retries):
-            try:
-                result = self.chain.invoke({
-                    "subject": subject,
-                    "language": language,
-                    "category": category,
-                    "max_video_scenes": max_video_scenes,
-                    "min_scenes": settings.MIN_SCENES
-                })
-                
-                result = self._validate_and_fix_script(result)
-                
-                logger.info(
-                    f"[{request_id}] Script generation completed successfully "
-                    f"(attempt {attempt + 1}/{max_retries}). "
-                    f"Generated script with {len(result.scenes)} scenes."
-                )
-                
-                return result
-                
-            except ValidationError as e:
-                last_error = e
-                logger.warning(
-                    f"[{request_id}] Validation error on attempt {attempt + 1}/{max_retries}: {str(e)}"
-                )
-                
-                if attempt < max_retries - 1:
-                    logger.info(f"[{request_id}] Retrying script generation...")
-                else:
-                    logger.error(
-                        f"[{request_id}] All retry attempts exhausted. "
-                        f"Script generation failed with validation errors."
-                    )
-                    
+        try:
+            # Call the decorated internal method
+            result = await self._generate_script_internal(
+                subject=subject,
+                language=language,
+                category=category,
+                max_video_scenes=max_video_scenes,
+                request_id=request_id
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"[{request_id}] Script generation failed after retries: {e}")
+            raise
 
-            except ValueError as e:
-                last_error = e
-                logger.error(
-                    f"[{request_id}] Scene count validation failed on attempt {attempt + 1}/{max_retries}: {str(e)}"
-                )
-                
-                if attempt < max_retries - 1:
-                    logger.info(f"[{request_id}] Retrying with adjusted parameters...")
-                else:
-                    logger.error(f"[{request_id}] Failed to generate script with required scene count")
-                    
-            except Exception as e:
-                last_error = e
-                logger.error(
-                    f"[{request_id}] Script generation failed on attempt {attempt + 1}/{max_retries} "
-                    f"({type(e).__name__}): {str(e)}",
-                    exc_info=True
-                )
-                
-                if attempt < max_retries - 1:
-                    logger.info(f"[{request_id}] Retrying...")
-                else:
-                    logger.error(f"[{request_id}] All retry attempts exhausted")
+    @retry_with_backoff(operation_name="script generation")
+    async def _generate_script_internal(
+        self,
+        subject: str,
+        language: str,
+        category: str,
+        max_video_scenes: int,
+        request_id: str
+    ) -> VideoScript:
+        """Internal method to generate script with retries."""
         
-
-        logger.error(f"[{request_id}] Script generation failed after {max_retries} attempts")
-        raise last_error if last_error else Exception("Script generation failed")
+        try:
+            # Use ainvoke for async execution
+            result = await self.chain.ainvoke({
+                "subject": subject,
+                "language": language,
+                "category": category,
+                "max_video_scenes": max_video_scenes,
+                "min_scenes": settings.MIN_SCENES
+            })
+            
+            result = self._validate_and_fix_script(result)
+            
+            logger.info(
+                f"[{request_id}] Script generation completed successfully. "
+                f"Generated script with {len(result.scenes)} scenes."
+            )
+            
+            return result
+            
+        except ValidationError as e:
+            logger.warning(f"[{request_id}] Validation error: {str(e)}")
+            raise # Retry decorator will catch this
+            
+        except ValueError as e:
+            logger.error(f"[{request_id}] Scene count validation failed: {str(e)}")
+            raise # Retry decorator will catch this
+            
+        except Exception as e:
+            logger.error(
+                f"[{request_id}] Script generation failed ({type(e).__name__}): {str(e)}",
+                exc_info=True
+            )
+            raise # Retry decorator will catch this

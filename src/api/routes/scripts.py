@@ -30,7 +30,7 @@ async def generate_script(request: ScriptGenerationRequest):
     )
     
 
-    script = script_agent.generate_script(full_subject)
+    script = await script_agent.generate_script(full_subject)
     
     logger.info("Script generated", title=script.title, scenes=len(script.scenes))
     

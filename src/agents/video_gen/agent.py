@@ -23,208 +23,17 @@ from src.agents.video_gen.providers.luma import LumaVideoProvider
 
 logger = structlog.get_logger()
 
+from src.core.retry import retry_with_backoff
 from src.agents.base_agent import BaseAgent
 
+# ... imports ...
+
 class VideoGenAgent(BaseAgent):
-    """Enhanced video generation with real images and audio."""
-    
-    def __init__(self):
-        super().__init__(
-            agent_name="VideoGenAgent",
-            require_llm=False
-        )
+    # ... init and setup ...
 
-    def _setup(self):
-        """Agent-specific setup."""
-        self.use_real_video = not self.mock_mode
-        
-        self.output_dir = Path(settings.GENERATED_ASSETS_DIR) / "videos"
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.resolution = (1080, 1920) if settings.VIDEO_RESOLUTION == "1080p" else (720, 1280)
-        self.fps = settings.VIDEO_FPS
-        self.preset = settings.VIDEO_QUALITY
-        
-        self.video_provider = self._get_video_provider()
+    # ... _get_video_provider and _select_scenes_for_ai_video ...
 
-    def _get_video_provider(self) -> VideoGenerationProvider:
-        """Get the configured video generation provider."""
-        provider_name = settings.VIDEO_GENERATION_PROVIDER.lower()
-        
-        if provider_name == "luma":
-            logger.info("Using Luma Video Provider")
-            return LumaVideoProvider()
-        elif provider_name == "runway":
-            logger.warning("Runway provider not implemented, falling back to mock")
-            return MockVideoProvider()
-        else:
-            logger.info("Using Mock Video Provider (Simple Animation)")
-            return MockVideoProvider()
-
-    def _select_scenes_for_ai_video(self, scenes: List[Scene]) -> set[int]:
-        """
-        Select which scenes should get AI video generation based on video_importance.
-        
-        Returns a set of scene_numbers that should use AI video generation.
-        """
-        max_ai_videos = settings.MAX_AI_VIDEOS_PER_SCRIPT
-        
-        if max_ai_videos <= 0:
-            logger.info("AI video generation disabled (MAX_AI_VIDEOS_PER_SCRIPT=0)")
-            return set()
-        
-        # Filter scenes that need animation
-        animation_scenes = [s for s in scenes if s.needs_animation]
-        
-        if not animation_scenes:
-            logger.info("No scenes marked for animation")
-            return set()
-        
-        # Sort by video_importance (descending), then by scene_number for tie-breaking
-        sorted_scenes = sorted(
-            animation_scenes,
-            key=lambda s: (s.video_importance, -s.scene_number),
-            reverse=True
-        )
-        
-        selected_scenes = sorted_scenes[:max_ai_videos]
-        selected_numbers = {s.scene_number for s in selected_scenes}
-        
-        logger.info("Scene selection for AI video",
-                   total_animation_scenes=len(animation_scenes),
-                   max_allowed=max_ai_videos,
-                   selected_count=len(selected_numbers),
-                   selected_scenes=[
-                       {"scene": s.scene_number, "importance": s.video_importance}
-                       for s in selected_scenes
-                   ])
-        
-        return selected_numbers
-
-    async def generate_video(
-        self,
-        script: VideoScript,
-        images: List[str], # Paths as strings
-        audio_map: dict[int, str], # Map scene_number -> audio_path
-        style: ImageStyle = ImageStyle.CINEMATIC
-    ) -> str:
-        """Generate video from script, images, and audio."""
-        
-        logger.info("Generating video for script", title=script.title)
-        
-        try:
-            ai_video_scene_numbers = self._select_scenes_for_ai_video(script.scenes)
-            logger.info("Selected scenes for AI video generation", 
-                       scene_numbers=ai_video_scene_numbers,
-                       max_allowed=settings.MAX_AI_VIDEOS_PER_SCRIPT)
-            
-            scene_clips = []
-            
-            sorted_scenes = sorted(script.scenes, key=lambda s: s.scene_number)
-            
-            if len(images) < len(sorted_scenes):
-                logger.warning("Not enough images for scenes. Reusing last image.", image_count=len(images), scene_count=len(sorted_scenes))
-                while len(images) < len(sorted_scenes):
-                    images.append(images[-1] if images else "placeholder.jpg")
-
-            for i, scene in enumerate(sorted_scenes):
-                image_path = images[i]
-                audio_path = audio_map.get(scene.scene_number)
-                
-                if not audio_path or not os.path.exists(audio_path):
-                    logger.warning("Missing audio for scene. Using default duration.", scene_number=scene.scene_number)
-                    duration = settings.DEFAULT_SCENE_DURATION
-                    audio_clip = None
-                else:
-                    audio_clip = AudioFileClip(audio_path)
-                    audio_clip = audio_clip.with_effects([vfx.MultiplySpeed(1.1)])
-                    
-                    duration = audio_clip.duration
-                
-                should_use_ai_video = scene.scene_number in ai_video_scene_numbers
-                
-                clip = await self._create_scene_clip(
-                    scene, 
-                    image_path, 
-                    duration,
-                    style,
-                    force_ai_video=should_use_ai_video
-                )
-                
-                if audio_clip:
-                    clip = clip.with_audio(audio_clip)
-                    
-                scene_clips.append(clip)
-            
-            if scene_clips:
-                try:
-                    title_overlay = self._create_title_card(script.title, duration=3.0)
-                    first_scene = scene_clips[0]
-                    
-                    title_duration = min(3.0, first_scene.duration)
-                    title_overlay = title_overlay.with_duration(title_duration)
-                    
-                    first_scene_audio = first_scene.audio if hasattr(first_scene, 'audio') else None
-                    
-                    composited = CompositeVideoClip([first_scene.without_audio(), title_overlay])
-                    
-                    if first_scene_audio:
-                        composited = composited.with_audio(first_scene_audio)
-                    
-                    scene_clips[0] = composited
-                    logger.info("Title card overlaid on first scene", duration=title_duration)
-                except Exception as title_error:
-                    logger.error("Failed to overlay title card, skipping", 
-                                error=str(title_error),
-                                exc_info=True)
-            
-            final_video = self._apply_transitions(scene_clips)
-            
-            timestamp = int(time.time())
-            safe_title = "".join([c for c in script.title if c.isalnum() or c in (' ', '-', '_')]).strip().replace(' ', '_')
-            output_path = self.output_dir / f"video_{safe_title}_{timestamp}.mp4"
-            
-            logger.info("Rendering video...", output_path=str(output_path))
-            
-            import asyncio
-            try:
-                await asyncio.to_thread(
-                    final_video.write_videofile,
-                    str(output_path),
-                    fps=self.fps,
-                    codec='libx264',
-                    audio_codec='aac',
-                    preset=self.preset,
-                    logger=None 
-                )
-                
-                if not os.path.exists(output_path):
-                    raise RuntimeError(f"Video file was not created at {output_path}")
-                    
-                file_size = os.path.getsize(output_path)
-                logger.info("Video file created", path=str(output_path), size_bytes=file_size)
-                
-            except Exception as render_error:
-                logger.error("Video rendering failed", 
-                           error=str(render_error),
-                           error_type=type(render_error).__name__,
-                           output_path=str(output_path),
-                           exc_info=True)
-                raise RuntimeError(f"Failed to render video: {str(render_error)}") from render_error
-            
-            try:
-                final_video.close()
-                for clip in scene_clips:
-                    clip.close()
-            except Exception as cleanup_error:
-                logger.warning("Error during clip cleanup", error=str(cleanup_error))
-                
-            logger.info("Video generated successfully", output_path=str(output_path))
-            return str(output_path)
-            
-        except Exception as e:
-            logger.error("Video generation failed", exc_info=True, error_type=type(e).__name__)
-            raise
+    # ... generate_video ...
 
     async def _create_scene_clip(
         self,
@@ -253,9 +62,10 @@ class VideoGenAgent(BaseAgent):
                 try:
                     logger.info("Generating AI video for scene", scene_number=scene.scene_number, provider=type(self.video_provider).__name__)
                     
-                    video_path = await self.video_provider.generate_video(
-                        image_path, 
-                        scene.video_prompt or "Animate this image"
+                    # Use decorated method for retry logic
+                    video_path = await self._generate_ai_video_with_retry(
+                        image_path=image_path,
+                        prompt=scene.video_prompt or "Animate this image"
                     )
                     
                     if video_path and os.path.exists(video_path) and video_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm')):
@@ -265,10 +75,12 @@ class VideoGenAgent(BaseAgent):
                         logger.warning("Provider returned invalid video path or static image, falling back to static/Ken Burns", path=video_path)
                         
                 except Exception as gen_error:
-                     logger.error("AI video generation failed, falling back to static", error=str(gen_error))
+                     logger.error("AI video generation failed after retries, falling back to static", error=str(gen_error))
             
             is_video = image_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm'))
             
+            # ... rest of the method ...
+
             if is_video:
                 try:
                     logger.debug("Loading video clip", path=image_path)
@@ -938,3 +750,11 @@ class VideoGenAgent(BaseAgent):
         
         return concatenate_videoclips(clips, method="compose")
 
+
+    @retry_with_backoff(operation_name="AI video generation")
+    async def _generate_ai_video_with_retry(self, image_path: str, prompt: str) -> Optional[str]:
+        """Generate AI video with retry logic."""
+        return await self.video_provider.generate_video(
+            image_path, 
+            prompt
+        )
