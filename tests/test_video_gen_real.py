@@ -6,7 +6,7 @@ from pathlib import Path
 from PIL import Image
 from gtts import gTTS
 from src.agents.video_gen.agent import VideoGenAgent
-from src.models.models import VideoScript, Scene, ImageStyle
+from src.models.models import VideoScript, Scene, ImageStyle, VisualSegment
 from src.core.config import settings
 
 class TestVideoGenReal(unittest.IsolatedAsyncioTestCase):
@@ -16,10 +16,14 @@ class TestVideoGenReal(unittest.IsolatedAsyncioTestCase):
         self.agent = VideoGenAgent()
         # Override output dir to test dir
         self.agent.output_dir = self.test_dir
+        # Patch MIN_SCENES to allow 2 scenes
+        self.original_min_scenes = settings.MIN_SCENES
+        settings.MIN_SCENES = 2
 
     def tearDown(self):
         if self.test_dir.exists():
             shutil.rmtree(self.test_dir)
+        settings.MIN_SCENES = self.original_min_scenes
 
     def create_dummy_image(self, name, color):
         path = self.test_dir / name
@@ -50,17 +54,20 @@ class TestVideoGenReal(unittest.IsolatedAsyncioTestCase):
             title="Test Video",
             main_character_description="A generic character",
             overall_style="educational",
+            global_visual_style="Cinematic",
             scenes=[
                 Scene(
                     scene_number=1,
                     scene_type=SceneType.HOOK,
                     visual_description="Red background",
-                    dialogue="This is the first scene of the video.",
+                    content=[VisualSegment(
+                        segment_text="This is the first scene of the video.",
+                        image_prompt="A red background"
+                    )],
                     text_overlay="Scene 1",
                     voice_tone=VoiceTone.EXCITED,
                     elevenlabs_settings=default_settings,
                     image_style=ImageStyle.CINEMATIC,
-                    image_create_prompt="A red background",
                     needs_animation=False,
                     transition_to_next=TransitionType.FADE
                 ),
@@ -68,12 +75,14 @@ class TestVideoGenReal(unittest.IsolatedAsyncioTestCase):
                     scene_number=2,
                     scene_type=SceneType.EXPLANATION,
                     visual_description="Blue background",
-                    dialogue="And this is the second scene with blue background.",
+                    content=[VisualSegment(
+                        segment_text="And this is the second scene with blue background.",
+                        image_prompt="A blue background"
+                    )],
                     text_overlay="Scene 2",
                     voice_tone=VoiceTone.CALM,
                     elevenlabs_settings=default_settings,
                     image_style=ImageStyle.CINEMATIC,
-                    image_create_prompt="A blue background",
                     needs_animation=False,
                     transition_to_next=TransitionType.FADE
                 )

@@ -12,7 +12,7 @@ logger = structlog.get_logger()
 
 
 @router.post("/generate", response_model=ScriptGenerationResponse)
-async def generate_video(request: VideoGenerationRequest):
+async def generate_video(request: VideoGenerationRequest) -> ScriptGenerationResponse:
     """
     Generate video from script using the new DirectedScript architecture (TICKET-035).
     
@@ -26,18 +26,18 @@ async def generate_video(request: VideoGenerationRequest):
     try:
         script = request.script
         
-        # TICKET-035: Analyze script with Director Agent
+
         logger.info("Analyzing script with Director Agent", title=script.title)
         director = DirectorAgent()
         directed_script = await director.analyze_script(script)
         logger.info("Director analysis complete", directed_scenes=len(directed_script.directed_scenes))
         
-        # Generate assets using new DirectedScript methods
+
         image_agent = ImageGenAgent()
         voice_agent = VoiceAgent()
         assembly_agent = VideoAssemblyAgent()
         
-        # TICKET-035: Use Director's enhanced visual segments for image generation
+
         logger.info("Generating images from directed script")
         image_paths = await image_agent.generate_images_from_directed_script(directed_script)
         
@@ -45,7 +45,7 @@ async def generate_video(request: VideoGenerationRequest):
         logger.info("Generating voiceovers")
         audio_paths = await voice_agent.generate_voiceovers(script.scenes)
         
-        # TICKET-035: Use Director's camera movements for video effects
+
         logger.info("Assembling video with Director's cinematic direction")
         video_path = await assembly_agent.assemble_video_from_directed_script(
             directed_script, image_paths, audio_paths

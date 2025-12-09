@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict
+from typing import List, Dict, Any
 from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, TextClip, ColorClip
 from src.models.models import Scene, VideoScript
 from src.agents.director.models import DirectedScript
@@ -9,8 +9,17 @@ import structlog
 
 logger = structlog.get_logger()
 
-class VideoAssemblyAgent:
-    def __init__(self):
+from src.agents.base_agent import BaseAgent
+
+class VideoAssemblyAgent(BaseAgent):
+    def __init__(self) -> None:
+        super().__init__(
+            agent_name="VideoAssemblyAgent",
+            require_llm=False
+        )
+
+    def _setup(self) -> None:
+        """Agent-specific setup."""
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "videos")
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -41,45 +50,36 @@ class VideoAssemblyAgent:
                 
             audio_path = audio_paths[scene_num]
             
-            # Create Audio Clip
+
             audio_clip = AudioFileClip(audio_path)
             total_duration = audio_clip.duration
             
-            # Calculate durations for each image
-            # Calculate durations for each image
             num_images = len(image_paths_list)
             image_durations = []
             
-            # TICKET-033: Dynamic Visual Segmentation
             if hasattr(scene, 'content') and scene.content and len(scene.content) == num_images:
                 segment_texts = [seg.segment_text for seg in scene.content]
                 image_durations = self._calculate_segment_durations(total_duration, segment_texts)
             else:
-                # Fallback: Equal distribution
                 if num_images > 0:
                     image_durations = [total_duration / num_images] * num_images
                 else:
-                    image_durations = [total_duration] # Should not happen if image_paths_list is checked
+                    image_durations = [total_duration]
             
-            # Create Image Clips
             scene_clips = []
             for i, img_path in enumerate(image_paths_list):
-                # Safety check for duration index
                 if i < len(image_durations):
                     duration = image_durations[i]
                 else:
-                    duration = total_duration / num_images # Fallback
+                    duration = total_duration / num_images
                 
                 img_clip = ImageClip(img_path).with_duration(duration)
                 
-                # Apply Effect (TICKET-030)
                 effect_name = getattr(scene, 'selected_effect', 'ken_burns_zoom_in')
                 img_clip = self._apply_effect(img_clip, effect_name, duration)
                 
                 scene_clips.append(img_clip)
             
-            # Concatenate image clips for this scene
-            # Concatenate image clips for this scene
             if len(scene_clips) > 1:
                 visual_clip = concatenate_videoclips(scene_clips, method="compose")
             elif len(scene_clips) == 1:
@@ -88,7 +88,6 @@ class VideoAssemblyAgent:
                 logger.error("No clips created for scene", scene_num=scene_num)
                 continue
             
-            # Combine Visual + Audio
             video_clip = visual_clip.with_audio(audio_clip)
             
             clips.append(video_clip)
@@ -96,45 +95,30 @@ class VideoAssemblyAgent:
         if not clips:
             raise ValueError("No clips were created. Check asset generation.")
             
-        # Concatenate all clips
-        # Concatenate all clips
         final_video = concatenate_videoclips(clips, method="compose")
         
-        # Add Title Overlay (TICKET-029)
+        # Add title overlay using PIL (more reliable than ImageMagick)
+        # Title persists throughout the entire video
         try:
-            # Create a text clip for the title
-            # We use a try-catch block because TextClip requires ImageMagick
             print(f"Adding title overlay: {script.title}")
-            
-            # Create text clip
-            # Using a default font, white color, and some padding
-            # Remove bg_color='transparent' as it might cause issues with some IM versions
-            # Use None for transparent background
-            txt_clip = (TextClip(
-                text=script.title,
-                font="Arial-Bold", 
-                font_size=70, 
-                color='white',
-                stroke_color='black',
-                stroke_width=2,
-                method='caption',
-                size=(final_video.w * 0.8, None), # 80% width, auto height
-                text_align='center'
-            )
-            .with_position(('center', 80)) # Center horizontally, 80px from top
-            .with_duration(3) # Show for 3 seconds
-            .with_effects([]) # Add fadein/fadeout if needed
-            )
-            
-            # Composite the title over the video
-            final_video = CompositeVideoClip([final_video, txt_clip])
-            
+            title_clip = self._create_title_overlay(script.title, final_video.w, final_video.h, final_video.duration)
+            final_video = CompositeVideoClip([final_video, title_clip])
+            logger.info("Title overlay added successfully")
         except Exception as e:
-            logger.warning("Failed to add title overlay. Is ImageMagick installed?", error=str(e))
+            logger.warning("Failed to add title overlay", error=str(e))
             print(f"WARNING: Could not add title overlay: {e}")
-            # Continue without title
         
-        # Write output file
+        # Add subtitles for each scene
+        try:
+            print("Adding subtitles...")
+            subtitle_clips = self._create_subtitles(script, clips, final_video.w, final_video.h)
+            if subtitle_clips:
+                final_video = CompositeVideoClip([final_video] + subtitle_clips)
+                logger.info(f"Added {len(subtitle_clips)} subtitle clips")
+        except Exception as e:
+            logger.warning("Failed to add subtitles", error=str(e))
+            print(f"WARNING: Could not add subtitles: {e}")
+        
         output_filename = f"{script.title.replace(' ', '_')}_final.mp4"
         output_path = os.path.join(self.output_dir, output_filename)
         
@@ -151,9 +135,6 @@ class VideoAssemblyAgent:
         """
         Assembles video from a DirectedScript using the Director's cinematic direction.
         
-        TICKET-035: This method uses the Director Agent's camera movements to select
-        appropriate visual effects for each scene.
-        
         Args:
             directed_script: DirectedScript with cinematic direction
             image_paths: Dictionary mapping scene_number to list of image paths
@@ -164,19 +145,14 @@ class VideoAssemblyAgent:
         """
         logger.info("Assembling video from directed script", scenes=len(directed_script.directed_scenes))
         
-        # Create a DirectorAgent instance to access effect mapping
         director = DirectorAgent()
         
-        # Create temporary Scene objects with Director's selected effects
         enhanced_scenes = []
         for directed_scene in directed_script.directed_scenes:
             scene = directed_scene.original_scene
             
-            # Get effect name from Director's camera movement
             effect_name = director.get_effect_name(directed_scene.direction.camera_movement)
             
-            # Create a new Scene with the selected effect
-            # We need to add the selected_effect attribute
             enhanced_scene = Scene(
                 scene_number=scene.scene_number,
                 scene_type=scene.scene_type,
@@ -188,24 +164,18 @@ class VideoAssemblyAgent:
                 transition_to_next=scene.transition_to_next
             )
             
-            # Add the selected effect as an attribute (not in the model, but used by _apply_effect)
             enhanced_scene.selected_effect = effect_name
             
             enhanced_scenes.append(enhanced_scene)
         
-        # Create a temporary VideoScript with enhanced scenes
         enhanced_script = VideoScript(
             title=directed_script.original_script.title,
-            topic=directed_script.original_script.topic,
-            target_audience=directed_script.original_script.target_audience,
-            overall_tone=directed_script.original_script.overall_tone,
             overall_style=directed_script.original_script.overall_style,
             global_visual_style=directed_script.original_script.global_visual_style,
             main_character_description=directed_script.original_script.main_character_description,
             scenes=enhanced_scenes
         )
         
-        # Delegate to existing assemble_video method
         return await self.assemble_video(enhanced_script, image_paths, audio_paths)
 
     def _apply_effect(self, clip: ImageClip, effect_name: str, duration: float) -> ImageClip:
@@ -220,19 +190,12 @@ class VideoAssemblyAgent:
             effect_name = "ken_burns_zoom_in"
         
         if effect_name == "ken_burns_zoom_in":
-            # Zoom from 1.0 to 1.3
-            return clip.with_effects([
-                lambda c: c.resized(lambda t: 1 + 0.3 * t / duration)
-                           .with_position('center')
-            ])
+
+            return clip.resized(lambda t: 1 + 0.3 * t / duration).with_position('center')
             
         elif effect_name == "ken_burns_zoom_out":
-            # Zoom from 1.3 to 1.0
-            # Start zoomed in (1.3) and shrink
-            return clip.with_effects([
-                lambda c: c.resized(lambda t: 1.3 - 0.3 * t / duration)
-                           .with_position('center')
-            ])
+
+            return clip.resized(lambda t: 1.3 - 0.3 * t / duration).with_position('center')
             
         elif effect_name == "pan_left":
             # Pan from right to left
@@ -241,10 +204,10 @@ class VideoAssemblyAgent:
             new_w = w * zoom_factor
             new_h = h * zoom_factor
             
-            # Resize first
+
             enlarged = clip.resized(zoom_factor)
             
-            # Calculate x positions
+
             # Start: Right edge aligned (x = -(new_w - w))
             # End: Left edge aligned (x = 0)
             start_x = -(new_w - w)
@@ -294,7 +257,7 @@ class VideoAssemblyAgent:
             
             return enlarged.with_position(lambda t: ('center', start_y + (end_y - start_y) * t / duration))
             
-        # Default / Static
+
         return clip
 
     def _calculate_segment_durations(self, total_audio_duration: float, segments: List[str]) -> List[float]:
@@ -318,3 +281,262 @@ class VideoAssemblyAgent:
             durations.append(duration)
             
         return durations
+
+    def _create_title_overlay(self, title: str, video_width: int, video_height: int, video_duration: float) -> ImageClip:
+        """
+        Create a title overlay using PIL to avoid ImageMagick dependency.
+        
+        Args:
+            title: Title text to display
+            video_width: Width of the video
+            video_height: Height of the video
+            video_duration: Duration of the entire video (title persists throughout)
+            
+        Returns:
+            TextClip with title overlay
+        """
+        from PIL import Image, ImageDraw, ImageFont
+        import numpy as np
+        
+        # Create image for title with transparency
+        img_width = int(video_width * 0.9)
+        img_height = 200  # Increased for larger font
+        
+        # Create transparent image
+        img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Try to load a bold font, fall back to default if needed
+        try:
+            # Try common system fonts - use bold variant
+            font_size = 80  # Increased from 60 to 80
+            font: Any = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+        except:
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                # Fall back to default font
+                font = ImageFont.load_default()
+        
+        # Word wrap the title if too long
+        words = title.split()
+        lines = []
+        current_line: List[str] = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            if bbox[2] - bbox[0] < img_width - 40:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        # Colorful gradient colors for title
+        gradient_colors = [
+            (255, 50, 100, 255),   # Pink-Red
+            (100, 150, 255, 255),  # Blue
+            (255, 200, 50, 255),   # Yellow-Orange
+            (150, 100, 255, 255),  # Purple
+            (50, 255, 150, 255),   # Cyan-Green
+        ]
+        
+        # Draw text with stroke (outline) and gradient effect
+        y_offset = 20
+        for line_idx, line in enumerate(lines):
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            x = (img_width - text_width) // 2
+            
+            # Draw black outline (thicker for bold effect)
+            for adj_x in range(-3, 4):
+                for adj_y in range(-3, 4):
+                    draw.text((x + adj_x, y_offset + adj_y), line, font=font, fill=(0, 0, 0, 255))
+            
+            # Draw colorful text (cycle through gradient colors)
+            color = gradient_colors[line_idx % len(gradient_colors)]
+            draw.text((x, y_offset), line, font=font, fill=color)
+            y_offset += int(bbox[3] - bbox[1]) + 15  # Increased spacing
+        
+        # Convert PIL image to numpy array for MoviePy
+        img_array = np.array(img)
+        
+        # Create ImageClip from numpy array - persist throughout entire video
+        from moviepy import ImageClip
+        title_clip = ImageClip(img_array, duration=video_duration)
+        title_clip = title_clip.with_position(('center', 50))
+        
+        return title_clip
+
+    def _create_subtitles(self, script: VideoScript, scene_clips: List[Any], video_width: int, video_height: int) -> List[ImageClip]:
+        """
+        Create subtitle overlays for each scene based on dialogue segments.
+        
+        Args:
+            script: VideoScript with scene information
+            scene_clips: List of video clips for each scene
+            video_width: Width of the video
+            video_height: Height of the video
+            
+        Returns:
+            List of TextClip objects for subtitles
+        """
+        from PIL import Image, ImageDraw, ImageFont
+        import numpy as np
+        
+        subtitle_clips = []
+        current_time = 0.0
+        
+        # Title now persists throughout video, so subtitles start immediately
+        current_time = 0.0
+        
+        for i, scene in enumerate(script.scenes):
+            if i >= len(scene_clips):
+                break
+                
+            scene_clip = scene_clips[i]
+            scene_duration = scene_clip.duration
+            
+            # Get subtitle text from scene content
+            if hasattr(scene, 'content') and scene.content:
+                # Multiple segments per scene
+                segment_texts = [seg.segment_text for seg in scene.content if seg.segment_text]
+                
+                if segment_texts:
+                    # Calculate duration for each segment
+                    segment_duration = scene_duration / len(segment_texts)
+                    
+                    for seg_text in segment_texts:
+                        if seg_text.strip():
+                            subtitle_clip = self._create_subtitle_clip(
+                                seg_text, 
+                                video_width, 
+                                video_height,
+                                start_time=current_time,
+                                duration=segment_duration
+                            )
+                            subtitle_clips.append(subtitle_clip)
+                            current_time += segment_duration
+                else:
+                    # No segment text, skip
+                    current_time += scene_duration
+            else:
+                # No content, skip
+                current_time += scene_duration
+        
+        return subtitle_clips
+
+    def _create_subtitle_clip(self, text: str, video_width: int, video_height: int, start_time: float, duration: float) -> ImageClip:
+        """
+        Create a single subtitle clip using PIL.
+        
+        Args:
+            text: Subtitle text
+            video_width: Width of the video
+            video_height: Height of the video
+            start_time: When subtitle should appear
+            duration: How long subtitle should display
+            
+        Returns:
+            ImageClip with subtitle
+        """
+        from PIL import Image, ImageDraw, ImageFont
+        import numpy as np
+        import random
+        
+        # Create image for subtitle
+        img_width = int(video_width * 0.9)
+        img_height = 150  # Increased for better line spacing
+        
+        img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        
+        # Load bold font
+        try:
+            font_size = 52  # Increased from 45 to 52
+            font: Any = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+        except:
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+        
+        # Random vibrant colors for subtitles (5-10 colors)
+        subtitle_colors = [
+            (255, 100, 100, 255),  # Bright Red
+            (100, 200, 255, 255),  # Bright Blue
+            (255, 220, 100, 255),  # Bright Yellow
+            (255, 150, 255, 255),  # Bright Pink
+            (100, 255, 150, 255),  # Bright Green
+            (255, 180, 100, 255),  # Bright Orange
+            (200, 150, 255, 255),  # Bright Purple
+            (100, 255, 255, 255),  # Bright Cyan
+            (255, 255, 150, 255),  # Light Yellow
+            (255, 150, 200, 255),  # Light Pink
+        ]
+        
+        # Pick a random color for this dialogue
+        text_color = random.choice(subtitle_colors)
+        
+        # Word wrap
+        words = text.split()
+        lines = []
+        current_line: List[str] = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            bbox = draw.textbbox((0, 0), test_line, font=font)
+            if bbox[2] - bbox[0] < img_width - 40:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        # Limit to 2 lines
+        lines = lines[:2]
+        
+        # Draw text with background and better spacing
+        y_offset = 10
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (img_width - text_width) // 2
+            
+            # Draw semi-transparent black background
+            padding = 12
+            draw.rectangle(
+                [x - padding, y_offset - padding, x + text_width + padding, y_offset + text_height + padding],
+                fill=(0, 0, 0, 200)  # Slightly more opaque
+            )
+            
+            # Draw black outline for bold effect
+            for adj_x in range(-2, 3):
+                for adj_y in range(-2, 3):
+                    if adj_x != 0 or adj_y != 0:
+                        draw.text((x + adj_x, y_offset + adj_y), line, font=font, fill=(0, 0, 0, 255))
+            
+            # Draw colorful text
+            draw.text((x, y_offset), line, font=font, fill=text_color)
+            y_offset += int(text_height) + 15  # Increased from 5 to 15 for better line spacing
+        
+        # Convert to numpy array
+        img_array = np.array(img)
+        
+        # Create ImageClip
+        from moviepy import ImageClip
+        subtitle_clip = ImageClip(img_array, duration=duration)
+        # Position higher - moved from 150 to 120 from bottom
+        subtitle_clip = subtitle_clip.with_position(('center', video_height - 120))
+        subtitle_clip = subtitle_clip.with_start(start_time)
+        
+        return subtitle_clip
+

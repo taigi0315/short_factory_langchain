@@ -10,27 +10,27 @@ router = APIRouter()
 
 @router.post("/generate", response_model=List[StoryIdeaResponse])
 @with_fallback(lambda request: get_mock_stories(request))
-async def generate_stories(request: StoryGenerationRequest):
+async def generate_stories(request: StoryGenerationRequest) -> List[StoryIdeaResponse]:
     """
     Generate story ideas using LLM.
     Falls back to mock data if LLM unavailable.
     """
-    # Instantiate the agent
+
     agent = StoryFinderAgent()
     
-    # Generate stories with dynamic routing
+
     story_list = agent.find_stories(
         subject=request.topic,
-        category=request.category,
-        mood=request.mood
+        category=request.category or "General",
+        mood=request.mood or "Neutral"
     )
     
-    # Map internal model to API response
+
     return [
         StoryIdeaResponse(
             title=story.title,
             premise=story.summary,
-            genre=request.category,
+            genre=f"{story.category} • {story.mood}",
             target_audience="General",
             estimated_duration="30-60s"
         ) for story in story_list.stories

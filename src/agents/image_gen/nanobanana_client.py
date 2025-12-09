@@ -16,13 +16,13 @@ class NanoBananaClient:
         self.api_url = api_url
         self.session: Optional[aiohttp.ClientSession] = None
     
-    async def __aenter__(self):
+    async def __aenter__(self) -> "NanoBananaClient":
         self.session = aiohttp.ClientSession(
             headers={"Authorization": f"Bearer {self.api_key}"}
         )
         return self
     
-    async def __aexit__(self, *args):
+    async def __aexit__(self, *args: Any) -> None:
         if self.session:
             await self.session.close()
     
@@ -71,7 +71,7 @@ class NanoBananaClient:
                     # Some APIs might return image directly or different format
                     # Adjusting based on typical async patterns, but fallback if immediate
                     if "image_url" in data:
-                        return data["image_url"]
+                        return str(data["image_url"])
                     raise RuntimeError(f"No job_id returned from API: {data}")
                     
         except aiohttp.ClientError as e:
@@ -89,7 +89,7 @@ class NanoBananaClient:
                     status = status_data.get("status")
                     
                     if status == "completed":
-                        return status_data["image_url"]
+                        return str(status_data["image_url"])
                     elif status == "failed":
                         error_msg = status_data.get("error", "Unknown error")
                         raise RuntimeError(f"Image generation failed: {error_msg}")
@@ -102,7 +102,7 @@ class NanoBananaClient:
         
         raise TimeoutError(f"Image generation timed out after {max_attempts}s")
     
-    async def download_image(self, url: str, output_path: str):
+    async def download_image(self, url: str, output_path: str) -> None:
         """Download image from URL to local file."""
         if not self.session:
             raise RuntimeError("Client not initialized")

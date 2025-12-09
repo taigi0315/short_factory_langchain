@@ -1,10 +1,11 @@
 import os
 import logging
 import uuid
-from typing import Optional
-from langchain_google_genai import ChatGoogleGenerativeAI
+from typing import Optional, Dict, Any, cast
+from json_repair import repair_json
+
 from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_core.runnables import RunnableBranch, RunnablePassthrough
+from langchain_core.runnables import RunnableBranch, RunnablePassthrough, RunnableSerializable
 from langchain_core.output_parsers import StrOutputParser
 
 from src.agents.story_finder.prompts import (
@@ -13,64 +14,53 @@ from src.agents.story_finder.prompts import (
 )
 from src.agents.story_finder.models import StoryList, StoryIdea
 from src.core.config import settings
+from src.agents.base_agent import BaseAgent
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
 
-class StoryFinderAgent:
-    def __init__(self):
+class StoryFinderAgent(BaseAgent):
+    def __init__(self) -> None:
         """
         Initialize StoryFinderAgent with API validation.
         Raises ValueError if API key is missing in real mode.
         """
-        # Validate API key if using real LLM
-        if settings.USE_REAL_LLM:
-            if not settings.GEMINI_API_KEY:
-                raise ValueError(
-                    "GEMINI_API_KEY is required when USE_REAL_LLM=true. "
-                    "Please set it in your .env file or environment variables."
-                )
-            logger.info("✅ StoryFinderAgent initializing with REAL Gemini LLM")
-            
-            # Initialize LLM with error handling and retries
-            self.llm = ChatGoogleGenerativeAI(
-                model=settings.llm_model_name,
-                google_api_key=settings.GEMINI_API_KEY,
-                temperature=0.7,
-                max_retries=3,  # Retry failed requests
-                request_timeout=30.0,  # 30 second timeout
-            )
-            
-            # Initialize Search Tool (Tavily)
-            self.search_tool = None
-            if settings.TAVILY_API_KEY:
-                try:
-                    self.search_tool = TavilySearchResults(
-                        tavily_api_key=settings.TAVILY_API_KEY,
-                        max_results=3
-                    )
-                    logger.info("✅ Tavily Search Tool initialized")
-                except Exception as e:
-                    logger.error(f"⚠️ Failed to initialize Tavily Search Tool: {e}. Search will be disabled.")
-                    self.search_tool = None
-            else:
-                logger.warning("⚠️ TAVILY_API_KEY not found. Search capabilities disabled.")
+        self.chain: Optional[RunnableSerializable] = None
+        super().__init__(
+            agent_name="StoryFinderAgent",
+            temperature=0.7,
+            max_retries=3,
+            request_timeout=30.0
+        )
 
-            # Build the dynamic chain
+    def _setup(self) -> None:
+        """Agent-specific setup."""
+        self.search_tool = None
+        if not self.mock_mode and settings.TAVILY_API_KEY:
+            try:
+                self.search_tool = TavilySearchResults(
+                    tavily_api_key=settings.TAVILY_API_KEY,
+                    max_results=3
+                )
+                logger.info("✅ Tavily Search Tool initialized")
+            except Exception as e:
+                logger.error(f"⚠️ Failed to initialize Tavily Search Tool: {e}. Search will be disabled.")
+                self.search_tool = None
+        elif not self.mock_mode:
+            logger.warning("⚠️ TAVILY_API_KEY not found. Search capabilities disabled.")
+
+        if not self.mock_mode:
             self.chain = self._build_chain()
             logger.info(f"StoryFinderAgent initialized successfully. Model: {settings.llm_model_name}")
-            
         else:
-            logger.info("⚠️ StoryFinderAgent in MOCK mode (USE_REAL_LLM=false)")
-            self.llm = None
             self.chain = None
 
-    def _build_chain(self):
+    def _build_chain(self) -> RunnableSerializable:
         """Build the dynamic router chain."""
+        if not self.llm:
+            raise RuntimeError("LLM not initialized")
         
-        # 1. Search Step (Conditional)
-        def search_step(inputs):
+        def search_step(inputs: Dict[str, Any]) -> str:
             category = inputs.get("category", "").lower()
             subject = inputs.get("subject", "")
             
@@ -78,7 +68,6 @@ class StoryFinderAgent:
             if category in ["fiction", "educational"] or not self.search_tool:
                 return ""
             
-            # Perform search
             try:
                 logger.info(f"Searching web for: {subject} ({category})")
                 # Optimize query based on category
@@ -92,46 +81,78 @@ class StoryFinderAgent:
                 logger.error(f"Search failed: {e}")
                 return ""
 
-        # 2. Define Branching Logic for Prompts
-        # Each branch is: (condition_callable, runnable_chain)
+
         
-        # News Chain
+
+        def clean_and_parse(message: Any) -> StoryList:
+            text = message.content
+            logger.info(f"LLM Raw Output: {text}")
+            
+            if not text or text.strip().lower() == "null":
+                logger.error("LLM returned empty or null content")
+                raise ValueError("LLM returned empty or null content")
+
+
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            
+            # Fix invalid escapes commonly returned by Gemini
+            text = text.replace("\\$", "$")
+            
+            # Use json_repair to fix malformed JSON
+            try:
+                text = repair_json(text)
+                logger.info(f"Repaired JSON Text: {text}")
+            except Exception as e:
+                logger.warning(f"json_repair failed: {e}. Using original text.")
+            
+            logger.info(f"Cleaned JSON Text: {text}")
+            
+            try:
+                return cast(StoryList, story_parser.parse(text))
+            except Exception as e:
+                logger.error(f"Parsing failed for text: {text}. Error: {e}")
+                raise
+
+
         news_chain = (
             NEWS_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
-        # Real Story Chain
+
         real_story_chain = (
             REAL_STORY_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
-        # Educational Chain
+
         educational_chain = (
             EDUCATIONAL_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
-        # Fiction Chain
+
         fiction_chain = (
             FICTION_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
-        # Default Chain
+
         default_chain = (
             DEFAULT_PROMPT 
             | self.llm 
-            | story_parser
+            | clean_and_parse
         )
         
-        # Router
-        branch = RunnableBranch(
+
+        branch: RunnableBranch = RunnableBranch(
             (lambda x: x["category"].lower() == "news", news_chain),
             (lambda x: x["category"].lower() == "real_story", real_story_chain),
             (lambda x: x["category"].lower() == "educational", educational_chain),
@@ -139,8 +160,7 @@ class StoryFinderAgent:
             default_chain
         )
         
-        # Full Chain
-        # We use RunnablePassthrough.assign to add 'search_context' to the inputs
+
         full_chain = (
             RunnablePassthrough.assign(search_context=search_step)
             | branch
@@ -164,7 +184,6 @@ class StoryFinderAgent:
         Raises:
             Exception: If LLM generation fails after retries
         """
-        # Mock mode - return early
         if not settings.USE_REAL_LLM:
             logger.info("Returning mock stories (Mock Mode)")
             return StoryList(stories=[
@@ -186,16 +205,24 @@ class StoryFinderAgent:
                 ),
             ])
         
-        # Real LLM mode
         request_id = str(uuid.uuid4())[:8]
         
+
+        if mood.lower() == "auto":
+            import random
+            moods = ["Suspenseful", "Inspirational", "Educational", "Humorous", "Dark/Gritty", "Upbeat"]
+            mood = random.choice(moods)
+            logger.info(f"[{request_id}] Auto mood selected: {mood}")
+
         logger.info(
             f"[{request_id}] Story generation started - Subject: {subject[:50]}..., "
             f"Category: {category}, Mood: {mood}, Num stories: {num_stories}"
         )
         
         try:
-            # Invoke the chain
+            if not self.chain:
+                raise RuntimeError("Chain not initialized")
+
             result = self.chain.invoke({
                 "subject": subject,
                 "num_stories": num_stories,
@@ -208,7 +235,8 @@ class StoryFinderAgent:
                 f"Generated {len(result.stories)} stories."
             )
             
-            return result
+            from typing import cast
+            return cast(StoryList, result)
             
         except Exception as e:
             logger.error(

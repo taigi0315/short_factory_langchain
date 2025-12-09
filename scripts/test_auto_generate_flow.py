@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from src.agents.image_gen.agent import ImageGenAgent
 from src.agents.video_gen.agent import VideoGenAgent
-from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VideoScript
+from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VideoScript, VisualSegment
 
 async def test_auto_generate_flow():
     print("Testing Auto Generate Flow...")
@@ -19,11 +19,13 @@ async def test_auto_generate_flow():
         scenes.append(Scene(
             scene_number=i,
             scene_type=SceneType.EXPLANATION,
-            dialogue=f"This is scene {i}",
+            content=[VisualSegment(
+                segment_text=f"This is scene {i}",
+                image_prompt=f"A beautiful scene number {i}"
+            )],
             voice_tone=VoiceTone.CALM,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.CALM),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt=f"A beautiful scene number {i}",
             needs_animation=False,
             transition_to_next=TransitionType.NONE
         ))
@@ -67,11 +69,13 @@ async def test_auto_generate_flow():
     video_agent = VideoGenAgent()
     
     # Convert image_map to list of paths/placeholders
+    # image_map is now Dict[int, List[str]]
     images_list = []
     for scene in scenes:
-        path = image_map.get(scene.scene_number)
-        if path:
-            images_list.append(path)
+        paths = image_map.get(scene.scene_number)
+        if paths:
+            # Take the first image for each scene (or all if video gen supports multiple)
+            images_list.append(paths[0] if isinstance(paths, list) else paths)
         else:
             print(f"Warning: No image for scene {scene.scene_number}")
             images_list.append("placeholder.jpg")

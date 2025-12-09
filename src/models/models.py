@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import List, Literal, Optional
+from pydantic import BaseModel, Field, field_validator, computed_field
+from typing import List, Literal, Optional, Any
 from enum import Enum
 import logging
 
@@ -156,7 +156,6 @@ class Scene(BaseModel):
     
     # Image related
     image_style: ImageStyle
-    # image_create_prompt, image_prompts, image_ratios are replaced by content
     character_pose: Optional[str] = Field(default=None, description="Character pose: 'pointing', 'thinking', 'surprised'")
     background_description: Optional[str] = Field(default=None, description="Background setting description")
     
@@ -171,28 +170,30 @@ class Scene(BaseModel):
     hook_technique: Optional[HookTechnique] = Field(default=None, description="Specific hook technique used (only for hook scenes)")
     video_importance: int = Field(default=5, ge=0, le=10, description="Importance score for video generation (0-10)")
     
-    # Manual workflow fields (TICKET-023)
+    # Manual workflow fields
     uploaded_video_path: Optional[str] = Field(default=None, description="Path to manually uploaded video file")
     selected_effect: str = Field(default="ken_burns_zoom_in", description="User-selected video effect for image animation")
     image_path: Optional[str] = Field(default=None, description="Path to generated image file")
     audio_path: Optional[str] = Field(default=None, description="Path to generated audio file")
     
-    # VideoEffectAgent recommendations (TICKET-025)
+    # VideoEffectAgent recommendations
     recommended_effect: Optional[str] = Field(default=None, description="AI-recommended video effect")
-    recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
     recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
     effect_reasoning: Optional[str] = Field(default=None, description="Reasoning for effect recommendation")
 
+    @computed_field  # type: ignore[misc]
     @property
     def dialogue(self) -> str:
         """Derived full dialogue from segments"""
         return " ".join([seg.segment_text for seg in self.content])
 
+    @computed_field  # type: ignore[misc]
     @property
     def image_prompts(self) -> List[str]:
         """Derived list of image prompts"""
         return [seg.image_prompt for seg in self.content]
     
+    @computed_field  # type: ignore[misc]
     @property
     def image_create_prompt(self) -> str:
         """Backward compatibility: return first image prompt"""
@@ -200,7 +201,7 @@ class Scene(BaseModel):
 
     @field_validator('scene_type', mode='before')
     @classmethod
-    def validate_scene_type(cls, v):
+    def validate_scene_type(cls, v: Any) -> Any:
         if isinstance(v, SceneType):
             return v
         if not isinstance(v, str):
@@ -233,7 +234,7 @@ class Scene(BaseModel):
 
     @field_validator('voice_tone', mode='before')
     @classmethod
-    def validate_voice_tone(cls, v):
+    def validate_voice_tone(cls, v: Any) -> Any:
         if isinstance(v, VoiceTone):
             return v
         if not isinstance(v, str):
@@ -253,6 +254,11 @@ class Scene(BaseModel):
             "informative": VoiceTone.SERIOUS,
             "conclusion": VoiceTone.CONFIDENT,
             "hook": VoiceTone.EXCITED,
+            "optimistic": VoiceTone.FRIENDLY,
+            "analytical": VoiceTone.SERIOUS,
+            "mystery_setup": VoiceTone.MYSTERIOUS,
+            "suspenseful": VoiceTone.MYSTERIOUS,
+            "urgent": VoiceTone.DRAMATIC,
         }
         
         if v in fixes:
@@ -264,7 +270,7 @@ class Scene(BaseModel):
 
     @field_validator('image_style', mode='before')
     @classmethod
-    def validate_image_style(cls, v):
+    def validate_image_style(cls, v: Any) -> Any:
         if isinstance(v, ImageStyle):
             return v
         if not isinstance(v, str):
@@ -327,7 +333,7 @@ class VideoScript(BaseModel):
         return len(self.scenes)
     
     @property
-    def hook_scene(self) -> Scene:
+    def hook_scene(self) -> Optional[Scene]:
         """Return the first scene (hook scene)"""
         return self.scenes[0] if self.scenes else None
     
@@ -340,7 +346,7 @@ class VideoScript(BaseModel):
     
     @field_validator('scenes')
     @classmethod
-    def validate_scene_count(cls, v):
+    def validate_scene_count(cls, v: List[Scene]) -> List[Scene]:
         """
         Validate that scene count is within MIN_SCENES and MAX_SCENES.
         

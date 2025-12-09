@@ -14,17 +14,38 @@ from src.agents.image_gen.gemini_image_client import GeminiImageClient
 
 logger = structlog.get_logger()
 
-class ImageGenAgent:
-    def __init__(self):
-        # Use centralized config
+from src.core.retry import retry_with_backoff
+from src.agents.base_agent import BaseAgent
+
+class ImageGenAgent(BaseAgent):
+    def __init__(self) -> None:
+        super().__init__(
+            agent_name="ImageGenAgent",
+            require_llm=False
+        )
+
+    def _setup(self) -> None:
+        """Agent-specific setup."""
         self.mock_mode = not settings.USE_REAL_IMAGE
+        
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "images")
         self.cache_dir = os.path.join(self.output_dir, "cache")
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.cache_dir, exist_ok=True)
         
-        # API configuration - use Gemini for image generation
         self.api_key = settings.GEMINI_API_KEY
+        
+        if not self.mock_mode and not self.api_key:
+             logger.error("GEMINI_API_KEY not set. Cannot generate images in real mode.")
+             raise ValueError(
+                 "GEMINI_API_KEY is required for real image generation. "
+                 "Set USE_REAL_IMAGE=false to use mock mode, or provide a valid API key."
+             )
+        
+        logger.info(
+            "ImageGenAgent setup complete", 
+            mode="REAL" if not self.mock_mode else "MOCK"
+        )
 
     async def generate_images(
         self, 
@@ -48,7 +69,6 @@ class ImageGenAgent:
         if self.mock_mode:
             return await self._generate_mock_images(scenes)
         
-        # Real mode - use Gemini
         if not self.api_key:
              logger.error("GEMINI_API_KEY not set. Cannot generate images in real mode.")
              raise ValueError(
@@ -58,94 +78,49 @@ class ImageGenAgent:
 
         client = GeminiImageClient(self.api_key)
         
-        # Import workflow manager if workflow_id provided
         workflow_manager = None
         if workflow_id:
             from src.core.workflow_state import workflow_manager as wf_mgr
             workflow_manager = wf_mgr
         
-        # Generate images one by one to enable incremental checkpoints
         for scene in scenes:
-            # Retry logic: up to 3 attempts with exponential backoff
-            max_retries = 3
-            last_error = None
-            
-            for attempt in range(1, max_retries + 1):
-                try:
-                    logger.info(
-                        "Generating images for scene (attempt {}/{})".format(attempt, max_retries),
-                        scene_number=scene.scene_number,
-                        attempt=attempt
+            try:
+                # Use the decorated method which handles retries internally
+                scene_image_paths = await self._generate_scene_images(client, scene)
+                image_paths[scene.scene_number] = scene_image_paths
+                
+                if workflow_manager and scene_image_paths and workflow_id:
+                    # TODO: Update workflow manager to support list of images
+                    workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
+                    logger.info("Checkpoint saved", 
+                              workflow_id=workflow_id,
+                              progress=f"{len(image_paths)}/{len(scenes)}")
+                
+                logger.info(
+                    "Images generated successfully",
+                    scene_number=scene.scene_number,
+                    count=len(scene_image_paths)
+                )
+                    
+            except Exception as e:
+                logger.error(
+                    "Image generation failed for scene after retries",
+                    scene_number=scene.scene_number,
+                    error=str(e)
+                )
+                
+                if workflow_manager and workflow_id:
+                    from src.core.workflow_state import WorkflowStep
+                    workflow_manager.mark_failed(
+                        workflow_id,
+                        WorkflowStep.IMAGE_GENERATION,
+                        f"Image generation failed for scene {scene.scene_number}: {e}",
+                        type(e).__name__
                     )
-                    
-                    scene_image_paths = await self._generate_scene_images(client, scene)
-                    image_paths[scene.scene_number] = scene_image_paths
-                    
-                    # Save checkpoint after each successful scene (saving the first image as representative or all?)
-                    # Workflow manager might expect a single path or we need to update it too.
-                    # For now, let's assume we save the first image path for simple checkpointing, 
-                    # or update workflow manager later. 
-                    # If we pass a list to save_image, it might break if it expects str.
-                    # Let's check workflow_manager usage. It's imported dynamically.
-                    # Assuming for now we just save the first one or skip if complex.
-                    if workflow_manager and scene_image_paths:
-                        # TODO: Update workflow manager to support list of images
-                        workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
-                        logger.info("Checkpoint saved", 
-                                  workflow_id=workflow_id,
-                                  progress=f"{len(image_paths)}/{len(scenes)}")
-                    
-                    # Success! Break out of retry loop
-                    logger.info(
-                        "Images generated successfully",
-                        scene_number=scene.scene_number,
-                        count=len(scene_image_paths),
-                        attempt=attempt
-                    )
-                    break
-                    
-                except Exception as e:
-                    last_error = e
-                    logger.warning(
-                        "Image generation failed for scene (attempt {}/{})".format(attempt, max_retries),
-                        scene_number=scene.scene_number,
-                        attempt=attempt,
-                        error=str(e),
-                        error_type=type(e).__name__
-                    )
-                    
-                    # If this was the last attempt, handle failure
-                    if attempt == max_retries:
-                        logger.error(
-                            "All retry attempts exhausted for scene",
-                            scene_number=scene.scene_number,
-                            total_attempts=max_retries,
-                            final_error=str(e)
-                        )
-                        
-                        # Save failure state if workflow tracking is enabled
-                        if workflow_manager:
-                            from src.core.workflow_state import WorkflowStep
-                            workflow_manager.mark_failed(
-                                workflow_id,
-                                WorkflowStep.IMAGE_GENERATION,
-                                f"Image generation failed for scene {scene.scene_number} after {max_retries} attempts: {e}",
-                                type(e).__name__
-                            )
-                        
-                        # Raise the error to stop video generation
-                        raise RuntimeError(
-                            f"Image generation failed for scene {scene.scene_number} after {max_retries} attempts: {e}"
-                        ) from e
-                    else:
-                        # Wait before retrying (exponential backoff: 2s, 4s)
-                        wait_time = 2 ** attempt
-                        logger.info(
-                            f"Waiting {wait_time}s before retry...",
-                            scene_number=scene.scene_number,
-                            wait_seconds=wait_time
-                        )
-                        await asyncio.sleep(wait_time)
+                
+                raise RuntimeError(
+                    f"Image generation failed for scene {scene.scene_number}: {e}"
+                ) from e
         
         return image_paths
 
@@ -157,9 +132,7 @@ class ImageGenAgent:
         """
         Generates images for a DirectedScript using the Director's enhanced visual segments.
         
-        TICKET-035: This method uses the Director Agent's enhanced image prompts from
-        DirectedScene.visual_segments instead of the Script Writer's basic descriptions.
-        
+
         Args:
             directed_script: DirectedScript with cinematic direction
             workflow_id: Optional workflow ID for checkpoint saving
@@ -173,16 +146,11 @@ class ImageGenAgent:
             workflow_id=workflow_id
         )
         
-        # Create temporary Scene objects with Director's enhanced visual segments
-        # This allows us to reuse the existing generate_images infrastructure
         enhanced_scenes = []
         for directed_scene in directed_script.directed_scenes:
-            # Copy the original scene
             scene = directed_scene.original_scene
             
-            # Override content with Director's enhanced visual segments
             if directed_scene.visual_segments:
-                # Create a new Scene with the enhanced segments
                 enhanced_scene = Scene(
                     scene_number=scene.scene_number,
                     scene_type=scene.scene_type,
@@ -195,12 +163,11 @@ class ImageGenAgent:
                 )
                 enhanced_scenes.append(enhanced_scene)
             else:
-                # Fallback to original scene if no visual segments
                 enhanced_scenes.append(scene)
         
-        # Delegate to existing generate_images method
         return await self.generate_images(enhanced_scenes, workflow_id)
 
+    @retry_with_backoff(operation_name="image generation")
     async def _generate_scene_images(
         self, 
         client: GeminiImageClient, 
@@ -208,10 +175,8 @@ class ImageGenAgent:
     ) -> List[str]:
         """Generate one or more images for a single scene based on visual segments."""
         prompts = []
-        # Use content segments if available (TICKET-033)
         if scene.content:
             prompts = [seg.image_prompt for seg in scene.content]
-        # Fallback for backward compatibility or if content is empty (shouldn't happen with new prompt)
         elif scene.image_prompts:
             prompts = scene.image_prompts
         else:
@@ -220,16 +185,9 @@ class ImageGenAgent:
         generated_paths = []
         
         for i, prompt in enumerate(prompts):
-            # Create a temporary scene object or just pass prompt to helper if refactored
-            # But _enhance_prompt takes a Scene. 
-            # We should probably refactor _enhance_prompt or just temporarily modify the scene object 
-            # (which is risky if async/parallel, but here we are sequential per scene).
-            # Better: Create a helper that takes prompt + style.
-            
             enhanced_prompt = self._enhance_prompt_text(prompt, scene.image_style)
             model = self._select_model(scene)
             
-            # Check cache
             cache_key = self._cache_key(enhanced_prompt, model)
             cache_path = os.path.join(self.cache_dir, f"{cache_key}.png")
             
@@ -264,6 +222,9 @@ class ImageGenAgent:
                 filepath = os.path.join(self.output_dir, filename)
                 shutil.copy(cache_path, filepath)
                 
+                # Crop to 9:16 if image is square (Gemini generates 1024x1024)
+                filepath = self._crop_to_aspect_ratio(filepath, settings.IMAGE_ASPECT_RATIO)
+                
                 logger.info("Image saved", filepath=filepath)
                 generated_paths.append(filepath)
                 
@@ -276,6 +237,9 @@ class ImageGenAgent:
     def _enhance_prompt_text(self, base_prompt: str, style: ImageStyle) -> str:
         """Enhance the base prompt with photorealistic style and quality modifiers."""
         prompt = base_prompt or "A cinematic scene"
+        
+        # Add vertical composition emphasis for 9:16 aspect ratio
+        vertical_composition = "vertical composition, tall portrait orientation, 9:16 aspect ratio optimized, centered subject in vertical frame"
         
         # Add style modifiers based on image_style - emphasize photorealism
         style_enhancers = {
@@ -292,21 +256,93 @@ class ImageGenAgent:
             ImageStyle.SPLIT_SCREEN: "photorealistic split-screen, professional photography, realistic dual perspective",
         }
         
-        # Default to photorealistic cinematic if style not found
+
         style_suffix = style_enhancers.get(
             style, 
             "photorealistic, high quality, professional photography, realistic lighting and textures, cinematic"
         )
         
-        # Add quality modifiers emphasizing realism
+
         quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting"
         
-        enhanced = f"{prompt}, {style_suffix}, {quality_suffix}"
+        enhanced = f"{prompt}, {vertical_composition}, {style_suffix}, {quality_suffix}"
         return enhanced
 
     def _enhance_prompt(self, scene: Scene) -> str:
         """Legacy wrapper for backward compatibility if needed."""
         return self._enhance_prompt_text(scene.image_create_prompt, scene.image_style)
+    
+    def _crop_to_aspect_ratio(self, filepath: str, target_aspect: str) -> str:
+        """
+        Crop image to target aspect ratio.
+        Gemini generates 1024x1024 square images, so we need to crop to 9:16 for vertical video.
+        
+        Args:
+            filepath: Path to the image file
+            target_aspect: Target aspect ratio (e.g., "9:16", "16:9", "1:1")
+            
+        Returns:
+            Path to the cropped image (same filepath, modified in place)
+        """
+        from PIL import Image
+        
+        # Parse aspect ratio
+        if ":" not in target_aspect:
+            logger.warning(f"Invalid aspect ratio format: {target_aspect}, skipping crop")
+            return filepath
+        
+        try:
+            width_ratio, height_ratio = map(int, target_aspect.split(":"))
+        except ValueError:
+            logger.warning(f"Could not parse aspect ratio: {target_aspect}, skipping crop")
+            return filepath
+        
+        # Open image
+        try:
+            img = Image.open(filepath)
+            current_width, current_height = img.size
+            
+            logger.info(f"Cropping image from {current_width}x{current_height} to {target_aspect} aspect ratio")
+            
+            # Calculate target dimensions
+            current_aspect = current_width / current_height
+            target_aspect_value = width_ratio / height_ratio
+            
+            if abs(current_aspect - target_aspect_value) < 0.01:
+                # Already correct aspect ratio
+                logger.info("Image already has correct aspect ratio, skipping crop")
+                return filepath
+            
+            # Determine crop dimensions
+            if current_aspect > target_aspect_value:
+                # Image is too wide, crop width
+                new_width = int(current_height * target_aspect_value)
+                new_height = current_height
+                left = (current_width - new_width) // 2
+                top = 0
+                right = left + new_width
+                bottom = current_height
+            else:
+                # Image is too tall, crop height
+                new_width = current_width
+                new_height = int(current_width / target_aspect_value)
+                left = 0
+                top = (current_height - new_height) // 2
+                right = current_width
+                bottom = top + new_height
+            
+            # Crop image
+            cropped_img = img.crop((left, top, right, bottom))
+            
+            # Save cropped image (overwrite original)
+            cropped_img.save(filepath)
+            logger.info(f"Image cropped to {cropped_img.size[0]}x{cropped_img.size[1]}")
+            
+            return filepath
+            
+        except Exception as e:
+            logger.error(f"Failed to crop image: {e}, using original")
+            return filepath
 
     def _select_model(self, scene: Scene) -> str:
         """Select appropriate model based on scene requirements."""
@@ -344,20 +380,18 @@ class ImageGenAgent:
             f"https://placehold.co/1280x720/2563eb/ffffff/png?text=Scene+{scene.scene_number}-{index}:{prompt_slug}"
         )
         
-        # Run synchronous requests in executor to avoid blocking async loop
         loop = asyncio.get_event_loop()
         try:
             await loop.run_in_executor(None, self._download_sync, image_url, filepath)
             return filepath
         except Exception as e:
             logger.error("Failed to download mock image", error=str(e))
-            # Create a dummy file if download fails
+
             with open(filepath, "wb") as f:
                 f.write(b"Placeholder")
             return filepath
 
-    def _download_sync(self, url: str, filepath: str):
-        """Helper for synchronous download."""
+    def _download_sync(self, url: str, filepath: str) -> None:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             with open(filepath, "wb") as f:

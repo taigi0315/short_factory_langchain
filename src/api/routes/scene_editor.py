@@ -48,34 +48,42 @@ async def generate_scene_image(request: SceneImageRequest):
                    scene_number=request.scene_number,
                    script_id=request.script_id)
         
-        # Create image agent
+
         image_agent = ImageGenAgent()
         
-        # Generate image
+
         # Create a minimal scene object for image generation
-        from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings
-        
+        from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VisualSegment
+
         scene = Scene(
             scene_number=request.scene_number,
             scene_type=SceneType.EXPLANATION,  # Default
-            dialogue="",
+            content=[VisualSegment(
+                segment_text="",
+                image_prompt=request.prompt
+            )],
             voice_tone=VoiceTone.FRIENDLY,
             elevenlabs_settings=ElevenLabsSettings.for_tone(VoiceTone.FRIENDLY),
             image_style=ImageStyle(request.style) if request.style else ImageStyle.CINEMATIC,
-            image_create_prompt=request.prompt,
             needs_animation=False,
             transition_to_next=TransitionType.FADE
         )
         
-        # Generate image
+
         image_paths = await image_agent.generate_images([scene])
         
         if not image_paths or request.scene_number not in image_paths:
             raise HTTPException(status_code=500, detail="Image generation failed")
-        
-        image_path = image_paths[request.scene_number]
-        
-        # Convert to URL
+
+        # image_paths is now Dict[int, List[str]]
+        image_paths_list = image_paths[request.scene_number]
+        if not image_paths_list or len(image_paths_list) == 0:
+            raise HTTPException(status_code=500, detail="Image generation returned empty list")
+
+
+        image_path = image_paths_list[0] if isinstance(image_paths_list, list) else image_paths_list
+
+
         relative_path = os.path.relpath(image_path, settings.GENERATED_ASSETS_DIR)
         image_url = f"/generated_assets/{relative_path}"
         
@@ -109,7 +117,7 @@ async def upload_scene_video(
                    script_id=script_id,
                    filename=video.filename)
         
-        # Validate file size
+
         file_size = 0
         content = await video.read()
         file_size = len(content)
@@ -121,7 +129,9 @@ async def upload_scene_video(
                 detail=f"File too large. Maximum size is {settings.MAX_VIDEO_UPLOAD_SIZE_MB}MB"
             )
         
-        # Validate file format
+
+        if not video.filename:
+            raise HTTPException(status_code=400, detail="Filename is missing")
         file_ext = os.path.splitext(video.filename)[1].lower()
         if file_ext not in settings.ALLOWED_VIDEO_FORMATS:
             raise HTTPException(
@@ -129,21 +139,21 @@ async def upload_scene_video(
                 detail=f"Invalid file format. Allowed formats: {', '.join(settings.ALLOWED_VIDEO_FORMATS)}"
             )
         
-        # Create directory for scene videos
+
         scenes_dir = Path(settings.GENERATED_ASSETS_DIR) / "videos" / "scenes"
         scenes_dir.mkdir(parents=True, exist_ok=True)
         
-        # Generate unique filename
+
         timestamp = int(time.time())
         file_hash = hashlib.md5(content[:1024]).hexdigest()[:8]
         filename = f"scene_{scene_number}_{file_hash}_{timestamp}{file_ext}"
         file_path = scenes_dir / filename
         
-        # Save file
+
         with open(file_path, "wb") as f:
             f.write(content)
         
-        # Convert to URL
+
         relative_path = os.path.relpath(file_path, settings.GENERATED_ASSETS_DIR)
         video_url = f"/generated_assets/{relative_path}"
         
@@ -231,19 +241,19 @@ async def build_final_video(request: BuildVideoRequest):
         logger.info("Building final video from scene configs",
                    scene_count=len(request.scene_configs))
         
-        # Parse script
+
         script = VideoScript(**request.script)
         
-        # Parse scene configs
+
         scene_configs = [SceneConfig(**config) for config in request.scene_configs]
         
-        # Create video agent
+
         video_agent = VideoGenAgent()
         
-        # Build video
+
         video_path = await video_agent.build_from_scene_configs(script, scene_configs)
         
-        # Convert to URL
+
         relative_path = os.path.relpath(video_path, settings.GENERATED_ASSETS_DIR)
         video_url = f"/generated_assets/{relative_path}"
         

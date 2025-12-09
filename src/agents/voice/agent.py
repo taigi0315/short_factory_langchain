@@ -1,7 +1,8 @@
 import os
 import asyncio
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
+from pathlib import Path
 from src.models.models import Scene, VoiceTone
 from src.core.config import settings
 from gtts import gTTS
@@ -9,15 +10,13 @@ from src.agents.voice.elevenlabs_client import ElevenLabsClient
 
 logger = logging.getLogger(__name__)
 
-# Default ElevenLabs Voice IDs (can be updated with specific voice clones)
-# Using standard pre-made voices as defaults
 VOICE_MAPPING = {
     VoiceTone.ENTHUSIASTIC: "21m00Tcm4TlvDq8ikWAM", # Rachel
     VoiceTone.CALM: "AZnzlk1XvdvUeBnXmlld",        # Dombi
     VoiceTone.SERIOUS: "29vD33N1CtxCmqQRPOHJ",     # Drew
     VoiceTone.MYSTERIOUS: "2EiwWnXFnvU5JabPnv8n",  # Clyde
     VoiceTone.FRIENDLY: "ThT5KcBeYPX3keUQqHPh",    # Dorothy
-    # Fallback for others
+    
     VoiceTone.EXCITED: "21m00Tcm4TlvDq8ikWAM",
     VoiceTone.CURIOUS: "ThT5KcBeYPX3keUQqHPh",
     VoiceTone.SAD: "AZnzlk1XvdvUeBnXmlld",
@@ -29,24 +28,38 @@ VOICE_MAPPING = {
     VoiceTone.SARCASTIC: "2EiwWnXFnvU5JabPnv8n",
 }
 
-class VoiceAgent:
-    def __init__(self):
-        # Use centralized config
+from src.core.retry import retry_with_backoff
+from src.agents.base_agent import BaseAgent
+
+# ... imports ...
+
+class VoiceAgent(BaseAgent):
+    def __init__(self) -> None:
+        self.client: Optional[ElevenLabsClient] = None
         self.use_real_voice = settings.USE_REAL_VOICE
-        self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "audio")
-        os.makedirs(self.output_dir, exist_ok=True)
+        super().__init__(
+            agent_name="VoiceAgent",
+            require_llm=False
+        )
+
+    def _setup(self) -> None:
+        """Agent-specific setup."""
+        super()._setup()
+        self.output_dir = Path(settings.GENERATED_ASSETS_DIR) / "audio"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         
         if self.use_real_voice:
             if not settings.ELEVENLABS_API_KEY:
-                logger.warning("USE_REAL_VOICE is True but ELEVENLABS_API_KEY is missing. Falling back to mock.")
+                logger.warning("ELEVENLABS_API_KEY not set. Falling back to gTTS mock mode.")
                 self.use_real_voice = False
-                self.client = None
             else:
                 self.client = ElevenLabsClient(settings.ELEVENLABS_API_KEY)
-                logger.info("VoiceAgent initialized with REAL ElevenLabs client")
-        else:
-            self.client = None
-            logger.info("VoiceAgent initialized in MOCK mode (gTTS)")
+                logger.info("VoiceAgent initialized with Real ElevenLabs")
+        
+        self.mock_mode = not self.use_real_voice
+        
+        if not self.use_real_voice:
+            logger.info("VoiceAgent initialized with Mock gTTS")
 
     async def generate_voiceovers(self, scenes: List[Scene]) -> Dict[int, str]:
         """
@@ -61,7 +74,6 @@ class VoiceAgent:
             
         results = await asyncio.gather(*tasks)
         
-        # Convert list of results to dictionary
         audio_paths = {}
         for scene_num, path in results:
             if path:
@@ -81,15 +93,12 @@ class VoiceAgent:
 
         try:
             if self.use_real_voice and self.client:
-                # Real ElevenLabs generation
                 voice_id = VOICE_MAPPING.get(scene.voice_tone, "21m00Tcm4TlvDq8ikWAM") # Default to Rachel
                 
-                # Convert Pydantic settings to dict
                 voice_settings = None
                 if hasattr(scene, 'elevenlabs_settings') and scene.elevenlabs_settings:
                     voice_settings = scene.elevenlabs_settings.model_dump()
                     
-                    # Apply overrides from config
                     try:
                         import json
                         overrides = json.loads(settings.VOICE_SETTINGS_OVERRIDE)
@@ -101,28 +110,23 @@ class VoiceAgent:
                         logger.warning(f"Failed to apply voice settings override: {e}")
                 
                 logger.info(f"Generating real audio for Scene {scene.scene_number} ({scene.voice_tone})...")
-                generated_path = await self.client.generate_audio(
+                
+                # Use decorated method for retry logic
+                generated_path = await self._generate_elevenlabs_audio_with_retry(
                     text=text,
                     voice_id=voice_id,
                     voice_settings=voice_settings
                 )
                 
-                # Copy/Move cached file to final destination if needed, or just return cached path
-                # For simplicity, we'll just return the cached path as it's already in generated_assets/audio_cache
-                # But to maintain the expected structure, we might want to symlink or copy.
-                # Let's just return the cached path for now, as it's a valid path.
                 return scene.scene_number, str(generated_path)
                 
             else:
-                # Mock gTTS generation
                 logger.info(f"  [Mock] Generating audio for Scene {scene.scene_number} using gTTS...")
-                # Run blocking gTTS in a thread to avoid blocking event loop
                 await asyncio.to_thread(self._generate_gtts, text, filepath)
                 return scene.scene_number, filepath
                 
         except Exception as e:
             logger.error(f"Failed to generate audio for Scene {scene.scene_number}: {e}")
-            # Fallback to gTTS on failure if we were trying real voice
             if self.use_real_voice:
                 logger.info("Falling back to gTTS...")
                 try:
@@ -132,8 +136,20 @@ class VoiceAgent:
                     logger.error(f"Fallback failed: {fallback_error}")
             return scene.scene_number, ""
 
-    def _generate_gtts(self, text: str, filepath: str):
-        """Helper to run gTTS synchronously."""
+    @retry_with_backoff(operation_name="voice generation")
+    async def _generate_elevenlabs_audio_with_retry(self, text: str, voice_id: str, voice_settings: Optional[dict] = None) -> str:
+        """Generate audio using ElevenLabs with retry logic."""
+        if not self.client:
+             raise RuntimeError("ElevenLabs client not initialized")
+             
+        result = await self.client.generate_audio(
+            text=text,
+            voice_id=voice_id,
+            voice_settings=voice_settings
+        )
+        return str(result)
+
+    def _generate_gtts(self, text: str, filepath: str) -> None:
         tts = gTTS(text=text, lang='en')
         tts.save(filepath)
 

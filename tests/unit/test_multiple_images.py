@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
-from src.models.models import Scene, SceneType, ImageStyle, VoiceTone, ElevenLabsSettings, TransitionType
+from src.models.models import Scene, SceneType, ImageStyle, VoiceTone, ElevenLabsSettings, TransitionType, VisualSegment
 from src.agents.video_assembly.agent import VideoAssemblyAgent
 
 class TestMultipleImages(unittest.IsolatedAsyncioTestCase):
@@ -15,14 +15,14 @@ class TestMultipleImages(unittest.IsolatedAsyncioTestCase):
             voice_tone=VoiceTone.EXCITED,
             elevenlabs_settings=ElevenLabsSettings(stability=0.5, similarity_boost=0.5, style=0.5, speed=1.0, loudness=0.0),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt="Main prompt",
-            image_prompts=["Prompt 1", "Prompt 2"],
-            image_ratios=[0.4, 0.6],
+            content=[
+                VisualSegment(segment_text="Short", image_prompt="Prompt 1"),
+                VisualSegment(segment_text="Longer text here", image_prompt="Prompt 2")
+            ],
             needs_animation=False,
             transition_to_next=TransitionType.NONE
         )
         self.assertEqual(scene.image_prompts, ["Prompt 1", "Prompt 2"])
-        self.assertEqual(scene.image_ratios, [0.4, 0.6])
 
     @patch('src.agents.video_assembly.agent.ImageClip')
     @patch('src.agents.video_assembly.agent.AudioFileClip')
@@ -53,9 +53,10 @@ class TestMultipleImages(unittest.IsolatedAsyncioTestCase):
             voice_tone=VoiceTone.EXCITED,
             elevenlabs_settings=ElevenLabsSettings(stability=0.5, similarity_boost=0.5, style=0.5, speed=1.0, loudness=0.0),
             image_style=ImageStyle.CINEMATIC,
-            image_create_prompt="Main prompt",
-            image_prompts=["Prompt 1", "Prompt 2"],
-            image_ratios=[0.3, 0.7],
+            content=[
+                VisualSegment(segment_text="Short", image_prompt="Prompt 1"),
+                VisualSegment(segment_text="Longer text here", image_prompt="Prompt 2")
+            ],
             needs_animation=False,
             transition_to_next=TransitionType.NONE
         )

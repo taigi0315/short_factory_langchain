@@ -2,17 +2,25 @@ import logging
 import uuid
 from typing import Optional
 from pydantic import ValidationError
-from langchain_google_genai import ChatGoogleGenerativeAI
-from src.agents.script_writer.prompts import SCRIPT_WRITER_AGENT_TEMPLATE, VIDEO_SCRIPT_PARSER
+
+from langchain_core.runnables import RunnableBranch
+from src.agents.script_writer.prompts import (
+    SCRIPT_WRITER_AGENT_TEMPLATE, 
+    VIDEO_SCRIPT_PARSER,
+    REAL_STORY_TEMPLATE,
+    EDUCATIONAL_TEMPLATE,
+    CREATIVE_TEMPLATE
+)
 from src.models.models import VideoScript, VoiceTone, SceneType, ImageStyle
 from src.core.config import settings
+from src.core.retry import retry_with_backoff
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
 
-class ScriptWriterAgent:
-    # Mapping for common LLM mistakes
+from src.agents.base_agent import BaseAgent
+
+class ScriptWriterAgent(BaseAgent):
     VOICE_TONE_FIXES = {
         "explanation": VoiceTone.SERIOUS,
         "narrative": VoiceTone.CALM,
@@ -45,33 +53,45 @@ class ScriptWriterAgent:
         "wide": ImageStyle.WIDE_ESTABLISHING_SHOT
     }
     
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize ScriptWriterAgent with API validation.
         Raises ValueError if API key is missing in real mode.
         """
-        # Validate API key if using real LLM
-        if settings.USE_REAL_LLM:
-            if not settings.GEMINI_API_KEY:
-                raise ValueError(
-                    "GEMINI_API_KEY is required when USE_REAL_LLM=true. "
-                    "Please set it in your .env file or environment variables."
-                )
-            logger.info("✅ ScriptWriterAgent initializing with REAL Gemini LLM")
-            
-            self.llm = ChatGoogleGenerativeAI(
-                model=settings.llm_model_name,
-                google_api_key=settings.GEMINI_API_KEY,
-                temperature=0.7,
-                max_retries=3,
-                request_timeout=30.0,
+        super().__init__(
+            agent_name="ScriptWriterAgent",
+            temperature=0.7,
+            max_retries=3,
+            request_timeout=30.0
+        )
+
+    def _setup(self) -> None:
+        """Agent-specific setup."""
+        if not self.mock_mode:
+            if not self.llm:
+                raise RuntimeError("LLM not initialized")
+
+            prompt_router: RunnableBranch = RunnableBranch(
+                (lambda x: x.get("category") in ["Real Story", "News"], REAL_STORY_TEMPLATE),
+                (lambda x: x.get("category") in ["Educational", "Explainer"], EDUCATIONAL_TEMPLATE),
+                CREATIVE_TEMPLATE
             )
-            self.chain = SCRIPT_WRITER_AGENT_TEMPLATE | self.llm | VIDEO_SCRIPT_PARSER
-            logger.info(f"ScriptWriterAgent initialized successfully. Model: {settings.llm_model_name}")
             
+            self.chain = (
+                {
+                    "subject": lambda x: x["subject"],
+                    "language": lambda x: x["language"],
+                    "max_video_scenes": lambda x: x["max_video_scenes"],
+                    "min_scenes": lambda x: x["min_scenes"],
+                    "category": lambda x: x.get("category", "Creative"),
+                    "format_instructions": lambda x: VIDEO_SCRIPT_PARSER.get_format_instructions()
+                }
+                | prompt_router
+                | self.llm
+                | VIDEO_SCRIPT_PARSER
+            )
+            logger.info(f"ScriptWriterAgent initialized successfully with Router. Model: {settings.llm_model_name}")
         else:
-            logger.info("⚠️ ScriptWriterAgent in MOCK mode (USE_REAL_LLM=false)")
-            self.llm = None
             self.chain = None
     
     def _validate_and_fix_script(self, script: VideoScript) -> VideoScript:
@@ -92,7 +112,6 @@ class ScriptWriterAgent:
         Raises:
             ValueError: If script has too few scenes
         """
-        # Validate scene count
         if len(script.scenes) < settings.MIN_SCENES:
             raise ValueError(
                 f"Script has {len(script.scenes)} scenes, "
@@ -106,47 +125,43 @@ class ScriptWriterAgent:
             )
             script.scenes = script.scenes[:settings.MAX_SCENES]
         
-        # Fix invalid enum values
         fixes_applied = []
         
         for i, scene in enumerate(script.scenes):
-            # Fix voice_tone if it's a string (shouldn't be, but LLM might output wrong)
             if isinstance(scene.voice_tone, str):
-                original_value = scene.voice_tone
-                if original_value in self.VOICE_TONE_FIXES:
-                    scene.voice_tone = self.VOICE_TONE_FIXES[original_value]
+                tone_val = scene.voice_tone
+                if tone_val in self.VOICE_TONE_FIXES:
+                    scene.voice_tone = self.VOICE_TONE_FIXES[tone_val]
                     fixes_applied.append(
-                        f"Scene {i+1}: voice_tone '{original_value}' → '{scene.voice_tone.value}'"
+                        f"Scene {i+1}: voice_tone '{tone_val}' → '{scene.voice_tone.value}'"
                     )
                     logger.warning(
                         f"Fixed invalid voice_tone in scene {i+1}: "
-                        f"'{original_value}' → '{scene.voice_tone.value}'"
+                        f"'{tone_val}' → '{scene.voice_tone.value}'"
                     )
             
-            # Fix scene_type if it's a string
             if isinstance(scene.scene_type, str):
-                original_value = scene.scene_type
-                if original_value in self.SCENE_TYPE_FIXES:
-                    scene.scene_type = self.SCENE_TYPE_FIXES[original_value]
+                type_val = scene.scene_type
+                if type_val in self.SCENE_TYPE_FIXES:
+                    scene.scene_type = self.SCENE_TYPE_FIXES[type_val]
                     fixes_applied.append(
-                        f"Scene {i+1}: scene_type '{original_value}' → '{scene.scene_type.value}'"
+                        f"Scene {i+1}: scene_type '{type_val}' → '{scene.scene_type.value}'"
                     )
                     logger.warning(
                         f"Fixed invalid scene_type in scene {i+1}: "
-                        f"'{original_value}' → '{scene.scene_type.value}'"
+                        f"'{type_val}' → '{scene.scene_type.value}'"
                     )
             
-            # Fix image_style if it's a string
             if isinstance(scene.image_style, str):
-                original_value = scene.image_style
-                if original_value in self.IMAGE_STYLE_FIXES:
-                    scene.image_style = self.IMAGE_STYLE_FIXES[original_value]
+                style_val = scene.image_style
+                if style_val in self.IMAGE_STYLE_FIXES:
+                    scene.image_style = self.IMAGE_STYLE_FIXES[style_val]
                     fixes_applied.append(
-                        f"Scene {i+1}: image_style '{original_value}' → '{scene.image_style.value}'"
+                        f"Scene {i+1}: image_style '{style_val}' → '{scene.image_style.value}'"
                     )
                     logger.warning(
                         f"Fixed invalid image_style in scene {i+1}: "
-                        f"'{original_value}' → '{scene.image_style.value}'"
+                        f"'{style_val}' → '{scene.image_style.value}'"
                     )
         
         if fixes_applied:
@@ -156,10 +171,11 @@ class ScriptWriterAgent:
         
         return script
     
-    def generate_script(
+    async def generate_script(
         self,
         subject: str,
         language: str = "English",
+        category: str = "Creative",
         max_scenes: Optional[int] = None,
         max_retries: int = 3
     ) -> VideoScript:
@@ -169,6 +185,7 @@ class ScriptWriterAgent:
         Args:
             subject: Topic/story description to generate script for
             language: Language for the script (default: English)
+            category: Story category (News, Educational, Creative) for style routing
             max_scenes: Maximum number of scenes (default: settings.MAX_SCENES)
             max_retries: Maximum number of retry attempts (default: 3)
             
@@ -178,7 +195,7 @@ class ScriptWriterAgent:
         Raises:
             Exception: If LLM generation fails after all retries
         """
-        # Mock mode - return early
+
         if not settings.USE_REAL_LLM:
             logger.info("Returning mock script (Mock Mode)")
             from src.api.mock_data import get_mock_script
@@ -193,78 +210,74 @@ class ScriptWriterAgent:
             )
             return get_mock_script(dummy_req).script
         
-        # Real LLM mode with retry logic
         request_id = str(uuid.uuid4())[:8]
         max_video_scenes = max_scenes if max_scenes is not None else settings.MAX_SCENES
         
         logger.info(
             f"[{request_id}] Script generation started - Subject: {subject[:50]}..., "
-            f"Language: {language}, Min scenes: {settings.MIN_SCENES}, "
-            f"Max scenes: {max_video_scenes}"
+            f"Category: {category}, Language: {language}, "
+            f"Min scenes: {settings.MIN_SCENES}, Max scenes: {max_video_scenes}"
         )
         
-        last_error = None
+        try:
+            # Call the decorated internal method
+            result = await self._generate_script_internal(
+                subject=subject,
+                language=language,
+                category=category,
+                max_video_scenes=max_video_scenes,
+                request_id=request_id
+            )
+            
+            from typing import cast
+            return cast(VideoScript, result)
+            
+        except Exception as e:
+            logger.error(f"[{request_id}] Script generation failed after retries: {e}")
+            raise
+
+    @retry_with_backoff(operation_name="script generation")
+    async def _generate_script_internal(
+        self,
+        subject: str,
+        language: str,
+        category: str,
+        max_video_scenes: int,
+        request_id: str
+    ) -> VideoScript:
+        """Internal method to generate script with retries."""
         
-        for attempt in range(max_retries):
-            try:
-                # Invoke the chain
-                result = self.chain.invoke({
-                    "subject": subject,
-                    "language": language,
-                    "max_video_scenes": max_video_scenes,
-                    "min_scenes": settings.MIN_SCENES
-                })
-                
-                # Validate and fix the script
-                result = self._validate_and_fix_script(result)
-                
-                logger.info(
-                    f"[{request_id}] Script generation completed successfully "
-                    f"(attempt {attempt + 1}/{max_retries}). "
-                    f"Generated script with {len(result.scenes)} scenes."
-                )
-                
-                return result
-                
-            except ValidationError as e:
-                last_error = e
-                logger.warning(
-                    f"[{request_id}] Validation error on attempt {attempt + 1}/{max_retries}: {str(e)}"
-                )
-                
-                if attempt < max_retries - 1:
-                    logger.info(f"[{request_id}] Retrying script generation...")
-                else:
-                    logger.error(
-                        f"[{request_id}] All retry attempts exhausted. "
-                        f"Script generation failed with validation errors."
-                    )
-                    
-            except ValueError as e:
-                # Scene count errors
-                last_error = e
-                logger.error(
-                    f"[{request_id}] Scene count validation failed on attempt {attempt + 1}/{max_retries}: {str(e)}"
-                )
-                
-                if attempt < max_retries - 1:
-                    logger.info(f"[{request_id}] Retrying with adjusted parameters...")
-                else:
-                    logger.error(f"[{request_id}] Failed to generate script with required scene count")
-                    
-            except Exception as e:
-                last_error = e
-                logger.error(
-                    f"[{request_id}] Script generation failed on attempt {attempt + 1}/{max_retries} "
-                    f"({type(e).__name__}): {str(e)}",
-                    exc_info=True
-                )
-                
-                if attempt < max_retries - 1:
-                    logger.info(f"[{request_id}] Retrying...")
-                else:
-                    logger.error(f"[{request_id}] All retry attempts exhausted")
-        
-        # If we get here, all retries failed
-        logger.error(f"[{request_id}] Script generation failed after {max_retries} attempts")
-        raise last_error if last_error else Exception("Script generation failed")
+        try:
+            # Use ainvoke for async execution
+            result = await self.chain.ainvoke({
+                "subject": subject,
+                "language": language,
+                "category": category,
+                "max_video_scenes": max_video_scenes,
+                "min_scenes": settings.MIN_SCENES
+            })
+            
+            result = self._validate_and_fix_script(result)
+            
+            logger.info(
+                f"[{request_id}] Script generation completed successfully. "
+                f"Generated script with {len(result.scenes)} scenes."
+            )
+            
+            from typing import cast
+            return cast(VideoScript, result)
+            
+        except ValidationError as e:
+            logger.warning(f"[{request_id}] Validation error: {str(e)}")
+            raise # Retry decorator will catch this
+            
+        except ValueError as e:
+            logger.error(f"[{request_id}] Scene count validation failed: {str(e)}")
+            raise # Retry decorator will catch this
+            
+        except Exception as e:
+            logger.error(
+                f"[{request_id}] Script generation failed ({type(e).__name__}): {str(e)}",
+                exc_info=True
+            )
+            raise # Retry decorator will catch this

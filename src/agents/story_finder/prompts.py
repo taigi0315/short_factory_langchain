@@ -3,7 +3,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from src.agents.story_finder.models import StoryList
 
 # Output Parser
-story_parser = PydanticOutputParser(pydantic_object=StoryList)
+story_parser: PydanticOutputParser = PydanticOutputParser(pydantic_object=StoryList)
 
 # 1. News Prompt
 NEWS_PROMPT = PromptTemplate(
@@ -19,7 +19,8 @@ Do NOT summarize history. Focus on "What just happened?" or "What is everyone ta
 Generate {num_stories} distinct news angles based on the search results.
 Focus on specific numbers, dates, and conflict.
 
-IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+IMPORTANT: Output ONLY valid JSON. No additional text, comments, or explanations before or after the JSON.
+Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
 
 {format_instructions}
 """,
@@ -43,7 +44,8 @@ Look for:
 **Your Task:**
 Generate {num_stories} unique story hooks based on the search results.
 
-IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+IMPORTANT: Output ONLY valid JSON. No additional text, comments, or explanations before or after the JSON.
+Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
 
 {format_instructions}
 """,
@@ -62,7 +64,8 @@ Focus on "How it works" rather than "What happened".
 **Your Task:**
 Generate {num_stories} educational story concepts.
 
-IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+IMPORTANT: Output ONLY valid JSON. No additional text, comments, or explanations before or after the JSON.
+Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
 
 {format_instructions}
 """,
@@ -80,7 +83,8 @@ This is PURE FICTION. Be creative, dramatic, and suspenseful.
 **Your Task:**
 Generate {num_stories} fictional story plots.
 
-IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+IMPORTANT: Output ONLY valid JSON. No additional text, comments, or explanations before or after the JSON.
+Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
 
 {format_instructions}
 """,
@@ -99,9 +103,12 @@ Avoid generic summaries. Look for the "weird" or "surprising".
 {search_context}
 
 **Your Task:**
-Generate {num_stories} unique story hooks.
+Generate {num_stories} distinct story angles.
+Generate a **MIX** of different angles (e.g., 1 News, 1 History, 1 Educational, 1 Fiction/Hypothetical) to provide variety.
 
-IMPORTANT: Return valid JSON. Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+IMPORTANT: Output ONLY valid JSON. No additional text, comments, or explanations before or after the JSON.
+Do NOT escape special characters like $ or % inside strings. For example, write "$500" not "\\$500".
+IMPORTANT: The `category` and `mood` fields in the JSON must be specific (e.g., "News", "Suspenseful"). Do NOT use "Auto" or "Unspecified" as values.
 
 {format_instructions}
 """,

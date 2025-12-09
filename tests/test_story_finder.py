@@ -4,7 +4,7 @@ from src.agents.story_finder.agent import StoryFinderAgent
 from src.agents.story_finder.models import StoryList, StoryIdea
 
 class TestStoryFinderAgent(unittest.TestCase):
-    @patch('src.agents.story_finder.agent.ChatGoogleGenerativeAI')
+    @patch('src.agents.base_agent.ChatGoogleGenerativeAI')
     def test_find_stories(self, mock_llm_class):
         # Setup mock
         mock_llm = MagicMock()
@@ -24,7 +24,14 @@ class TestStoryFinderAgent(unittest.TestCase):
         
         # Create a dummy response
         dummy_stories = StoryList(stories=[
-            StoryIdea(title="Test Story", summary="Summary", hook="Hook", keywords=["test"])
+            StoryIdea(
+                title="Test Story", 
+                summary="Summary", 
+                hook="Hook", 
+                keywords=["test"],
+                category="Educational",
+                mood="Exciting"
+            )
         ])
         
         # Mock the chain's invoke method

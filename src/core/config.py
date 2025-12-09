@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, ValidationInfo
 from typing import Optional, List
 
 
@@ -68,9 +68,9 @@ class Settings(BaseSettings):
         description="Minimum number of scenes in generated scripts"
     )
     MAX_SCENES: int = Field(
-        default=8,
+        default=15,
         ge=2,
-        le=20,
+        le=40,
         description="Maximum number of scenes in generated scripts"
     )
     DEFAULT_SCENE_DURATION: float = Field(
@@ -86,6 +86,34 @@ class Settings(BaseSettings):
     IMAGE_ASPECT_RATIO: str = Field(
         default="9:16",
         description="Target aspect ratio for generated images (e.g., '9:16', '16:9', '1:1')"
+    )
+
+    # ========================================
+    # Standardized Retry Settings
+    # ========================================
+    DEFAULT_MAX_RETRIES: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Default maximum number of retries for operations"
+    )
+    DEFAULT_RETRY_INITIAL_DELAY: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=10.0,
+        description="Default initial retry delay in seconds"
+    )
+    DEFAULT_RETRY_MAX_DELAY: float = Field(
+        default=60.0,
+        ge=1.0,
+        le=300.0,
+        description="Default maximum retry delay in seconds"
+    )
+    DEFAULT_RETRY_EXPONENTIAL_BASE: float = Field(
+        default=2.0,
+        ge=1.1,
+        le=10.0,
+        description="Default exponential backoff base"
     )
 
     # ========================================
@@ -120,7 +148,7 @@ class Settings(BaseSettings):
         description="Delay in seconds between successful scene image generations to prevent rate limiting"
     )
     
-    # Video Upload Settings (TICKET-023)
+    # Video Upload Settings
     MAX_VIDEO_UPLOAD_SIZE_MB: int = Field(default=100, description="Maximum video upload size in MB")
     ALLOWED_VIDEO_FORMATS: List[str] = Field(default=[".mp4", ".mov", ".webm"], description="Allowed video formats")
     
@@ -149,7 +177,7 @@ class Settings(BaseSettings):
     # ========================================
     @field_validator('MAX_SCENES')
     @classmethod
-    def validate_scene_range(cls, v, info):
+    def validate_scene_range(cls, v: int, info: ValidationInfo) -> int:
         """Ensure MAX_SCENES >= MIN_SCENES."""
         min_scenes = info.data.get('MIN_SCENES', 4)
         if v < min_scenes:
@@ -158,7 +186,7 @@ class Settings(BaseSettings):
     
     @field_validator('USE_REAL_LLM', 'USE_REAL_IMAGE', 'USE_REAL_VOICE', 'DEV_MODE', 'FAIL_FAST', mode='before')
     @classmethod
-    def parse_bool(cls, v):
+    def parse_bool(cls, v: str | bool) -> bool:
         """Parse boolean from string env vars."""
         if isinstance(v, bool):
             return v
@@ -169,8 +197,8 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
-        case_sensitive = False  # Allow USE_REAL_LLM or use_real_llm
-        extra = "ignore"  # Ignore deprecated env vars like NANO_BANANA_API_KEY
+        case_sensitive = False
+        extra = "ignore"
 
 
 settings = Settings()

@@ -35,9 +35,6 @@ class TestDirectorAgent(unittest.IsolatedAsyncioTestCase):
         )
         script = VideoScript(
             title="Test Video",
-            topic="Testing",
-            target_audience="Developers",
-            overall_tone="Excited",
             overall_style="Cinematic",
             global_visual_style="Realistic",
             main_character_description="A developer",
@@ -100,9 +97,6 @@ class TestDirectorAgent(unittest.IsolatedAsyncioTestCase):
         )
         script = VideoScript(
             title="Test Video",
-            topic="Testing",
-            target_audience="Developers",
-            overall_tone="Excited",
             overall_style="Cinematic",
             global_visual_style="Realistic",
             main_character_description="A developer",
