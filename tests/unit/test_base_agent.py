@@ -111,7 +111,7 @@ class TestBaseAgent:
                 call_kwargs = mock_llm_class.call_args[1]
                 assert call_kwargs['temperature'] == 0.7
                 assert call_kwargs['max_retries'] == 3
-                assert call_kwargs['request_timeout'] == 30.0
+                assert call_kwargs['request_timeout'] == settings.DEFAULT_REQUEST_TIMEOUT
     
     def test_setup_hook_is_called(self):
         """Test that _setup hook is called during initialization."""

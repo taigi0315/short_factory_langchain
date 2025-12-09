@@ -22,7 +22,7 @@ class BaseAgent(ABC):
         agent_name: str,
         temperature: float = 0.7,
         max_retries: int = 3,
-        request_timeout: float = 30.0,
+        request_timeout: Optional[float] = None,
         require_llm: bool = True
     ) -> None:
         """
@@ -39,8 +39,10 @@ class BaseAgent(ABC):
         self.mock_mode = not settings.USE_REAL_LLM
         self.llm: Optional[ChatGoogleGenerativeAI] = None
         
+        actual_timeout = request_timeout if request_timeout is not None else settings.DEFAULT_REQUEST_TIMEOUT
+        
         if require_llm:
-            self._initialize_llm(temperature, max_retries, request_timeout)
+            self._initialize_llm(temperature, max_retries, actual_timeout)
         
         # Call agent-specific setup
         self._setup()
