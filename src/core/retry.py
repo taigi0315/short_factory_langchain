@@ -2,7 +2,7 @@ import asyncio
 import functools
 import structlog
 import random
-from typing import Callable, Type, Tuple, Optional, Union
+from typing import Callable, Type, Tuple, Optional, Union, Any
 from src.core.config import settings
 
 logger = structlog.get_logger()
@@ -17,7 +17,7 @@ class RetryConfig:
         exponential_base: float = 2.0,
         retryable_exceptions: Tuple[Type[Exception], ...] = (Exception,),
         jitter: bool = True
-    ):
+    ) -> None:
         self.max_retries = max_retries
         self.initial_delay = initial_delay
         self.max_delay = max_delay
@@ -28,7 +28,7 @@ class RetryConfig:
 def retry_with_backoff(
     config: Optional[RetryConfig] = None,
     operation_name: Optional[str] = None
-):
+) -> Callable:
     """
     Decorator for retrying async functions with exponential backoff.
     
@@ -42,9 +42,9 @@ def retry_with_backoff(
             return await api.generate(prompt)
     """
     
-    def decorator(func: Callable):
+    def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Use provided config or defaults from settings
             # We resolve defaults here to ensure we pick up the latest settings
             nonlocal config

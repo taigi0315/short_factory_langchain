@@ -130,6 +130,8 @@ async def upload_scene_video(
             )
         
 
+        if not video.filename:
+            raise HTTPException(status_code=400, detail="Filename is missing")
         file_ext = os.path.splitext(video.filename)[1].lower()
         if file_ext not in settings.ALLOWED_VIDEO_FORMATS:
             raise HTTPException(

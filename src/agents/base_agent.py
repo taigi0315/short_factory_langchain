@@ -24,7 +24,7 @@ class BaseAgent(ABC):
         max_retries: int = 3,
         request_timeout: float = 30.0,
         require_llm: bool = True
-    ):
+    ) -> None:
         """
         Initialize base agent with common setup.
         
@@ -55,7 +55,7 @@ class BaseAgent(ABC):
         temperature: float,
         max_retries: int,
         request_timeout: float
-    ):
+    ) -> None:
         """Initialize LLM with validation and error handling."""
         if not self.mock_mode:
             if not settings.GEMINI_API_KEY:
@@ -66,10 +66,10 @@ class BaseAgent(ABC):
             
             self.llm = ChatGoogleGenerativeAI(
                 model=settings.llm_model_name,
-                google_api_key=settings.GEMINI_API_KEY,
+                google_api_key=settings.GEMINI_API_KEY,  # type: ignore[call-arg]
                 temperature=temperature,
                 max_retries=max_retries,
-                request_timeout=request_timeout,
+                request_timeout=request_timeout,  # type: ignore[call-arg]
                 # Add explicit error handling/retry config if supported by library
             )
             
@@ -81,7 +81,7 @@ class BaseAgent(ABC):
             logger.info(f"⚠️ {self.agent_name} in MOCK mode (USE_REAL_LLM=false)")
     
     @abstractmethod
-    def _setup(self):
+    def _setup(self) -> None:
         """
         Agent-specific setup logic.
         Override this method to add custom initialization.

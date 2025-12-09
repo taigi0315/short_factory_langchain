@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator, computed_field
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Any
 from enum import Enum
 import logging
 
@@ -156,7 +156,6 @@ class Scene(BaseModel):
     
     # Image related
     image_style: ImageStyle
-    image_style: ImageStyle
     character_pose: Optional[str] = Field(default=None, description="Character pose: 'pointing', 'thinking', 'surprised'")
     background_description: Optional[str] = Field(default=None, description="Background setting description")
     
@@ -182,19 +181,19 @@ class Scene(BaseModel):
     recommended_ai_video: Optional[bool] = Field(default=None, description="Whether AI video generation is recommended")
     effect_reasoning: Optional[str] = Field(default=None, description="Reasoning for effect recommendation")
 
-    @computed_field
+    @computed_field  # type: ignore[misc]
     @property
     def dialogue(self) -> str:
         """Derived full dialogue from segments"""
         return " ".join([seg.segment_text for seg in self.content])
 
-    @computed_field
+    @computed_field  # type: ignore[misc]
     @property
     def image_prompts(self) -> List[str]:
         """Derived list of image prompts"""
         return [seg.image_prompt for seg in self.content]
     
-    @computed_field
+    @computed_field  # type: ignore[misc]
     @property
     def image_create_prompt(self) -> str:
         """Backward compatibility: return first image prompt"""
@@ -202,7 +201,7 @@ class Scene(BaseModel):
 
     @field_validator('scene_type', mode='before')
     @classmethod
-    def validate_scene_type(cls, v):
+    def validate_scene_type(cls, v: Any) -> Any:
         if isinstance(v, SceneType):
             return v
         if not isinstance(v, str):
@@ -235,7 +234,7 @@ class Scene(BaseModel):
 
     @field_validator('voice_tone', mode='before')
     @classmethod
-    def validate_voice_tone(cls, v):
+    def validate_voice_tone(cls, v: Any) -> Any:
         if isinstance(v, VoiceTone):
             return v
         if not isinstance(v, str):
@@ -271,7 +270,7 @@ class Scene(BaseModel):
 
     @field_validator('image_style', mode='before')
     @classmethod
-    def validate_image_style(cls, v):
+    def validate_image_style(cls, v: Any) -> Any:
         if isinstance(v, ImageStyle):
             return v
         if not isinstance(v, str):
@@ -334,7 +333,7 @@ class VideoScript(BaseModel):
         return len(self.scenes)
     
     @property
-    def hook_scene(self) -> Scene:
+    def hook_scene(self) -> Optional[Scene]:
         """Return the first scene (hook scene)"""
         return self.scenes[0] if self.scenes else None
     
@@ -347,7 +346,7 @@ class VideoScript(BaseModel):
     
     @field_validator('scenes')
     @classmethod
-    def validate_scene_count(cls, v):
+    def validate_scene_count(cls, v: List[Scene]) -> List[Scene]:
         """
         Validate that scene count is within MIN_SCENES and MAX_SCENES.
         

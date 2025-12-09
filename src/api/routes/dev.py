@@ -5,7 +5,7 @@ from src.agents.video_gen.agent import VideoGenAgent
 from src.core.config import settings
 import os
 from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VideoScript, VisualSegment
-from typing import Optional
+from typing import Optional, Dict
 
 router = APIRouter()
 
@@ -79,7 +79,7 @@ async def generate_video(request: VideoGenRequest):
         elif request.type == "image":
             if not request.image_url:
                 raise HTTPException(status_code=400, detail="Image URL is required for image-to-video generation")
-            video_path = agent.generate_from_image(request.image_url, request.prompt)
+            video_path = await agent.generate_from_image(request.image_url, request.prompt)
         else:
             raise HTTPException(status_code=400, detail="Invalid generation type")
             
@@ -111,7 +111,7 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         script = VideoScript(**request.script)
         logger.info("Script parsed successfully", scene_count=len(script.scenes))
         
-        real_image_map = {}
+        real_image_map: Dict[int, str] = {}
         images_list = []
         validation_errors = []
         

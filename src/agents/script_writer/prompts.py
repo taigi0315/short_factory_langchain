@@ -1,14 +1,15 @@
 from src.models.models import SceneType, ImageStyle, VoiceTone, TransitionType, HookTechnique, VideoScript
 from langchain.output_parsers import PydanticOutputParser
 from langchain.prompts import PromptTemplate
-
-def get_enum_values(enum_class):
+from typing import Type, List, Dict, Any
+from enum import Enum
+def get_enum_values(enum_class: Type[Enum]) -> List[str]:
     """Extract all values from an Enum class"""
     return [e.value for e in enum_class]
 
-def _get_scene_description(scene_type):
+def _get_scene_description(scene_type: SceneType) -> str:
     """Get description for scene type"""
-    descriptions = {
+    descriptions: Dict[str, str] = {
         'explanation': 'Character directly explains concepts (most common)',
         'visual_demo': 'Show examples, demonstrations, processes',
         'comparison': 'Side-by-side comparisons, before/after',
@@ -16,9 +17,9 @@ def _get_scene_description(scene_type):
         'hook': 'Opening attention-grabber only',
         'conclusion': 'Summary and wrap-up only'
     }
-    return descriptions.get(scene_type, 'Scene type description')
+    return descriptions.get(scene_type.value if hasattr(scene_type, 'value') else str(scene_type), 'Scene type description')
 
-def create_dynamic_prompt():
+def create_dynamic_prompt() -> Dict[str, Any]:
     """Create prompt template with dynamic enum values from Pydantic models"""
     
     # Extract enum values dynamically
@@ -29,7 +30,7 @@ def create_dynamic_prompt():
     hook_techniques = get_enum_values(HookTechnique)
     
     # Create PydanticOutputParser for VideoScript
-    parser = PydanticOutputParser(pydantic_object=VideoScript)
+    parser: PydanticOutputParser = PydanticOutputParser(pydantic_object=VideoScript)
     
     # Example content for prompt (escaped for PromptTemplate)
     example_content = """```json
@@ -92,7 +93,7 @@ Every video MUST follow this proven structure with scenes in order:
 ## Scene Types & When to Use Them
 
 Available Scene Types:
-{chr(10).join([f'- `{t.upper()}`: {_get_scene_description(t)}' for t in scene_types])}
+{chr(10).join([f'- `{t.upper()}`: {_get_scene_description(SceneType(t))}' for t in scene_types])}
 
 Choose the most appropriate scene type for each part of your story arc.
 

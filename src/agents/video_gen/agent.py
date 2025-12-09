@@ -1,9 +1,10 @@
 import os
+import asyncio
 import time
 import structlog
 import hashlib
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any, Dict
 from pathlib import Path
 from moviepy import (
     VideoFileClip, ImageClip, AudioFileClip, CompositeVideoClip,
@@ -14,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 from src.core.config import settings
 from src.models.models import (
     VideoScript, Scene, ImageStyle, SceneType, VoiceTone, 
-    ElevenLabsSettings, TransitionType
+    ElevenLabsSettings, TransitionType, SceneConfig
 )
 
 from src.agents.video_gen.providers.base import VideoGenerationProvider
@@ -29,11 +30,139 @@ from src.agents.base_agent import BaseAgent
 # ... imports ...
 
 class VideoGenAgent(BaseAgent):
-    # ... init and setup ...
+    def __init__(self) -> None:
+        self.resolution: Tuple[int, int] = (1080, 1920) if settings.VIDEO_RESOLUTION == "1080p" else (720, 1280)
+        self.fps = settings.VIDEO_FPS
+        self.preset = settings.VIDEO_QUALITY
+        self.video_provider: Optional[VideoGenerationProvider] = None
+        super().__init__(
+            agent_name="VideoGenAgent",
+            require_llm=False
+        )
 
-    # ... _get_video_provider and _select_scenes_for_ai_video ...
+    def _setup(self) -> None:
+        """Agent-specific setup."""
+        super()._setup()
+        self.output_dir = Path(settings.GENERATED_ASSETS_DIR) / "videos"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize video provider
+        self.video_provider = self._get_video_provider()
+        
+        logger.info(
+            "VideoGenAgent initialized", 
+            resolution=self.resolution,
+            fps=self.fps,
+            provider=type(self.video_provider).__name__
+        )
 
-    # ... generate_video ...
+    def _get_video_provider(self) -> VideoGenerationProvider:
+        """Initialize appropriate video provider based on settings."""
+        if settings.VIDEO_GENERATION_PROVIDER == "luma" and settings.LUMA_API_KEY:
+            return LumaVideoProvider(settings.LUMA_API_KEY)
+        return MockVideoProvider()
+
+    def _select_scenes_for_ai_video(self, script: VideoScript) -> List[int]:
+        """Select scenes that require AI video generation."""
+        return [
+            scene.scene_number 
+            for scene in script.scenes 
+            if scene.needs_animation or scene.video_prompt
+        ]
+
+    async def generate_video(
+        self,
+        script: VideoScript,
+        images: List[str],
+        audio_map: Dict[int, str],
+        style: ImageStyle
+    ) -> str:
+        """
+        Generate complete video from script, images, and audio.
+        
+        Args:
+            script: The video script
+            images: List of image paths (one per scene)
+            audio_map: Mapping of scene number to audio file path
+            style: Visual style for the video
+            
+        Returns:
+            Path to the generated video file
+        """
+        logger.info("Starting video generation", title=script.title, scenes=len(script.scenes))
+        
+        scene_clips = []
+        
+        # Determine which scenes need AI video
+        ai_scenes = self._select_scenes_for_ai_video(script)
+        
+        for i, scene in enumerate(script.scenes):
+            image_path = images[i] if i < len(images) else None
+            audio_path = audio_map.get(scene.scene_number)
+            
+            if not image_path or not os.path.exists(image_path):
+                logger.warning(f"Missing image for scene {scene.scene_number}")
+                continue
+                
+            # Get audio duration
+            duration = settings.DEFAULT_SCENE_DURATION
+            audio_clip = None
+            if audio_path and os.path.exists(audio_path):
+                audio_clip = AudioFileClip(audio_path)
+                duration = audio_clip.duration
+            
+            # Create video clip for scene
+            force_ai = scene.scene_number in ai_scenes
+            clip = await self._create_scene_clip(
+                scene=scene,
+                image_path=image_path,
+                duration=duration,
+                style=style,
+                force_ai_video=force_ai
+            )
+            
+            if audio_clip:
+                clip = clip.with_audio(audio_clip)
+                
+            scene_clips.append(clip)
+            
+        if not scene_clips:
+            raise RuntimeError("No scenes were successfully generated")
+            
+        # Apply transitions
+        final_video = self._apply_transitions(scene_clips)
+        
+        # Add title card if needed (optional, maybe Director handles this?)
+        # For now, just render the video
+        
+        timestamp = int(time.time())
+        safe_title = "".join([c for c in script.title if c.isalnum() or c in (' ', '-', '_')]).strip().replace(' ', '_')
+        output_path = self.output_dir / f"video_{safe_title}_{timestamp}.mp4"
+        
+        logger.info("Rendering final video...", output_path=str(output_path))
+        
+        try:
+            await asyncio.to_thread(
+                final_video.write_videofile,
+                str(output_path),
+                fps=self.fps,
+                codec='libx264',
+                audio_codec='aac',
+                preset=self.preset,
+                logger=None
+            )
+        except Exception as e:
+            logger.error("Failed to render video file", error=str(e))
+            raise
+            
+        # Cleanup
+        for clip in scene_clips:
+            clip.close()
+        final_video.close()
+        
+        return str(output_path)
+
+
 
     async def _create_scene_clip(
         self,
@@ -213,7 +342,7 @@ class VideoGenAgent(BaseAgent):
         
         try:
             try:
-                font = ImageFont.truetype("Arial.ttf", font_size)
+                font: Any = ImageFont.truetype("Arial.ttf", font_size)
             except:
                 try:
                     font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
@@ -294,7 +423,7 @@ class VideoGenAgent(BaseAgent):
         
         elif effect == "shake":
             import random
-            def shake_pos(t):
+            def shake_pos(t: float) -> Tuple[int, int]:
                 x = random.randint(-10, 10)
                 y = random.randint(-10, 10)
                 return (x, y)
@@ -304,7 +433,7 @@ class VideoGenAgent(BaseAgent):
             return clip.resized(lambda t: 1 + 0.3 * t / duration)
         
         elif effect == "crane_up":
-            def crane_transform(t):
+            def crane_transform(t: float) -> float:
                 scale = 1.1 - 0.1 * t / duration
                 y_pos = -50 * t / duration
                 return scale
@@ -325,11 +454,11 @@ class VideoGenAgent(BaseAgent):
 
 
 
-    def _wrap_text(self, text: str, font, max_width: int, draw) -> List[str]:
+    def _wrap_text(self, text: str, font: Any, max_width: int, draw: Any) -> List[str]:
         """Wrap text to fit within max_width."""
         words = text.split()
         lines = []
-        current_line = []
+        current_line: List[str] = []
         
         for word in words:
             test_line = ' '.join(current_line + [word])
@@ -363,7 +492,7 @@ class VideoGenAgent(BaseAgent):
         
         try:
             try:
-                font = ImageFont.truetype("Arial.ttf", font_size)
+                font: Any = ImageFont.truetype("Arial.ttf", font_size)
             except:
                 try:
                     font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
@@ -556,7 +685,7 @@ class VideoGenAgent(BaseAgent):
         voice_agent = VoiceAgent()
         
         # Helper to resolve path
-        def resolve_path(path_or_url: str) -> str:
+        def resolve_path(path_or_url: Optional[str]) -> Optional[str]:
             if not path_or_url:
                 return None
             if path_or_url.startswith("/generated_assets/"):
@@ -675,7 +804,7 @@ class VideoGenAgent(BaseAgent):
         """Load and process uploaded video"""
         import asyncio
         
-        def load_video():
+        def load_video() -> VideoClip:
             clip = VideoFileClip(video_path)
             
             w, h = clip.size
@@ -709,7 +838,7 @@ class VideoGenAgent(BaseAgent):
         """Create video clip from image with specified effect"""
         import asyncio
         
-        def create_clip():
+        def create_clip() -> VideoClip:
             img_clip = ImageClip(image_path)
             
             w, h = img_clip.size
@@ -754,6 +883,8 @@ class VideoGenAgent(BaseAgent):
     @retry_with_backoff(operation_name="AI video generation")
     async def _generate_ai_video_with_retry(self, image_path: str, prompt: str) -> Optional[str]:
         """Generate AI video with retry logic."""
+        if not self.video_provider:
+            return None
         return await self.video_provider.generate_video(
             image_path, 
             prompt

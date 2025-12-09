@@ -1,11 +1,11 @@
 import os
 import logging
 import uuid
-from typing import Optional
+from typing import Optional, Dict, Any, cast
 from json_repair import repair_json
 
 from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_core.runnables import RunnableBranch, RunnablePassthrough
+from langchain_core.runnables import RunnableBranch, RunnablePassthrough, RunnableSerializable
 from langchain_core.output_parsers import StrOutputParser
 
 from src.agents.story_finder.prompts import (
@@ -20,11 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class StoryFinderAgent(BaseAgent):
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize StoryFinderAgent with API validation.
         Raises ValueError if API key is missing in real mode.
         """
+        self.chain: Optional[RunnableSerializable] = None
         super().__init__(
             agent_name="StoryFinderAgent",
             temperature=0.7,
@@ -32,7 +33,7 @@ class StoryFinderAgent(BaseAgent):
             request_timeout=30.0
         )
 
-    def _setup(self):
+    def _setup(self) -> None:
         """Agent-specific setup."""
         self.search_tool = None
         if not self.mock_mode and settings.TAVILY_API_KEY:
@@ -54,10 +55,12 @@ class StoryFinderAgent(BaseAgent):
         else:
             self.chain = None
 
-    def _build_chain(self):
+    def _build_chain(self) -> RunnableSerializable:
         """Build the dynamic router chain."""
+        if not self.llm:
+            raise RuntimeError("LLM not initialized")
         
-        def search_step(inputs):
+        def search_step(inputs: Dict[str, Any]) -> str:
             category = inputs.get("category", "").lower()
             subject = inputs.get("subject", "")
             
@@ -81,7 +84,7 @@ class StoryFinderAgent(BaseAgent):
 
         
 
-        def clean_and_parse(message):
+        def clean_and_parse(message: Any) -> StoryList:
             text = message.content
             logger.info(f"LLM Raw Output: {text}")
             
@@ -108,7 +111,7 @@ class StoryFinderAgent(BaseAgent):
             logger.info(f"Cleaned JSON Text: {text}")
             
             try:
-                return story_parser.parse(text)
+                return cast(StoryList, story_parser.parse(text))
             except Exception as e:
                 logger.error(f"Parsing failed for text: {text}. Error: {e}")
                 raise
@@ -149,7 +152,7 @@ class StoryFinderAgent(BaseAgent):
         )
         
 
-        branch = RunnableBranch(
+        branch: RunnableBranch = RunnableBranch(
             (lambda x: x["category"].lower() == "news", news_chain),
             (lambda x: x["category"].lower() == "real_story", real_story_chain),
             (lambda x: x["category"].lower() == "educational", educational_chain),
@@ -217,6 +220,9 @@ class StoryFinderAgent(BaseAgent):
         )
         
         try:
+            if not self.chain:
+                raise RuntimeError("Chain not initialized")
+
             result = self.chain.invoke({
                 "subject": subject,
                 "num_stories": num_stories,
@@ -229,7 +235,8 @@ class StoryFinderAgent(BaseAgent):
                 f"Generated {len(result.stories)} stories."
             )
             
-            return result
+            from typing import cast
+            return cast(StoryList, result)
             
         except Exception as e:
             logger.error(

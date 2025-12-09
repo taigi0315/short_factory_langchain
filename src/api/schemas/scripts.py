@@ -11,3 +11,4 @@ class ScriptGenerationRequest(BaseModel):
 
 class ScriptGenerationResponse(BaseModel):
     script: VideoScript
+    video_path: Optional[str] = None

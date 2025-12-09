@@ -12,7 +12,7 @@ logger = structlog.get_logger()
 
 @router.post("/generate", response_model=ScriptGenerationResponse)
 @with_fallback(lambda request: get_mock_script(request))
-async def generate_script(request: ScriptGenerationRequest):
+async def generate_script(request: ScriptGenerationRequest) -> ScriptGenerationResponse:
     """
     Generate video script using LLM.
     Falls back to mock data if LLM unavailable.

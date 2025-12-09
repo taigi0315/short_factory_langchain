@@ -1,12 +1,14 @@
 import logging
 import sys
+from typing import Any, Dict, List
+
 import structlog
 from asgi_correlation_id import correlation_id
 
-def configure_logging():
+def configure_logging() -> Any:
     """Configure structured logging with structlog."""
     
-    shared_processors = [
+    shared_processors: List[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
@@ -18,7 +20,7 @@ def configure_logging():
     ]
 
     # Add request_id to all logs if available
-    def add_correlation_id(logger, method_name, event_dict):
+    def add_correlation_id(logger: Any, method_name: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
         request_id = correlation_id.get()
         if request_id:
             event_dict["request_id"] = request_id

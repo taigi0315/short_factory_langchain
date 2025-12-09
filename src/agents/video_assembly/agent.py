@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict
+from typing import List, Dict, Any
 from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, TextClip, ColorClip
 from src.models.models import Scene, VideoScript
 from src.agents.director.models import DirectedScript
@@ -12,13 +12,13 @@ logger = structlog.get_logger()
 from src.agents.base_agent import BaseAgent
 
 class VideoAssemblyAgent(BaseAgent):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             agent_name="VideoAssemblyAgent",
             require_llm=False
         )
 
-    def _setup(self):
+    def _setup(self) -> None:
         """Agent-specific setup."""
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "videos")
         os.makedirs(self.output_dir, exist_ok=True)
@@ -282,7 +282,7 @@ class VideoAssemblyAgent(BaseAgent):
             
         return durations
 
-    def _create_title_overlay(self, title: str, video_width: int, video_height: int, video_duration: float):
+    def _create_title_overlay(self, title: str, video_width: int, video_height: int, video_duration: float) -> ImageClip:
         """
         Create a title overlay using PIL to avoid ImageMagick dependency.
         
@@ -310,7 +310,7 @@ class VideoAssemblyAgent(BaseAgent):
         try:
             # Try common system fonts - use bold variant
             font_size = 80  # Increased from 60 to 80
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            font: Any = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
         except:
             try:
                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
@@ -321,7 +321,7 @@ class VideoAssemblyAgent(BaseAgent):
         # Word wrap the title if too long
         words = title.split()
         lines = []
-        current_line = []
+        current_line: List[str] = []
         
         for word in words:
             test_line = ' '.join(current_line + [word])
@@ -360,7 +360,7 @@ class VideoAssemblyAgent(BaseAgent):
             # Draw colorful text (cycle through gradient colors)
             color = gradient_colors[line_idx % len(gradient_colors)]
             draw.text((x, y_offset), line, font=font, fill=color)
-            y_offset += bbox[3] - bbox[1] + 15  # Increased spacing
+            y_offset += int(bbox[3] - bbox[1]) + 15  # Increased spacing
         
         # Convert PIL image to numpy array for MoviePy
         img_array = np.array(img)
@@ -372,7 +372,7 @@ class VideoAssemblyAgent(BaseAgent):
         
         return title_clip
 
-    def _create_subtitles(self, script: VideoScript, scene_clips: List, video_width: int, video_height: int):
+    def _create_subtitles(self, script: VideoScript, scene_clips: List[Any], video_width: int, video_height: int) -> List[ImageClip]:
         """
         Create subtitle overlays for each scene based on dialogue segments.
         
@@ -430,7 +430,7 @@ class VideoAssemblyAgent(BaseAgent):
         
         return subtitle_clips
 
-    def _create_subtitle_clip(self, text: str, video_width: int, video_height: int, start_time: float, duration: float):
+    def _create_subtitle_clip(self, text: str, video_width: int, video_height: int, start_time: float, duration: float) -> ImageClip:
         """
         Create a single subtitle clip using PIL.
         
@@ -458,7 +458,7 @@ class VideoAssemblyAgent(BaseAgent):
         # Load bold font
         try:
             font_size = 52  # Increased from 45 to 52
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            font: Any = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
         except:
             try:
                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
@@ -485,7 +485,7 @@ class VideoAssemblyAgent(BaseAgent):
         # Word wrap
         words = text.split()
         lines = []
-        current_line = []
+        current_line: List[str] = []
         
         for word in words:
             test_line = ' '.join(current_line + [word])
@@ -526,7 +526,7 @@ class VideoAssemblyAgent(BaseAgent):
             
             # Draw colorful text
             draw.text((x, y_offset), line, font=font, fill=text_color)
-            y_offset += text_height + 15  # Increased from 5 to 15 for better line spacing
+            y_offset += int(text_height) + 15  # Increased from 5 to 15 for better line spacing
         
         # Convert to numpy array
         img_array = np.array(img)

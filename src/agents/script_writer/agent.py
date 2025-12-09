@@ -53,7 +53,7 @@ class ScriptWriterAgent(BaseAgent):
         "wide": ImageStyle.WIDE_ESTABLISHING_SHOT
     }
     
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize ScriptWriterAgent with API validation.
         Raises ValueError if API key is missing in real mode.
@@ -65,10 +65,13 @@ class ScriptWriterAgent(BaseAgent):
             request_timeout=30.0
         )
 
-    def _setup(self):
+    def _setup(self) -> None:
         """Agent-specific setup."""
         if not self.mock_mode:
-            prompt_router = RunnableBranch(
+            if not self.llm:
+                raise RuntimeError("LLM not initialized")
+
+            prompt_router: RunnableBranch = RunnableBranch(
                 (lambda x: x.get("category") in ["Real Story", "News"], REAL_STORY_TEMPLATE),
                 (lambda x: x.get("category") in ["Educational", "Explainer"], EDUCATIONAL_TEMPLATE),
                 CREATIVE_TEMPLATE
@@ -126,39 +129,39 @@ class ScriptWriterAgent(BaseAgent):
         
         for i, scene in enumerate(script.scenes):
             if isinstance(scene.voice_tone, str):
-                original_value = scene.voice_tone
-                if original_value in self.VOICE_TONE_FIXES:
-                    scene.voice_tone = self.VOICE_TONE_FIXES[original_value]
+                tone_val = scene.voice_tone
+                if tone_val in self.VOICE_TONE_FIXES:
+                    scene.voice_tone = self.VOICE_TONE_FIXES[tone_val]
                     fixes_applied.append(
-                        f"Scene {i+1}: voice_tone '{original_value}' → '{scene.voice_tone.value}'"
+                        f"Scene {i+1}: voice_tone '{tone_val}' → '{scene.voice_tone.value}'"
                     )
                     logger.warning(
                         f"Fixed invalid voice_tone in scene {i+1}: "
-                        f"'{original_value}' → '{scene.voice_tone.value}'"
+                        f"'{tone_val}' → '{scene.voice_tone.value}'"
                     )
             
             if isinstance(scene.scene_type, str):
-                original_value = scene.scene_type
-                if original_value in self.SCENE_TYPE_FIXES:
-                    scene.scene_type = self.SCENE_TYPE_FIXES[original_value]
+                type_val = scene.scene_type
+                if type_val in self.SCENE_TYPE_FIXES:
+                    scene.scene_type = self.SCENE_TYPE_FIXES[type_val]
                     fixes_applied.append(
-                        f"Scene {i+1}: scene_type '{original_value}' → '{scene.scene_type.value}'"
+                        f"Scene {i+1}: scene_type '{type_val}' → '{scene.scene_type.value}'"
                     )
                     logger.warning(
                         f"Fixed invalid scene_type in scene {i+1}: "
-                        f"'{original_value}' → '{scene.scene_type.value}'"
+                        f"'{type_val}' → '{scene.scene_type.value}'"
                     )
             
             if isinstance(scene.image_style, str):
-                original_value = scene.image_style
-                if original_value in self.IMAGE_STYLE_FIXES:
-                    scene.image_style = self.IMAGE_STYLE_FIXES[original_value]
+                style_val = scene.image_style
+                if style_val in self.IMAGE_STYLE_FIXES:
+                    scene.image_style = self.IMAGE_STYLE_FIXES[style_val]
                     fixes_applied.append(
-                        f"Scene {i+1}: image_style '{original_value}' → '{scene.image_style.value}'"
+                        f"Scene {i+1}: image_style '{style_val}' → '{scene.image_style.value}'"
                     )
                     logger.warning(
                         f"Fixed invalid image_style in scene {i+1}: "
-                        f"'{original_value}' → '{scene.image_style.value}'"
+                        f"'{style_val}' → '{scene.image_style.value}'"
                     )
         
         if fixes_applied:
@@ -226,7 +229,8 @@ class ScriptWriterAgent(BaseAgent):
                 request_id=request_id
             )
             
-            return result
+            from typing import cast
+            return cast(VideoScript, result)
             
         except Exception as e:
             logger.error(f"[{request_id}] Script generation failed after retries: {e}")
@@ -260,7 +264,8 @@ class ScriptWriterAgent(BaseAgent):
                 f"Generated script with {len(result.scenes)} scenes."
             )
             
-            return result
+            from typing import cast
+            return cast(VideoScript, result)
             
         except ValidationError as e:
             logger.warning(f"[{request_id}] Validation error: {str(e)}")

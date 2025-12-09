@@ -6,12 +6,12 @@ narrative flow, and emotional impact.
 """
 
 import structlog
-from typing import List, Optional
+from typing import List, Optional, cast
 import json
 
 
 from src.core.config import settings
-from src.models.models import VideoScript, Scene, SceneType, TransitionType
+from src.models.models import VideoScript, Scene, SceneType, TransitionType, VisualSegment
 from src.agents.director.models import (
     CinematicDirection,
     DirectedScene,
@@ -59,7 +59,7 @@ class DirectorAgent(BaseAgent):
     - Enhanced prompts for image/video generation
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the Director Agent"""
         super().__init__(
             agent_name="DirectorAgent",
@@ -68,7 +68,7 @@ class DirectorAgent(BaseAgent):
             request_timeout=30.0
         )
     
-    def _setup(self):
+    def _setup(self) -> None:
         """Agent-specific setup."""
         pass
     
@@ -217,9 +217,11 @@ class DirectorAgent(BaseAgent):
         
         try:
             # Call LLM (Gemini doesn't support response_format, we rely on prompt instructions)
+            if not self.llm:
+                raise RuntimeError("LLM not initialized")
             response = self.llm.invoke(prompt)
             
-            content = response.content.strip()
+            content = str(response.content).strip()
             
             if "```json" in content:
                 json_start = content.find("```json") + 7
@@ -233,12 +235,13 @@ class DirectorAgent(BaseAgent):
             direction_data = json.loads(content)
             
 
+            from typing import cast
             direction = CinematicDirection(
-                shot_type=ShotType(direction_data.get("shot_type", "medium")),
-                camera_movement=CameraMovement(direction_data.get("camera_movement", "static")),
-                camera_angle=CameraAngle(direction_data.get("camera_angle", "eye_level")),
-                lighting_mood=LightingMood(direction_data.get("lighting_mood", "soft")),
-                composition=CompositionRule(direction_data.get("composition", "rule_of_thirds")),
+                shot_type=cast(ShotType, ShotType(direction_data.get("shot_type", "medium"))),
+                camera_movement=cast(CameraMovement, CameraMovement(direction_data.get("camera_movement", "static"))),
+                camera_angle=cast(CameraAngle, CameraAngle(direction_data.get("camera_angle", "eye_level"))),
+                lighting_mood=cast(LightingMood, LightingMood(direction_data.get("lighting_mood", "soft"))),
+                composition=cast(CompositionRule, CompositionRule(direction_data.get("composition", "rule_of_thirds"))),
                 emotional_purpose=direction_data.get("emotional_purpose", "Engage viewer"),
                 narrative_function=direction_data.get("narrative_function", "Advance story"),
                 connection_from_previous=direction_data.get("connection_from_previous"),
@@ -365,11 +368,11 @@ Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and ME
         visual_guide = EMOTION_TO_VISUAL.get(emotion, EMOTION_TO_VISUAL["calm"])
         
         direction = CinematicDirection(
-            shot_type=visual_guide["shot_type"],
-            camera_movement=visual_guide["camera_movement"],
-            camera_angle=visual_guide["camera_angle"],
-            lighting_mood=visual_guide["lighting"],
-            composition=visual_guide["composition"],
+            shot_type=cast(ShotType, visual_guide["shot_type"]),
+            camera_movement=cast(CameraMovement, visual_guide["camera_movement"]),
+            camera_angle=cast(CameraAngle, visual_guide["camera_angle"]),
+            lighting_mood=cast(LightingMood, visual_guide["lighting"]),
+            composition=cast(CompositionRule, visual_guide["composition"]),
             emotional_purpose=f"Evoke {emotion}",
             narrative_function="Advance story",
             enhanced_image_prompt=scene.image_create_prompt,

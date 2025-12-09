@@ -17,8 +17,8 @@ class LumaVideoProvider(VideoGenerationProvider):
     # NOTE: Verify exact API endpoint and payload structure from Luma docs
     BASE_URL = "https://api.lumalabs.ai/dream-machine/v1" 
     
-    def __init__(self):
-        self.api_key = settings.LUMA_API_KEY
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or settings.LUMA_API_KEY
         if not self.api_key:
             logger.warning("LUMA_API_KEY is not set. Luma provider will fail if used.")
             
@@ -90,8 +90,8 @@ class LumaVideoProvider(VideoGenerationProvider):
 
     async def _poll_for_completion(self, session: aiohttp.ClientSession, generation_id: str) -> str:
         # Polling logic
-        pass
+        raise NotImplementedError("Polling not implemented")
 
     async def _download_video(self, session: aiohttp.ClientSession, video_url: str, generation_id: str) -> str:
         # Download logic
-        pass
+        raise NotImplementedError("Download not implemented")

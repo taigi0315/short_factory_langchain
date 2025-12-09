@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, ValidationInfo
 from typing import Optional, List
 
 
@@ -177,7 +177,7 @@ class Settings(BaseSettings):
     # ========================================
     @field_validator('MAX_SCENES')
     @classmethod
-    def validate_scene_range(cls, v, info):
+    def validate_scene_range(cls, v: int, info: ValidationInfo) -> int:
         """Ensure MAX_SCENES >= MIN_SCENES."""
         min_scenes = info.data.get('MIN_SCENES', 4)
         if v < min_scenes:
@@ -186,7 +186,7 @@ class Settings(BaseSettings):
     
     @field_validator('USE_REAL_LLM', 'USE_REAL_IMAGE', 'USE_REAL_VOICE', 'DEV_MODE', 'FAIL_FAST', mode='before')
     @classmethod
-    def parse_bool(cls, v):
+    def parse_bool(cls, v: str | bool) -> bool:
         """Parse boolean from string env vars."""
         if isinstance(v, bool):
             return v

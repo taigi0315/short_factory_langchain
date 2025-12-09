@@ -3,7 +3,7 @@ from langchain_core.output_parsers import PydanticOutputParser
 from src.agents.story_finder.models import StoryList
 
 # Output Parser
-story_parser = PydanticOutputParser(pydantic_object=StoryList)
+story_parser: PydanticOutputParser = PydanticOutputParser(pydantic_object=StoryList)
 
 # 1. News Prompt
 NEWS_PROMPT = PromptTemplate(

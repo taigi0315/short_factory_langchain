@@ -43,7 +43,7 @@ class TestVideoGenerationPipeline:
 
         # 2. Generate Script
         script_input = f"Title: {selected_story.title}\nPremise: {selected_story.summary}"
-        script = script_agent.generate_script(script_input)
+        script = await script_agent.generate_script(script_input)
         assert len(script.scenes) > 0
         
         # 3. Generate Images (for first scene only to save time)

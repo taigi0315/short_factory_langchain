@@ -12,7 +12,7 @@ logger = structlog.get_logger()
 
 
 @router.post("/generate", response_model=ScriptGenerationResponse)
-async def generate_video(request: VideoGenerationRequest):
+async def generate_video(request: VideoGenerationRequest) -> ScriptGenerationResponse:
     """
     Generate video from script using the new DirectedScript architecture (TICKET-035).
     

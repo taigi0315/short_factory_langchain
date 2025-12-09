@@ -18,13 +18,13 @@ from src.core.retry import retry_with_backoff
 from src.agents.base_agent import BaseAgent
 
 class ImageGenAgent(BaseAgent):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             agent_name="ImageGenAgent",
             require_llm=False
         )
 
-    def _setup(self):
+    def _setup(self) -> None:
         """Agent-specific setup."""
         self.mock_mode = not settings.USE_REAL_IMAGE
         
@@ -89,7 +89,7 @@ class ImageGenAgent(BaseAgent):
                 scene_image_paths = await self._generate_scene_images(client, scene)
                 image_paths[scene.scene_number] = scene_image_paths
                 
-                if workflow_manager and scene_image_paths:
+                if workflow_manager and scene_image_paths and workflow_id:
                     # TODO: Update workflow manager to support list of images
                     workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
                     logger.info("Checkpoint saved", 
@@ -109,7 +109,7 @@ class ImageGenAgent(BaseAgent):
                     error=str(e)
                 )
                 
-                if workflow_manager:
+                if workflow_manager and workflow_id:
                     from src.core.workflow_state import WorkflowStep
                     workflow_manager.mark_failed(
                         workflow_id,
@@ -391,7 +391,7 @@ class ImageGenAgent(BaseAgent):
                 f.write(b"Placeholder")
             return filepath
 
-    def _download_sync(self, url: str, filepath: str):
+    def _download_sync(self, url: str, filepath: str) -> None:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             with open(filepath, "wb") as f:
