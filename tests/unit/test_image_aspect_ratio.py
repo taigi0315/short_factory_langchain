@@ -44,6 +44,8 @@ class TestImageAspectRatio(unittest.IsolatedAsyncioTestCase):
         mock_client_instance = MockClientClass.return_value
         mock_client_instance.generate_image = AsyncMock(return_value="data:image/png;base64,fake")
         mock_client_instance.download_image = AsyncMock()
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
         
         # Setup settings
         with patch('src.core.config.settings.IMAGE_ASPECT_RATIO', '9:16'), \

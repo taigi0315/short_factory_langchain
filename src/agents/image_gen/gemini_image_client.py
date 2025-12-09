@@ -200,6 +200,12 @@ class GeminiImageClient:
         # Should never reach here
         raise RuntimeError("Image generation failed after all retries")
     
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     async def download_image(self, data_uri: str, output_path: str) -> None:
         """
         Save a base64 data URI to a file.
@@ -208,6 +214,8 @@ class GeminiImageClient:
             data_uri: Data URI with base64 image data
             output_path: Path to save the image
         """
+        import aiofiles
+        
         try:
             # Extract base64 data from data URI
             if data_uri.startswith('data:'):
@@ -222,8 +230,8 @@ class GeminiImageClient:
             # Ensure directory exists
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             
-            with open(output_path, 'wb') as f:
-                f.write(image_bytes)
+            async with aiofiles.open(output_path, 'wb') as f:
+                await f.write(image_bytes)
             
             logger.info("Image saved", path=output_path, size_bytes=len(image_bytes))
             
