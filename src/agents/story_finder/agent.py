@@ -28,9 +28,9 @@ class StoryFinderAgent(BaseAgent):
         self.chain: Optional[RunnableSerializable] = None
         super().__init__(
             agent_name="StoryFinderAgent",
-            temperature=0.7,
-            max_retries=3,
-            request_timeout=30.0
+            temperature=settings.DEFAULT_LLM_TEMPERATURE,
+            max_retries=settings.DEFAULT_MAX_RETRIES,
+            request_timeout=settings.DEFAULT_REQUEST_TIMEOUT
         )
 
     def _setup(self) -> None:
@@ -40,7 +40,7 @@ class StoryFinderAgent(BaseAgent):
             try:
                 self.search_tool = TavilySearchResults(
                     tavily_api_key=settings.TAVILY_API_KEY,
-                    max_results=3
+                    max_results=settings.SEARCH_MAX_RESULTS
                 )
                 logger.info("✅ Tavily Search Tool initialized")
             except Exception as e:
