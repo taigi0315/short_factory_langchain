@@ -341,6 +341,47 @@ class VideoGenAgent(BaseAgent):
                        exc_info=True)
             return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
     
+    def _load_font(self, font_size: int) -> Any:
+        """Load a font with fallbacks."""
+        try:
+            return ImageFont.truetype("Arial.ttf", font_size)
+        except:
+            try:
+                return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            except:
+                try:
+                    # Linux/Docker fallback
+                    return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+                except:
+                    return ImageFont.load_default()
+
+    def _fit_font_to_width(self, text: str, max_width: int, start_font_size: int, draw: Any) -> Any:
+        """Reduce font size until the widest word fits within max_width."""
+        current_size = start_font_size
+        font = self._load_font(current_size)
+        
+        words = text.split()
+        if not words:
+            return font
+            
+        # Minimum legible size
+        min_size = max(20, int(start_font_size * 0.4))
+        
+        while current_size > min_size:
+            max_word_w = 0
+            for word in words:
+                w = draw.textlength(word, font=font)
+                if w > max_word_w:
+                    max_word_w = w
+            
+            if max_word_w <= max_width:
+                return font
+                
+            current_size -= 5
+            font = self._load_font(current_size)
+            
+        return font
+
     def _create_title_card(self, title: str, duration: float = 3.0) -> VideoClip:
         """Create a title card with transparent background and colorful centered text at the top."""
         w, h = self.resolution
@@ -348,23 +389,26 @@ class VideoGenAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        font_size = int(h * 0.05)
+        # Start size: 5% of height
+        start_font_size = int(h * 0.05)
         
-        try:
-            try:
-                font: Any = ImageFont.truetype("Arial.ttf", font_size)
-            except:
-                try:
-                    font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-                except:
-                    font = ImageFont.load_default()
-        except:
-            font = ImageFont.load_default()
+        # Safer margin: 80% of width (10% padding on each side)
+        max_width = int(w * 0.80)
         
-        max_width = int(w * 0.85)
+        # Get font that fits
+        font = self._fit_font_to_width(title, max_width, start_font_size, draw)
+        
         lines = self._wrap_text(title, font, max_width, draw)
         
-        line_height = int(font_size * 1.3)
+        # Calculate text block height and position
+        # Recalculate font size if needed based on line height? 
+        # For now, just use the fitted font.
+        
+        # Approximate line height from font size (as ImageFont specific metrics can be tricky)
+        # Using bbox of "Mg" is a common trick
+        bbox = draw.textbbox((0, 0), "Mg", font=font)
+        line_height = int((bbox[3] - bbox[1]) * 1.3)
+        
         start_y = int(h * 0.15)
         
         colors = [
@@ -382,8 +426,11 @@ class VideoGenAgent(BaseAgent):
             text_color = colors[color_idx]
             
             shadow_color = (0, 0, 0, 255)
-            for adj in range(-4, 5):
-                for adj2 in range(-4, 5):
+            # Thinner shadow for smaller fonts
+            shadow_offset = max(2, int(line_height * 0.05))
+            
+            for adj in range(-shadow_offset, shadow_offset + 1):
+                for adj2 in range(-shadow_offset, shadow_offset + 1):
                     if adj != 0 or adj2 != 0:
                         draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
             
@@ -498,37 +545,39 @@ class VideoGenAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        font_size = int(h * 0.04)
+        # Start size: 4% of height (slightly smaller than title)
+        start_font_size = int(h * 0.04)
         
-        try:
-            try:
-                font: Any = ImageFont.truetype("Arial.ttf", font_size)
-            except:
-                try:
-                    font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-                except:
-                    font = ImageFont.load_default()
-        except:
-            font = ImageFont.load_default()
+        # Safer margin: 80% of width
+        max_width = int(w * 0.80)
         
-        max_width = int(w * 0.9)
+        # Get font that fits
+        font = self._fit_font_to_width(text, max_width, start_font_size, draw)
+        
         lines = self._wrap_text(text, font, max_width, draw)
         
-        line_height = int(font_size * 1.2)
+        # Standardize line height
+        bbox = draw.textbbox((0, 0), "Mg", font=font)
+        line_height = int((bbox[3] - bbox[1]) * 1.2)
+        
         total_text_height = len(lines) * line_height
         
+        # Position at bottom 15%
         start_y = int(h * 0.85) - (total_text_height // 2)
         
         shadow_color = (0, 0, 0, 255)
         text_color = (255, 215, 0, 255)
+        
+        # Dynamic shadow offset
+        shadow_offset = max(1, int(line_height * 0.04))
         
         for i, line in enumerate(lines):
             line_w = draw.textlength(line, font=font)
             x = (w - line_w) // 2
             y = start_y + (i * line_height)
             
-            for adj in range(-3, 4):
-                for adj2 in range(-3, 4):
+            for adj in range(-shadow_offset, shadow_offset + 1):
+                for adj2 in range(-shadow_offset, shadow_offset + 1):
                     if adj != 0 or adj2 != 0:
                         draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
             
