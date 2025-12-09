@@ -134,7 +134,8 @@ class VoiceAgent(BaseAgent):
                     return scene.scene_number, filepath
                 except Exception as fallback_error:
                     logger.error(f"Fallback failed: {fallback_error}")
-            return scene.scene_number, ""
+                    raise fallback_error  # Re-raise fallback error
+            raise e # Re-raise original error if not using real voice (or if fallback logic is skipped)
 
     @retry_with_backoff(operation_name="voice generation")
     async def _generate_elevenlabs_audio_with_retry(self, text: str, voice_id: str, voice_settings: Optional[dict] = None) -> str:

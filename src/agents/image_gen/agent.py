@@ -5,7 +5,8 @@ import hashlib
 import shutil
 import uuid
 from typing import List, Dict, Optional
-import requests
+import aiohttp
+import aiofiles
 
 from src.models.models import Scene, ImageStyle
 from src.agents.director.models import DirectedScript, DirectedScene
@@ -76,51 +77,50 @@ class ImageGenAgent(BaseAgent):
                  "Set USE_REAL_IMAGE=false to use mock mode, or provide a valid API key."
              )
 
-        client = GeminiImageClient(self.api_key)
-        
-        workflow_manager = None
-        if workflow_id:
-            from src.core.workflow_state import workflow_manager as wf_mgr
-            workflow_manager = wf_mgr
-        
-        for scene in scenes:
-            try:
-                # Use the decorated method which handles retries internally
-                scene_image_paths = await self._generate_scene_images(client, scene)
-                image_paths[scene.scene_number] = scene_image_paths
-                
-                if workflow_manager and scene_image_paths and workflow_id:
-                    # TODO: Update workflow manager to support list of images
-                    workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
-                    logger.info("Checkpoint saved", 
-                              workflow_id=workflow_id,
-                              progress=f"{len(image_paths)}/{len(scenes)}")
-                
-                logger.info(
-                    "Images generated successfully",
-                    scene_number=scene.scene_number,
-                    count=len(scene_image_paths)
-                )
+        async with GeminiImageClient(self.api_key) as client:
+            workflow_manager = None
+            if workflow_id:
+                from src.core.workflow_state import workflow_manager as wf_mgr
+                workflow_manager = wf_mgr
+            
+            for scene in scenes:
+                try:
+                    # Use the decorated method which handles retries internally
+                    scene_image_paths = await self._generate_scene_images(client, scene)
+                    image_paths[scene.scene_number] = scene_image_paths
                     
-            except Exception as e:
-                logger.error(
-                    "Image generation failed for scene after retries",
-                    scene_number=scene.scene_number,
-                    error=str(e)
-                )
-                
-                if workflow_manager and workflow_id:
-                    from src.core.workflow_state import WorkflowStep
-                    workflow_manager.mark_failed(
-                        workflow_id,
-                        WorkflowStep.IMAGE_GENERATION,
-                        f"Image generation failed for scene {scene.scene_number}: {e}",
-                        type(e).__name__
+                    if workflow_manager and scene_image_paths and workflow_id:
+                        # TODO: Update workflow manager to support list of images
+                        workflow_manager.save_image(workflow_id, scene.scene_number, scene_image_paths[0])
+                        logger.info("Checkpoint saved", 
+                                  workflow_id=workflow_id,
+                                  progress=f"{len(image_paths)}/{len(scenes)}")
+                    
+                    logger.info(
+                        "Images generated successfully",
+                        scene_number=scene.scene_number,
+                        count=len(scene_image_paths)
                     )
-                
-                raise RuntimeError(
-                    f"Image generation failed for scene {scene.scene_number}: {e}"
-                ) from e
+                        
+                except Exception as e:
+                    logger.error(
+                        "Image generation failed for scene after retries",
+                        scene_number=scene.scene_number,
+                        error=str(e)
+                    )
+                    
+                    if workflow_manager and workflow_id:
+                        from src.core.workflow_state import WorkflowStep
+                        workflow_manager.mark_failed(
+                            workflow_id,
+                            WorkflowStep.IMAGE_GENERATION,
+                            f"Image generation failed for scene {scene.scene_number}: {e}",
+                            type(e).__name__
+                        )
+                    
+                    raise RuntimeError(
+                        f"Image generation failed for scene {scene.scene_number}: {e}"
+                    ) from e
         
         return image_paths
 
@@ -380,22 +380,23 @@ class ImageGenAgent(BaseAgent):
             f"https://placehold.co/1280x720/2563eb/ffffff/png?text=Scene+{scene.scene_number}-{index}:{prompt_slug}"
         )
         
-        loop = asyncio.get_event_loop()
         try:
-            await loop.run_in_executor(None, self._download_sync, image_url, filepath)
+            await self._download_async(image_url, filepath)
             return filepath
         except Exception as e:
             logger.error("Failed to download mock image", error=str(e))
 
-            with open(filepath, "wb") as f:
-                f.write(b"Placeholder")
+            async with aiofiles.open(filepath, "wb") as f:
+                await f.write(b"Placeholder")
             return filepath
 
-    def _download_sync(self, url: str, filepath: str) -> None:
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            with open(filepath, "wb") as f:
-                f.write(response.content)
-        else:
-            raise RuntimeError(f"Download failed with status {response.status_code}")
+    async def _download_async(self, url: str, filepath: str) -> None:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=10) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    async with aiofiles.open(filepath, "wb") as f:
+                        await f.write(content)
+                else:
+                    raise RuntimeError(f"Download failed with status {response.status}")
 

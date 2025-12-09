@@ -199,9 +199,12 @@ class VideoGenAgent(BaseAgent):
                     logger.info("Generating AI video for scene", scene_number=scene.scene_number, provider=type(self.video_provider).__name__)
                     
                     # Use decorated method for retry logic
-                    video_path = await self._generate_ai_video_with_retry(
-                        image_path=image_path,
-                        prompt=scene.video_prompt or "Animate this image"
+                    video_path = await asyncio.wait_for(
+                        self._generate_ai_video_with_retry(
+                            image_path=image_path,
+                            prompt=scene.video_prompt or "Animate this image"
+                        ),
+                        timeout=300.0 # 5 minutes timeout for video generation
                     )
                     
                     if video_path and os.path.exists(video_path) and video_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm')):
