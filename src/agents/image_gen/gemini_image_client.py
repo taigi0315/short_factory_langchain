@@ -85,8 +85,18 @@ class GeminiImageClient:
                 
                 full_prompt = f"{aspect_hint}. {prompt}"
                 
+                # Construct generation config
+                # Note: Gemini 2.5 Flash Image Preview supports aspect_ratio in generation_config
+                gen_config = {}
+                if aspect_ratio:
+                    # Map common ratios to what the API likely expects (often string "9:16")
+                    gen_config["aspect_ratio"] = aspect_ratio
+                
                 # Generate image
-                response = await self.model.generate_content_async([full_prompt])
+                response = await self.model.generate_content_async(
+                    [full_prompt],
+                    generation_config=gen_config
+                )
                 
                 logger.debug("Gemini response received", has_parts=bool(response.parts))
                 

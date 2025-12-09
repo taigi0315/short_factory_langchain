@@ -109,9 +109,14 @@ class TestImageAspectRatio(unittest.IsolatedAsyncioTestCase):
         # Verify the prompt sent to the model
         call_args = client.model.generate_content_async.call_args
         full_prompt = call_args[0][0][0] # args[0] is list of parts, first part is prompt string
+        kw_args = call_args.kwargs
         
         self.assertIn(f"Create an image in {aspect_ratio} aspect ratio", full_prompt)
         self.assertIn("vertical/portrait orientation", full_prompt)
+        
+        # Verify generation_config
+        self.assertIn("generation_config", kw_args)
+        self.assertEqual(kw_args["generation_config"].get("aspect_ratio"), "9:16")
 
 if __name__ == '__main__':
     unittest.main()

@@ -239,21 +239,25 @@ class ImageGenAgent(BaseAgent):
         prompt = base_prompt or "A cinematic scene"
         
         # Add vertical composition emphasis for 9:16 aspect ratio
-        vertical_composition = "vertical composition, tall portrait orientation, 9:16 aspect ratio optimized, centered subject in vertical frame"
+        vertical_composition = (
+            "vertical 9:16 aspect ratio, centered composition, "
+            "subject fully visible within frame, ample headroom and side margins, "
+            "zoomed out to prevent cropping, wide angle view"
+        )
         
         # Add style modifiers based on image_style - emphasize photorealism
         style_enhancers = {
-            ImageStyle.CINEMATIC: "photorealistic, cinematic lighting, professional photography, realistic textures, film grain, bokeh, 4k",
-            ImageStyle.SINGLE_CHARACTER: "photorealistic portrait, professional photography, detailed face, realistic skin texture, studio lighting",
-            ImageStyle.CHARACTER_WITH_BACKGROUND: "photorealistic, professional photography, realistic environment, natural lighting",
-            ImageStyle.INFOGRAPHIC: "clean infographic overlay on photorealistic background, professional design, data visualization, modern graphics",
-            ImageStyle.DIAGRAM_EXPLANATION: "photorealistic scene with clean diagram overlay, professional photography, educational graphics",
-            ImageStyle.BEFORE_AFTER_COMPARISON: "photorealistic split-screen comparison, professional photography, realistic before and after",
-            ImageStyle.STEP_BY_STEP_VISUAL: "photorealistic step-by-step sequence, professional photography, realistic demonstration",
-            ImageStyle.COMIC_PANEL: "photorealistic scene with comic-style framing, professional photography, cinematic composition",
-            ImageStyle.CLOSE_UP_REACTION: "photorealistic close-up, professional portrait photography, detailed facial features, emotional expression",
-            ImageStyle.WIDE_ESTABLISHING_SHOT: "photorealistic wide shot, professional landscape photography, cinematic establishing shot, realistic environment",
-            ImageStyle.SPLIT_SCREEN: "photorealistic split-screen, professional photography, realistic dual perspective",
+            ImageStyle.CINEMATIC: "photorealistic, cinematic lighting, professional photography, realistic textures, film grain, bokeh, 4k, wide dynamic range",
+            ImageStyle.SINGLE_CHARACTER: "photorealistic portrait, professional photography, detailed face, realistic skin texture, studio lighting, centered subject, eye level",
+            ImageStyle.CHARACTER_WITH_BACKGROUND: "photorealistic, professional photography, realistic environment, natural lighting, environmental portrait, wide shot showing surroundings",
+            ImageStyle.INFOGRAPHIC: "clean infographic overlay on photorealistic background, professional design, data visualization, modern graphics, clear typography, centered layout",
+            ImageStyle.DIAGRAM_EXPLANATION: "photorealistic scene with clean diagram overlay, professional photography, educational graphics, clear visual explanation",
+            ImageStyle.BEFORE_AFTER_COMPARISON: "photorealistic split-screen comparison, professional photography, realistic before and after, clear distinction",
+            ImageStyle.STEP_BY_STEP_VISUAL: "photorealistic step-by-step sequence, professional photography, realistic demonstration, sequential layout",
+            ImageStyle.COMIC_PANEL: "photorealistic scene with comic-style framing, professional photography, cinematic composition, dramatic angles",
+            ImageStyle.CLOSE_UP_REACTION: "photorealistic close-up, professional portrait photography, detailed facial features, emotional expression, centered face",
+            ImageStyle.WIDE_ESTABLISHING_SHOT: "photorealistic extreme wide shot, professional landscape photography, cinematic establishing shot, realistic environment, panoramic view",
+            ImageStyle.SPLIT_SCREEN: "photorealistic split-screen, professional photography, realistic dual perspective, balanced composition",
         }
         
 
@@ -263,7 +267,7 @@ class ImageGenAgent(BaseAgent):
         )
         
 
-        quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting"
+        quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting, high resolution"
         
         enhanced = f"{prompt}, {vertical_composition}, {style_suffix}, {quality_suffix}"
         return enhanced
