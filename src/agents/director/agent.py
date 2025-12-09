@@ -189,7 +189,8 @@ class DirectorAgent(BaseAgent):
             next_scene = script.scenes[i+1] if i < len(script.scenes) - 1 else None
             
             direction, visual_segments = await self._generate_scene_direction(
-                scene, beat_name, beat_emotion, prev_scene, next_scene, i == emotional_arc.peak_moment
+                scene, beat_name, beat_emotion, prev_scene, next_scene, i == emotional_arc.peak_moment,
+                script.global_visual_style
             )
             
             directed_scenes.append(DirectedScene(
@@ -208,12 +209,13 @@ class DirectorAgent(BaseAgent):
         beat_emotion: str,
         prev_scene: Optional[Scene],
         next_scene: Optional[Scene],
-        is_peak: bool
+        is_peak: bool,
+        global_visual_style: str = "Cinematic photorealistic"
     ) -> tuple[CinematicDirection, List["VisualSegment"]]:
         """Generate cinematic direction for a single scene using LLM"""
         
 
-        prompt = self._create_director_prompt(scene, beat_name, beat_emotion, prev_scene, next_scene, is_peak)
+        prompt = self._create_director_prompt(scene, beat_name, beat_emotion, prev_scene, next_scene, is_peak, global_visual_style)
         
         try:
             # Call LLM (Gemini doesn't support response_format, we rely on prompt instructions)
@@ -287,11 +289,15 @@ class DirectorAgent(BaseAgent):
         beat_emotion: str,
         prev_scene: Optional[Scene],
         next_scene: Optional[Scene],
-        is_peak: bool
+        is_peak: bool,
+        global_visual_style: str = "Cinematic photorealistic"
     ) -> str:
         """Create prompt for LLM to generate cinematic direction"""
         
         prompt = f"""You are a master film director creating a shot list for a YouTube Short video.
+
+**Global Visual Style:** {global_visual_style}
+ALL images in this video MUST maintain this consistent visual style. Only deviate for specific scene types (diagrams, infographics) while keeping lighting/mood consistent.
 
 **Scene Information:**
 - Scene Number: {scene.scene_number}
@@ -312,6 +318,7 @@ Create detailed cinematic direction for this scene that:
 2. Evokes the emotional tone ({beat_emotion})
 3. Connects visually to previous and next scenes
 4. Uses professional cinematography techniques
+5. **MAINTAINS THE GLOBAL VISUAL STYLE: {global_visual_style}**
 
 **Available Options:**
 - Shot Types: extreme_wide, wide, medium, medium_close_up, close_up, extreme_close_up
@@ -325,6 +332,7 @@ Create detailed cinematic direction for this scene that:
 2. Prefer stable, smooth movements like 'slow_push_in' or 'pan_left'.
 3. For calm scenes, use 'static' or very slow movements.
 4. Ensure visual continuity between shots.
+5. **CRITICAL: All enhanced_image_prompt and visual_segments MUST include the global visual style: "{global_visual_style}"**
 
 **Output JSON Format:**
 {{
@@ -337,13 +345,13 @@ Create detailed cinematic direction for this scene that:
     "narrative_function": "Hook viewer with mystery",
     "connection_from_previous": "Continues momentum from wide shot",
     "connection_to_next": "Sets up reveal by building tension",
-    "enhanced_image_prompt": "Medium close-up of character...",
+    "enhanced_image_prompt": "Medium close-up of character..., {global_visual_style}",
     "visual_segments": [
         {{
-            "image_prompt": "Detailed prompt for segment 1..."
+            "image_prompt": "Detailed prompt for segment 1..., {global_visual_style}"
         }},
         {{
-            "image_prompt": "Detailed prompt for segment 2..."
+            "image_prompt": "Detailed prompt for segment 2..., {global_visual_style}"
         }}
     ],
     "enhanced_video_prompt": "Start: Character's face...",
@@ -353,7 +361,7 @@ Create detailed cinematic direction for this scene that:
 **IMPORTANT:**
 The input scene has {len(scene.content) if hasattr(scene, 'content') and scene.content else 0} visual segments.
 You MUST provide a 'visual_segments' list in the JSON output with exactly {len(scene.content) if hasattr(scene, 'content') and scene.content else 0} items.
-Each item should have an 'image_prompt' that corresponds to the segment's text but adds your cinematic direction.
+Each item should have an 'image_prompt' that corresponds to the segment's text but adds your cinematic direction AND the global visual style.
 
 
 Think like Spielberg, Nolan, or Fincher. Every choice should have PURPOSE and MEANING.
