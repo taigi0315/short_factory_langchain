@@ -16,6 +16,18 @@ class Settings(BaseSettings):
         default="gemini-2.5-flash",
         description="LLM model to use for text generation"
     )
+    DEFAULT_LLM_TEMPERATURE: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="Default temperature for LLM generation"
+    )
+    DEFAULT_REQUEST_TIMEOUT: float = Field(
+        default=30.0,
+        ge=5.0,
+        le=300.0,
+        description="Default timeout for LLM requests in seconds"
+    )
     
     # ========================================
     # API Keys
@@ -86,6 +98,20 @@ class Settings(BaseSettings):
     IMAGE_ASPECT_RATIO: str = Field(
         default="9:16",
         description="Target aspect ratio for generated images (e.g., '9:16', '16:9', '1:1')"
+    )
+    IMAGE_WIDTH_9_16: int = Field(default=1080, description="Width for 9:16 aspect ratio")
+    IMAGE_HEIGHT_9_16: int = Field(default=1920, description="Height for 9:16 aspect ratio")
+    IMAGE_WIDTH_16_9: int = Field(default=1920, description="Width for 16:9 aspect ratio")
+    IMAGE_HEIGHT_16_9: int = Field(default=1080, description="Height for 16:9 aspect ratio")
+
+    # ========================================
+    # Search Configuration
+    # ========================================
+    SEARCH_MAX_RESULTS: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum number of search results to return"
     )
 
     # ========================================

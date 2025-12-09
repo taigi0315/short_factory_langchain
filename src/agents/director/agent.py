@@ -63,9 +63,9 @@ class DirectorAgent(BaseAgent):
         """Initialize the Director Agent"""
         super().__init__(
             agent_name="DirectorAgent",
-            temperature=0.7,
-            max_retries=3,
-            request_timeout=30.0
+            temperature=settings.DEFAULT_LLM_TEMPERATURE,
+            max_retries=settings.DEFAULT_MAX_RETRIES,
+            request_timeout=settings.DEFAULT_REQUEST_TIMEOUT
         )
     
     def _setup(self) -> None:

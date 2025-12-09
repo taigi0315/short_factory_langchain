@@ -60,9 +60,9 @@ class ScriptWriterAgent(BaseAgent):
         """
         super().__init__(
             agent_name="ScriptWriterAgent",
-            temperature=0.7,
-            max_retries=3,
-            request_timeout=30.0
+            temperature=settings.DEFAULT_LLM_TEMPERATURE,
+            max_retries=settings.DEFAULT_MAX_RETRIES,
+            request_timeout=settings.DEFAULT_REQUEST_TIMEOUT
         )
 
     def _setup(self) -> None:
@@ -177,7 +177,7 @@ class ScriptWriterAgent(BaseAgent):
         language: str = "English",
         category: str = "Creative",
         max_scenes: Optional[int] = None,
-        max_retries: int = 3
+        max_retries: int = settings.DEFAULT_MAX_RETRIES
     ) -> VideoScript:
         """
         Generate video script for a given subject with automatic retry on validation errors.

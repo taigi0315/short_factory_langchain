@@ -31,7 +31,14 @@ from src.agents.base_agent import BaseAgent
 
 class VideoGenAgent(BaseAgent):
     def __init__(self) -> None:
-        self.resolution: Tuple[int, int] = (1080, 1920) if settings.VIDEO_RESOLUTION == "1080p" else (720, 1280)
+        if settings.VIDEO_RESOLUTION == "1080p":
+            if settings.IMAGE_ASPECT_RATIO == "16:9":
+                self.resolution = (settings.IMAGE_WIDTH_16_9, settings.IMAGE_HEIGHT_16_9) 
+            else: 
+                self.resolution = (settings.IMAGE_WIDTH_9_16, settings.IMAGE_HEIGHT_9_16)
+        else:
+            # Fallback for 720p
+            self.resolution = (720, 1280) if settings.IMAGE_ASPECT_RATIO == "9:16" else (1280, 720)
         self.fps = settings.VIDEO_FPS
         self.preset = settings.VIDEO_QUALITY
         self.video_provider: Optional[VideoGenerationProvider] = None

@@ -204,9 +204,9 @@ class ImageGenAgent(BaseAgent):
             
             try:
                 if settings.IMAGE_ASPECT_RATIO == "9:16":
-                    width, height = 1080, 1920
+                    width, height = settings.IMAGE_WIDTH_9_16, settings.IMAGE_HEIGHT_9_16
                 else:
-                    width, height = 1920, 1080
+                    width, height = settings.IMAGE_WIDTH_16_9, settings.IMAGE_HEIGHT_16_9
                 
                 image_url = await client.generate_image(
                     prompt=enhanced_prompt,
