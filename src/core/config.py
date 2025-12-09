@@ -23,9 +23,9 @@ class Settings(BaseSettings):
         description="Default temperature for LLM generation"
     )
     DEFAULT_REQUEST_TIMEOUT: float = Field(
-        default=30.0,
+        default=300.0,
         ge=5.0,
-        le=300.0,
+        le=600.0,
         description="Default timeout for LLM requests in seconds"
     )
     
