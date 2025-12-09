@@ -234,7 +234,7 @@ class ImageGenAgent(BaseAgent):
                 
         return generated_paths
 
-    def _enhance_prompt_text(self, base_prompt: str, style: ImageStyle) -> str:
+    def _enhance_prompt_text(self, base_prompt: str, style: ImageStyle, global_visual_style: str = "") -> str:
         """Enhance the base prompt with photorealistic style and quality modifiers."""
         prompt = base_prompt or "A cinematic scene"
         
@@ -269,7 +269,13 @@ class ImageGenAgent(BaseAgent):
 
         quality_suffix = "8k uhd, sharp focus, professional photography, photorealistic, realistic details, natural lighting, high resolution"
         
+        # Build enhanced prompt with global visual style if provided
         enhanced = f"{prompt}, {vertical_composition}, {style_suffix}, {quality_suffix}"
+        
+        # Append global visual style for consistency across all images
+        if global_visual_style:
+            enhanced = f"{enhanced}, {global_visual_style}"
+        
         return enhanced
 
     def _enhance_prompt(self, scene: Scene) -> str:
