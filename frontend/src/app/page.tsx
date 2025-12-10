@@ -84,10 +84,19 @@ export default function Home() {
       clearInterval(statusInterval);
 
       if (!res.ok) {
-        throw new Error('Failed to generate video');
+        const errorText = await res.text();
+        let errorMessage = 'Failed to generate video';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await res.json();
+      console.log('Video generation response:', data);
 
       if (data.video_path) {
         // Video generated successfully
