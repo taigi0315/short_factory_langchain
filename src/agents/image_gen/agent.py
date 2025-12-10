@@ -240,9 +240,10 @@ class ImageGenAgent(BaseAgent):
         
         # Add vertical composition emphasis for 9:16 aspect ratio
         vertical_composition = (
-            "vertical 9:16 aspect ratio, centered composition, "
-            "subject fully visible within frame, ample headroom and side margins, "
-            "zoomed out to prevent cropping, wide angle view"
+            "vertical 9:16 portrait aspect ratio, CRITICAL: subject MUST be fully visible with complete head/face/body, "
+            "centered in frame with significant headroom above subject (at least 20% empty space above head), "
+            "wide margins on all sides, zoomed out composition, wide angle shot, "
+            "NEVER crop the top of head or face, full body visible from head to toe"
         )
         
         # Add style modifiers based on image_style - emphasize photorealism

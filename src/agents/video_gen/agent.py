@@ -355,8 +355,15 @@ class VideoGenAgent(BaseAgent):
                 except:
                     return ImageFont.load_default()
 
-    def _fit_font_to_width(self, text: str, max_width: int, start_font_size: int, draw: Any) -> Any:
-        """Reduce font size until the widest word fits within max_width."""
+    def _fit_font_to_width(
+        self, 
+        text: str, 
+        max_width: int, 
+        start_font_size: int, 
+        draw: Any,
+        max_height: Optional[int] = None
+    ) -> Any:
+        """Reduce font size until text fits within max_width and optionally max_height."""
         current_size = start_font_size
         font = self._load_font(current_size)
         
@@ -374,7 +381,16 @@ class VideoGenAgent(BaseAgent):
                 if w > max_word_w:
                     max_word_w = w
             
-            if max_word_w <= max_width:
+            # Check height if max_height is specified
+            if max_height:
+                lines = self._wrap_text(text, font, max_width, draw)
+                bbox = draw.textbbox((0, 0), "Mg", font=font)
+                line_height = int((bbox[3] - bbox[1]) * 1.3)
+                total_height = len(lines) * line_height
+                
+                if max_word_w <= max_width and total_height <= max_height:
+                    return font
+            elif max_word_w <= max_width:
                 return font
                 
             current_size -= 5
@@ -389,14 +405,15 @@ class VideoGenAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Start size: 5% of height
-        start_font_size = int(h * 0.05)
+        # Start size: 3% of height (reduced from 5% to prevent clipping)
+        start_font_size = int(h * 0.03)
         
         # Safer margin: 80% of width (10% padding on each side)
         max_width = int(w * 0.80)
         
-        # Get font that fits
-        font = self._fit_font_to_width(title, max_width, start_font_size, draw)
+        # Get font that fits (max 25% of screen height for title)
+        max_height = int(h * 0.25)
+        font = self._fit_font_to_width(title, max_width, start_font_size, draw, max_height)
         
         lines = self._wrap_text(title, font, max_width, draw)
         
@@ -409,7 +426,7 @@ class VideoGenAgent(BaseAgent):
         bbox = draw.textbbox((0, 0), "Mg", font=font)
         line_height = int((bbox[3] - bbox[1]) * 1.3)
         
-        start_y = int(h * 0.15)
+        start_y = int(h * 0.10)  # Title starts at 10% from top (more headroom)
         
         colors = [
             (255, 100, 150, 255),  # Pink
@@ -545,14 +562,15 @@ class VideoGenAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Start size: 4% of height (slightly smaller than title)
-        start_font_size = int(h * 0.04)
+        # Start size: 2.5% of height (reduced from 4% to prevent clipping)
+        start_font_size = int(h * 0.025)
         
         # Safer margin: 80% of width
         max_width = int(w * 0.80)
         
-        # Get font that fits
-        font = self._fit_font_to_width(text, max_width, start_font_size, draw)
+        # Get font that fits (max 20% of screen height for subtitle)
+        max_height = int(h * 0.20)
+        font = self._fit_font_to_width(text, max_width, start_font_size, draw, max_height)
         
         lines = self._wrap_text(text, font, max_width, draw)
         
@@ -562,8 +580,8 @@ class VideoGenAgent(BaseAgent):
         
         total_text_height = len(lines) * line_height
         
-        # Position at bottom 15%
-        start_y = int(h * 0.85) - (total_text_height // 2)
+        # Position at bottom 20% (more space from bottom edge)
+        start_y = int(h * 0.80) - (total_text_height // 2)
         
         shadow_color = (0, 0, 0, 255)
         text_color = (255, 215, 0, 255)

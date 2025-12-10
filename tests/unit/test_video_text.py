@@ -71,8 +71,8 @@ class TestVideoText(unittest.TestCase):
         call_args_list = mock_truetype.call_args_list
         sizes = [call.args[1] for call in call_args_list]
         
-        # Should start with 96
-        self.assertEqual(sizes[0], 96)
+        # Should start with 57 (3% of 1920, reduced from 5%)
+        self.assertEqual(sizes[0], 57)
         
         # Should have multiple decreasing calls
         self.assertTrue(len(sizes) > 1)
