@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from src.api.schemas.videos import VideoGenerationRequest
 from src.api.schemas.scripts import ScriptGenerationResponse
 from src.agents.director.agent import DirectorAgent
 from src.agents.image_gen.agent import ImageGenAgent
 from src.agents.voice.agent import VoiceAgent
 from src.agents.video_assembly.agent import VideoAssemblyAgent
+from src.core.dependencies import get_director, get_image_gen, get_voice, get_video_assembly
 import structlog
 
 router = APIRouter()
@@ -12,10 +13,16 @@ logger = structlog.get_logger()
 
 
 @router.post("/generate", response_model=ScriptGenerationResponse)
-async def generate_video(request: VideoGenerationRequest) -> ScriptGenerationResponse:
+async def generate_video(
+    request: VideoGenerationRequest,
+    director: DirectorAgent = Depends(get_director),
+    image_agent: ImageGenAgent = Depends(get_image_gen),
+    voice_agent: VoiceAgent = Depends(get_voice),
+    assembly_agent: VideoAssemblyAgent = Depends(get_video_assembly)
+) -> ScriptGenerationResponse:
     """
     Generate video from script using the new DirectedScript architecture (TICKET-035).
-    
+
     Flow:
     1. Script Writer generates script (already done, passed in request)
     2. Director Agent analyzes script and creates DirectedScript
@@ -25,17 +32,11 @@ async def generate_video(request: VideoGenerationRequest) -> ScriptGenerationRes
     """
     try:
         script = request.script
-        
+
 
         logger.info("Analyzing script with Director Agent", title=script.title)
-        director = DirectorAgent()
         directed_script = await director.analyze_script(script)
         logger.info("Director analysis complete", directed_scenes=len(directed_script.directed_scenes))
-        
-
-        image_agent = ImageGenAgent()
-        voice_agent = VoiceAgent()
-        assembly_agent = VideoAssemblyAgent()
         
 
         logger.info("Generating images from directed script")

@@ -1,5 +1,5 @@
 import os
-import logging
+import structlog
 import uuid
 from typing import Optional, Dict, Any, cast
 from json_repair import repair_json
@@ -9,14 +9,14 @@ from langchain_core.runnables import RunnableBranch, RunnablePassthrough, Runnab
 from langchain_core.output_parsers import StrOutputParser
 
 from src.agents.story_finder.prompts import (
-    NEWS_PROMPT, REAL_STORY_PROMPT, EDUCATIONAL_PROMPT, 
+    NEWS_PROMPT, REAL_STORY_PROMPT, EDUCATIONAL_PROMPT,
     FICTION_PROMPT, DEFAULT_PROMPT, story_parser
 )
 from src.agents.story_finder.models import StoryList, StoryIdea
 from src.core.config import settings
 from src.agents.base_agent import BaseAgent
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class StoryFinderAgent(BaseAgent):

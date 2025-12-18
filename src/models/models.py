@@ -1,9 +1,9 @@
 from pydantic import BaseModel, Field, field_validator, computed_field
 from typing import List, Literal, Optional, Any
 from enum import Enum
-import logging
+import structlog
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 class SceneType(str, Enum):
     EXPLANATION = "explanation"  # Character explaining concepts

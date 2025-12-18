@@ -1,9 +1,9 @@
 import aiohttp
 import asyncio
-import logging
+import structlog
 from typing import Optional, Dict, Any
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 class NanoBananaClient:
     """

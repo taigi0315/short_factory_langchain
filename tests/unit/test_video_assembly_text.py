@@ -49,14 +49,14 @@ class TestVideoAssemblyText(unittest.TestCase):
         _, kwargs = mock_clip.call_args
         self.assertEqual(kwargs.get('duration'), 1.0)
 
-    @patch('src.agents.video_assembly.agent.ImageClip')
-    @patch('src.agents.video_assembly.agent.Image')
-    @patch('src.agents.video_assembly.agent.ImageDraw')
-    def test_fit_font_logic_ported(self, mock_draw, mock_image, mock_clip):
-        # Verify helper methods exist
-        self.assertTrue(hasattr(self.agent, '_fit_font_to_width'))
-        self.assertTrue(hasattr(self.agent, '_wrap_text'))
-        self.assertTrue(hasattr(self.agent, '_load_font'))
+    def test_text_rendering_utilities_available(self):
+        # Verify text rendering utilities are available from shared module
+        from src.utils.text_rendering import FontLoader, wrap_text, fit_font_to_width
+
+        # These should be callable
+        self.assertTrue(callable(FontLoader.load))
+        self.assertTrue(callable(wrap_text))
+        self.assertTrue(callable(fit_font_to_width))
 
 if __name__ == '__main__':
     unittest.main()

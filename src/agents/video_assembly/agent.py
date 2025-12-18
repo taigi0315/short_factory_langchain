@@ -5,8 +5,10 @@ from src.models.models import Scene, VideoScript
 from src.agents.director.models import DirectedScript
 from src.agents.director.agent import DirectorAgent
 from src.core.config import settings
+from src.core.video_constants import TEXT_OVERLAY, VIDEO_EFFECTS
 from PIL import Image, ImageDraw, ImageFont
 import structlog
+from src.utils.text_rendering import FontLoader, wrap_text, fit_font_to_width
 
 logger = structlog.get_logger()
 
@@ -23,86 +25,6 @@ class VideoAssemblyAgent(BaseAgent):
         """Agent-specific setup."""
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "videos")
         os.makedirs(self.output_dir, exist_ok=True)
-
-    def _load_font(self, font_size: int) -> Any:
-        """Load a font with fallbacks."""
-        try:
-            return ImageFont.truetype("Arial.ttf", font_size)
-        except:
-            try:
-                # Common macOS
-                return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-            except:
-                try:
-                    # Linux/Docker fallback
-                    return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-                except:
-                    return ImageFont.load_default()
-
-    def _wrap_text(self, text: str, font: Any, max_width: int, draw: Any) -> List[str]:
-        """Wrap text to fit within max_width."""
-        words = text.split()
-        lines = []
-        current_line: List[str] = []
-        
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            test_width = draw.textlength(test_line, font=font)
-            
-            if test_width <= max_width:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
-        
-        if current_line:
-            lines.append(' '.join(current_line))
-        
-        return lines if lines else [text]
-
-    def _fit_font_to_width(
-        self, 
-        text: str, 
-        max_width: int, 
-        start_font_size: int, 
-        draw: Any,
-        max_height: Optional[int] = None
-    ) -> Any:
-        """Reduce font size until text fits within max_width and optionally max_height."""
-        current_size = start_font_size
-        font = self._load_font(current_size)
-        
-        words = text.split()
-        if not words:
-            return font
-            
-        # Minimum legible size
-        min_size = max(20, int(start_font_size * 0.4))
-        
-        while current_size > min_size:
-            max_word_w = 0
-            for word in words:
-                w = draw.textlength(word, font=font)
-                if w > max_word_w:
-                    max_word_w = w
-            
-            # Check height if max_height is specified
-            if max_height:
-                lines = self._wrap_text(text, font, max_width, draw)
-                bbox = draw.textbbox((0, 0), "Mg", font=font)
-                line_height = int((bbox[3] - bbox[1]) * 1.3)
-                total_height = len(lines) * line_height
-                
-                if max_word_w <= max_width and total_height <= max_height:
-                    return font
-            elif max_word_w <= max_width:
-                return font
-                
-            current_size -= 5
-            font = self._load_font(current_size)
-            
-        return font
 
     async def assemble_video(
         self, 
@@ -279,17 +201,17 @@ class VideoAssemblyAgent(BaseAgent):
             effect_name = "ken_burns_zoom_in"
         
         if effect_name == "ken_burns_zoom_in":
+            zoom = VIDEO_EFFECTS.KEN_BURNS_ZOOM_MEDIUM
+            return clip.resized(lambda t: 1 + zoom * t / duration).with_position('center')
 
-            return clip.resized(lambda t: 1 + 0.15 * t / duration).with_position('center')
-            
         elif effect_name == "ken_burns_zoom_out":
-
-            return clip.resized(lambda t: 1.15 - 0.15 * t / duration).with_position('center')
+            zoom = VIDEO_EFFECTS.KEN_BURNS_ZOOM_MEDIUM
+            return clip.resized(lambda t: (1 + zoom) - zoom * t / duration).with_position('center')
             
         elif effect_name == "pan_left":
             # Pan from right to left
             # We need to zoom in slightly first to have room to pan
-            zoom_factor = 1.2
+            zoom_factor = 1 + VIDEO_EFFECTS.KEN_BURNS_ZOOM_LARGE
             new_w = w * zoom_factor
             new_h = h * zoom_factor
             
@@ -306,7 +228,7 @@ class VideoAssemblyAgent(BaseAgent):
             
         elif effect_name == "pan_right":
             # Pan from left to right
-            zoom_factor = 1.2
+            zoom_factor = 1 + VIDEO_EFFECTS.KEN_BURNS_ZOOM_LARGE
             new_w = w * zoom_factor
             
             enlarged = clip.resized(zoom_factor)
@@ -320,7 +242,7 @@ class VideoAssemblyAgent(BaseAgent):
             
         elif effect_name == "tilt_up":
              # Pan from bottom to top
-            zoom_factor = 1.2
+            zoom_factor = 1 + VIDEO_EFFECTS.KEN_BURNS_ZOOM_LARGE
             new_h = h * zoom_factor
             
             enlarged = clip.resized(zoom_factor)
@@ -334,7 +256,7 @@ class VideoAssemblyAgent(BaseAgent):
 
         elif effect_name == "tilt_down":
              # Pan from top to bottom
-            zoom_factor = 1.2
+            zoom_factor = 1 + VIDEO_EFFECTS.KEN_BURNS_ZOOM_LARGE
             new_h = h * zoom_factor
             
             enlarged = clip.resized(zoom_factor)
@@ -394,23 +316,23 @@ class VideoAssemblyAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Start size: 3% of height (reduced/dynamic)
-        start_font_size = int(h * 0.03)
-        
-        # Safer margin: 80% of width
-        max_width = int(w * 0.80)
-        
-        # Max height: 25% of screen
-        max_height = int(h * 0.25)
+        # Start size: configured ratio of height
+        start_font_size = int(h * TEXT_OVERLAY.TITLE_FONT_SIZE_RATIO)
+
+        # Safer margin: configured width ratio
+        max_width = int(w * TEXT_OVERLAY.MAX_WIDTH_RATIO)
+
+        # Max height: configured ratio of screen
+        max_height = int(h * TEXT_OVERLAY.MAX_HEIGHT_RATIO)
         
         # Get font that fits
-        font = self._fit_font_to_width(title, max_width, start_font_size, draw, max_height)
-        
+        font = fit_font_to_width(title, max_width, start_font_size, draw, max_height)
+
         # Word wrap
-        lines = self._wrap_text(title, font, max_width, draw)
+        lines = wrap_text(title, font, max_width, draw)
         
-        # Calculate start position (10% from top)
-        start_y = int(h * 0.10)
+        # Calculate start position (configured margin from top)
+        start_y = int(h * TEXT_OVERLAY.TITLE_TOP_MARGIN_RATIO)
         
         # Colorful gradient colors for title
         gradient_colors = [
@@ -423,7 +345,7 @@ class VideoAssemblyAgent(BaseAgent):
         
         # Draw text with stroke (outline) and gradient effect
         bbox = draw.textbbox((0, 0), "Mg", font=font)
-        line_height = int((bbox[3] - bbox[1]) * 1.3)
+        line_height = int((bbox[3] - bbox[1]) * TEXT_OVERLAY.LINE_HEIGHT_MULTIPLIER)
         
         for i, line in enumerate(lines):
             line_w = draw.textlength(line, font=font)
@@ -528,18 +450,18 @@ class VideoAssemblyAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Start size: 2.5% of height (dynamic)
-        start_font_size = int(h * 0.025)
-        
-        # Max width: 65% (aggressively reduced to ensure it stays in middle)
-        max_width = int(w * 0.65)
-        
-        # Max height: 20%
-        max_height = int(h * 0.20)
+        # Start size: configured ratio of height
+        start_font_size = int(h * TEXT_OVERLAY.SUBTITLE_FONT_SIZE_RATIO)
+
+        # Max width: configured subtitle width ratio
+        max_width = int(w * TEXT_OVERLAY.SUBTITLE_WIDTH_RATIO)
+
+        # Max height: configured subtitle height
+        max_height = int(h * TEXT_OVERLAY.SUBTITLE_HEIGHT_RATIO)
         
         # Get font
-        font = self._fit_font_to_width(text, max_width, start_font_size, draw, max_height)
-        
+        font = fit_font_to_width(text, max_width, start_font_size, draw, max_height)
+
         # Colors
         subtitle_colors = [
             (255, 100, 100, 255),  # Bright Red
@@ -549,9 +471,9 @@ class VideoAssemblyAgent(BaseAgent):
             (100, 255, 150, 255),  # Bright Green
         ]
         text_color = random.choice(subtitle_colors)
-        
+
         # Wrap
-        lines = self._wrap_text(text, font, max_width, draw)
+        lines = wrap_text(text, font, max_width, draw)
         lines = lines[:2] # Limit to 2 lines
         
         # Calculate text block height

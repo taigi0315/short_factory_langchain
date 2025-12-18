@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Depends
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -12,6 +12,7 @@ from src.models.models import VideoScript, Scene, SceneConfig
 from src.core.config import settings
 from src.agents.image_gen.agent import ImageGenAgent
 from src.agents.video_gen.agent import VideoGenAgent
+from src.core.dependencies import get_image_gen, get_video_gen
 
 router = APIRouter(prefix="/api/scene-editor", tags=["scene-editor"])
 logger = structlog.get_logger()
@@ -41,15 +42,15 @@ class BuildVideoRequest(BaseModel):
 # ========================================
 
 @router.post("/generate-image")
-async def generate_scene_image(request: SceneImageRequest):
+async def generate_scene_image(
+    request: SceneImageRequest,
+    image_agent: ImageGenAgent = Depends(get_image_gen)
+):
     """Generate image for a single scene"""
     try:
-        logger.info("Generating image for scene", 
+        logger.info("Generating image for scene",
                    scene_number=request.scene_number,
                    script_id=request.script_id)
-        
-
-        image_agent = ImageGenAgent()
         
 
         # Create a minimal scene object for image generation
@@ -235,20 +236,20 @@ async def delete_scene_video(script_id: str, scene_number: int):
 
 
 @router.post("/build-video")
-async def build_final_video(request: BuildVideoRequest):
+async def build_final_video(
+    request: BuildVideoRequest,
+    video_agent: VideoGenAgent = Depends(get_video_gen)
+):
     """Build final video from scene configurations"""
     try:
         logger.info("Building final video from scene configs",
                    scene_count=len(request.scene_configs))
-        
+
 
         script = VideoScript(**request.script)
-        
+
 
         scene_configs = [SceneConfig(**config) for config in request.scene_configs]
-        
-
-        video_agent = VideoGenAgent()
         
 
         video_path = await video_agent.build_from_scene_configs(script, scene_configs)

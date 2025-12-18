@@ -11,6 +11,7 @@ import aiofiles
 from src.models.models import Scene, ImageStyle
 from src.agents.director.models import DirectedScript, DirectedScene
 from src.core.config import settings
+from src.core.exceptions import ImageGenerationError
 from src.agents.image_gen.gemini_image_client import GeminiImageClient
 
 logger = structlog.get_logger()
@@ -228,9 +229,14 @@ class ImageGenAgent(BaseAgent):
                 logger.info("Image saved", filepath=filepath)
                 generated_paths.append(filepath)
                 
+            except ImageGenerationError:
+                raise  # Re-raise our custom exceptions
             except Exception as e:
                 logger.error("Image generation failed", error=str(e))
-                raise
+                raise ImageGenerationError(
+                    "Image generation failed",
+                    details={"segment": i + 1, "error": str(e)}
+                ) from e
                 
         return generated_paths
 

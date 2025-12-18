@@ -1,4 +1,4 @@
-import logging
+import structlog
 import uuid
 from typing import Optional
 from pydantic import ValidationError
@@ -15,44 +15,19 @@ from src.models.models import VideoScript, VoiceTone, SceneType, ImageStyle
 from src.core.config import settings
 from src.core.retry import retry_with_backoff
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 from src.agents.base_agent import BaseAgent
 
 class ScriptWriterAgent(BaseAgent):
-    VOICE_TONE_FIXES = {
-        "explanation": VoiceTone.SERIOUS,
-        "narrative": VoiceTone.CALM,
-        "climax": VoiceTone.DRAMATIC,
-        "development": VoiceTone.CURIOUS,
-        "rising_action": VoiceTone.EXCITED,
-        "informative": VoiceTone.SERIOUS,
-        "conclusion": VoiceTone.CONFIDENT,
-        "hook": VoiceTone.EXCITED
-    }
-    
-    SCENE_TYPE_FIXES = {
-        "climax": SceneType.CONCLUSION,
-        "rising_action": SceneType.EXPLANATION,
-        "development": SceneType.EXPLANATION,
-        "resolution": SceneType.CONCLUSION,
-        "introduction": SceneType.HOOK,
-        "narrative": SceneType.STORY_TELLING,
-        "opening": SceneType.HOOK
-    }
-    
-    IMAGE_STYLE_FIXES = {
-        "comparison": ImageStyle.BEFORE_AFTER_COMPARISON,
-        "split": ImageStyle.SPLIT_SCREEN,
-        "character": ImageStyle.CHARACTER_WITH_BACKGROUND,
-        "diagram": ImageStyle.DIAGRAM_EXPLANATION,
-        "infograph": ImageStyle.INFOGRAPHIC,
-        "comic": ImageStyle.COMIC_PANEL,
-        "closeup": ImageStyle.CLOSE_UP_REACTION,
-        "wide": ImageStyle.WIDE_ESTABLISHING_SHOT
-    }
-    
+    """
+    Agent responsible for generating video scripts.
+
+    Note: Enum validation is handled automatically by Pydantic validators
+    in the Scene model, so no manual fixing is needed here.
+    """
+
     def __init__(self) -> None:
         """
         Initialize ScriptWriterAgent with API validation.
@@ -124,51 +99,9 @@ class ScriptWriterAgent(BaseAgent):
                 f"maximum is {settings.MAX_SCENES}. Truncating."
             )
             script.scenes = script.scenes[:settings.MAX_SCENES]
-        
-        fixes_applied = []
-        
-        for i, scene in enumerate(script.scenes):
-            if isinstance(scene.voice_tone, str):
-                tone_val = scene.voice_tone
-                if tone_val in self.VOICE_TONE_FIXES:
-                    scene.voice_tone = self.VOICE_TONE_FIXES[tone_val]
-                    fixes_applied.append(
-                        f"Scene {i+1}: voice_tone '{tone_val}' → '{scene.voice_tone.value}'"
-                    )
-                    logger.warning(
-                        f"Fixed invalid voice_tone in scene {i+1}: "
-                        f"'{tone_val}' → '{scene.voice_tone.value}'"
-                    )
-            
-            if isinstance(scene.scene_type, str):
-                type_val = scene.scene_type
-                if type_val in self.SCENE_TYPE_FIXES:
-                    scene.scene_type = self.SCENE_TYPE_FIXES[type_val]
-                    fixes_applied.append(
-                        f"Scene {i+1}: scene_type '{type_val}' → '{scene.scene_type.value}'"
-                    )
-                    logger.warning(
-                        f"Fixed invalid scene_type in scene {i+1}: "
-                        f"'{type_val}' → '{scene.scene_type.value}'"
-                    )
-            
-            if isinstance(scene.image_style, str):
-                style_val = scene.image_style
-                if style_val in self.IMAGE_STYLE_FIXES:
-                    scene.image_style = self.IMAGE_STYLE_FIXES[style_val]
-                    fixes_applied.append(
-                        f"Scene {i+1}: image_style '{style_val}' → '{scene.image_style.value}'"
-                    )
-                    logger.warning(
-                        f"Fixed invalid image_style in scene {i+1}: "
-                        f"'{style_val}' → '{scene.image_style.value}'"
-                    )
-        
-        if fixes_applied:
-            logger.info(f"Applied {len(fixes_applied)} automatic fixes to script")
-            for fix in fixes_applied:
-                logger.info(f"  - {fix}")
-        
+
+        # Note: Enum validation is now handled by Pydantic validators
+        # in the Scene model, so no manual fixing needed here
         return script
     
     async def generate_script(

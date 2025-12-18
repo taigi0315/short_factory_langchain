@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from src.agents.image_gen.agent import ImageGenAgent
 from src.agents.video_gen.agent import VideoGenAgent
 from src.core.config import settings
+from src.core.dependencies import get_image_gen, get_video_gen, get_voice
 import os
 from src.models.models import Scene, SceneType, VoiceTone, ImageStyle, TransitionType, ElevenLabsSettings, VideoScript, VisualSegment
 from typing import Optional, Dict
@@ -19,9 +20,11 @@ class ImageGenerationResponse(BaseModel):
     url: str  # Local URL for frontend
 
 @router.post("/generate-image", response_model=ImageGenerationResponse)
-async def generate_image(request: ImageGenerationRequest):
+async def generate_image(
+    request: ImageGenerationRequest,
+    agent: ImageGenAgent = Depends(get_image_gen)
+):
     """Generate a single image for dev testing."""
-    agent = ImageGenAgent()
     
 
     scene = Scene(
@@ -67,11 +70,13 @@ class VideoGenRequest(BaseModel):
     image_url: Optional[str] = None
 
 @router.post("/generate-video")
-async def generate_video(request: VideoGenRequest):
+async def generate_video(
+    request: VideoGenRequest,
+    agent: VideoGenAgent = Depends(get_video_gen)
+):
     """
     Generate a video from text or image.
     """
-    agent = VideoGenAgent()
     
     try:
         if request.type == "text":
@@ -95,16 +100,19 @@ class ScriptVideoRequest(BaseModel):
     image_map: dict[int, str] = {}
 
 @router.post("/generate-video-from-script")
-async def generate_video_from_script(request: ScriptVideoRequest):
+async def generate_video_from_script(
+    request: ScriptVideoRequest,
+    agent: VideoGenAgent = Depends(get_video_gen)
+):
     """
     Generate a full video from a script and optional images.
     """
     import structlog
     from PIL import Image as PILImage
+    from src.agents.voice.agent import VoiceAgent
+
     logger = structlog.get_logger()
     logger.info("Received request to generate video for script", title=request.script.get('title', 'Untitled'))
-    
-    agent = VideoGenAgent()
     
     try:
         logger.info("Parsing script model...")
@@ -159,8 +167,7 @@ async def generate_video_from_script(request: ScriptVideoRequest):
         
         logger.info("Generating audio for scenes...")
         try:
-            from src.agents.voice.agent import VoiceAgent
-            voice_agent = VoiceAgent()
+            voice_agent = get_voice()
             audio_map = await voice_agent.generate_voiceovers(script.scenes)
             logger.info("Audio generation complete", audio_count=len(audio_map))
         except Exception as audio_error:

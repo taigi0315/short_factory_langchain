@@ -1,11 +1,11 @@
 import aiohttp
 import hashlib
-import logging
+import structlog
 from pathlib import Path
 from typing import Optional, Dict, Any
 from src.core.config import settings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 class ElevenLabsClient:
     """Async client for ElevenLabs text-to-speech API."""

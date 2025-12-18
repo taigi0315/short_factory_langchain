@@ -1,9 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from src.api.schemas.scripts import ScriptGenerationRequest, ScriptGenerationResponse
 from src.agents.script_writer.agent import ScriptWriterAgent
-from src.agents.director import DirectorAgent
+from src.agents.director.agent import DirectorAgent
 from src.api.error_handling import with_fallback
 from src.api.mock_data import get_mock_script
+from src.core.dependencies import get_script_writer, get_director
 import structlog
 
 router = APIRouter()
@@ -12,14 +13,15 @@ logger = structlog.get_logger()
 
 @router.post("/generate", response_model=ScriptGenerationResponse)
 @with_fallback(lambda request: get_mock_script(request))
-async def generate_script(request: ScriptGenerationRequest) -> ScriptGenerationResponse:
+async def generate_script(
+    request: ScriptGenerationRequest,
+    script_agent: ScriptWriterAgent = Depends(get_script_writer),
+    director: DirectorAgent = Depends(get_director)
+) -> ScriptGenerationResponse:
     """
     Generate video script using LLM.
     Falls back to mock data if LLM unavailable.
     """
-
-    script_agent = ScriptWriterAgent()
-    
 
     full_subject = (
         f"Title: {request.story_title}\n"
@@ -28,14 +30,13 @@ async def generate_script(request: ScriptGenerationRequest) -> ScriptGenerationR
         f"Target Audience: {request.story_audience}\n"
         f"Duration: {request.duration}"
     )
-    
+
 
     script = await script_agent.generate_script(full_subject)
-    
+
     logger.info("Script generated", title=script.title, scenes=len(script.scenes))
-    
+
     # TICKET-035: Analyze script with Director Agent
-    director = DirectorAgent()
     directed_script = await director.analyze_script(script)
     
     logger.info("Cinematic direction generated",

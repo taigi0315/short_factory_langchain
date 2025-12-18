@@ -1,14 +1,15 @@
 import os
 import asyncio
-import logging
+import structlog
 from typing import List, Dict, Optional
 from pathlib import Path
 from src.models.models import Scene, VoiceTone
 from src.core.config import settings
+from src.core.exceptions import VoiceGenerationError
 from gtts import gTTS
 from src.agents.voice.elevenlabs_client import ElevenLabsClient
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 VOICE_MAPPING = {
     VoiceTone.ENTHUSIASTIC: "21m00Tcm4TlvDq8ikWAM", # Rachel
@@ -106,7 +107,7 @@ class VoiceAgent(BaseAgent):
                         if tone_overrides:
                             logger.info(f"Applying voice overrides for {scene.voice_tone}: {tone_overrides}")
                             voice_settings.update(tone_overrides)
-                    except Exception as e:
+                    except (ValueError, KeyError) as e:
                         logger.warning(f"Failed to apply voice settings override: {e}")
                 
                 logger.info(f"Generating real audio for Scene {scene.scene_number} ({scene.voice_tone})...")
@@ -125,6 +126,8 @@ class VoiceAgent(BaseAgent):
                 await asyncio.to_thread(self._generate_gtts, text, filepath)
                 return scene.scene_number, filepath
                 
+        except VoiceGenerationError:
+            raise  # Re-raise our custom exceptions
         except Exception as e:
             logger.error(f"Failed to generate audio for Scene {scene.scene_number}: {e}")
             if self.use_real_voice:
@@ -134,14 +137,20 @@ class VoiceAgent(BaseAgent):
                     return scene.scene_number, filepath
                 except Exception as fallback_error:
                     logger.error(f"Fallback failed: {fallback_error}")
-                    raise fallback_error  # Re-raise fallback error
-            raise e # Re-raise original error if not using real voice (or if fallback logic is skipped)
+                    raise VoiceGenerationError(
+                        f"Voice generation failed for scene {scene.scene_number}, fallback also failed",
+                        details={"scene": scene.scene_number, "original_error": str(e), "fallback_error": str(fallback_error)}
+                    ) from fallback_error
+            raise VoiceGenerationError(
+                f"Voice generation failed for scene {scene.scene_number}",
+                details={"scene": scene.scene_number, "error": str(e)}
+            ) from e
 
     @retry_with_backoff(operation_name="voice generation")
     async def _generate_elevenlabs_audio_with_retry(self, text: str, voice_id: str, voice_settings: Optional[dict] = None) -> str:
         """Generate audio using ElevenLabs with retry logic."""
         if not self.client:
-             raise RuntimeError("ElevenLabs client not initialized")
+             raise VoiceGenerationError("ElevenLabs client not initialized")
              
         result = await self.client.generate_audio(
             text=text,

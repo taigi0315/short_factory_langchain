@@ -13,6 +13,8 @@ from moviepy import (
 import moviepy.video.fx as vfx
 from PIL import Image, ImageDraw, ImageFont
 from src.core.config import settings
+from src.core.video_constants import TEXT_OVERLAY, VIDEO_EFFECTS
+from src.utils.text_rendering import FontLoader, wrap_text, fit_font_to_width
 from src.models.models import (
     VideoScript, Scene, ImageStyle, SceneType, VoiceTone, 
     ElevenLabsSettings, TransitionType, SceneConfig
@@ -340,64 +342,6 @@ class VideoGenAgent(BaseAgent):
                        error=str(e),
                        exc_info=True)
             return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
-    
-    def _load_font(self, font_size: int) -> Any:
-        """Load a font with fallbacks."""
-        try:
-            return ImageFont.truetype("Arial.ttf", font_size)
-        except:
-            try:
-                return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-            except:
-                try:
-                    # Linux/Docker fallback
-                    return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
-                except:
-                    return ImageFont.load_default()
-
-    def _fit_font_to_width(
-        self, 
-        text: str, 
-        max_width: int, 
-        start_font_size: int, 
-        draw: Any,
-        max_height: Optional[int] = None
-    ) -> Any:
-        """Reduce font size until text fits within max_width and optionally max_height."""
-        current_size = start_font_size
-        font = self._load_font(current_size)
-        
-        words = text.split()
-        if not words:
-            return font
-            
-        # Minimum legible size
-        min_size = max(20, int(start_font_size * 0.4))
-        
-        while current_size > min_size:
-            max_word_w = 0
-            for word in words:
-                w = draw.textlength(word, font=font)
-                if w > max_word_w:
-                    max_word_w = w
-            
-            # Check height if max_height is specified
-            if max_height:
-                lines = self._wrap_text(text, font, max_width, draw)
-                bbox = draw.textbbox((0, 0), "Mg", font=font)
-                line_height = int((bbox[3] - bbox[1]) * 1.3)
-                total_height = len(lines) * line_height
-                
-                if max_word_w <= max_width and total_height <= max_height:
-                    return font
-            elif max_word_w <= max_width:
-                return font
-                
-            current_size -= 5
-            font = self._load_font(current_size)
-            
-        return font
-
     def _create_title_card(self, title: str, duration: float = 3.0) -> VideoClip:
         """Create a title card with transparent background and colorful centered text at the top."""
         w, h = self.resolution
@@ -405,17 +349,17 @@ class VideoGenAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Start size: 3% of height (reduced from 5% to prevent clipping)
-        start_font_size = int(h * 0.03)
-        
-        # Safer margin: 80% of width (10% padding on each side)
-        max_width = int(w * 0.80)
-        
-        # Get font that fits (max 25% of screen height for title)
-        max_height = int(h * 0.25)
-        font = self._fit_font_to_width(title, max_width, start_font_size, draw, max_height)
-        
-        lines = self._wrap_text(title, font, max_width, draw)
+        # Start size: configured ratio of height
+        start_font_size = int(h * TEXT_OVERLAY.TITLE_FONT_SIZE_RATIO)
+
+        # Safer margin: configured width ratio
+        max_width = int(w * TEXT_OVERLAY.MAX_WIDTH_RATIO)
+
+        # Get font that fits (configured max height ratio)
+        max_height = int(h * TEXT_OVERLAY.MAX_HEIGHT_RATIO)
+        font = fit_font_to_width(title, max_width, start_font_size, draw, max_height)
+
+        lines = wrap_text(title, font, max_width, draw)
         
         # Calculate text block height and position
         # Recalculate font size if needed based on line height? 
@@ -527,29 +471,6 @@ class VideoGenAgent(BaseAgent):
             return clip
 
 
-
-    def _wrap_text(self, text: str, font: Any, max_width: int, draw: Any) -> List[str]:
-        """Wrap text to fit within max_width."""
-        words = text.split()
-        lines = []
-        current_line: List[str] = []
-        
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            test_width = draw.textlength(test_line, font=font)
-            
-            if test_width <= max_width:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
-        
-        if current_line:
-            lines.append(' '.join(current_line))
-        
-        return lines if lines else [text]
-
     def _create_text_overlay_pil(
         self,
         text: str,
@@ -562,17 +483,17 @@ class VideoGenAgent(BaseAgent):
         img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Start size: 2.5% of height (reduced from 4% to prevent clipping)
-        start_font_size = int(h * 0.025)
-        
-        # Safer margin: 80% of width
-        max_width = int(w * 0.80)
-        
-        # Get font that fits (max 20% of screen height for subtitle)
-        max_height = int(h * 0.20)
-        font = self._fit_font_to_width(text, max_width, start_font_size, draw, max_height)
-        
-        lines = self._wrap_text(text, font, max_width, draw)
+        # Start size: configured ratio of height
+        start_font_size = int(h * TEXT_OVERLAY.SUBTITLE_FONT_SIZE_RATIO)
+
+        # Safer margin: configured width ratio
+        max_width = int(w * TEXT_OVERLAY.MAX_WIDTH_RATIO)
+
+        # Get font that fits (configured subtitle max height)
+        max_height = int(h * TEXT_OVERLAY.SUBTITLE_HEIGHT_RATIO)
+        font = fit_font_to_width(text, max_width, start_font_size, draw, max_height)
+
+        lines = wrap_text(text, font, max_width, draw)
         
         # Standardize line height
         bbox = draw.textbbox((0, 0), "Mg", font=font)
