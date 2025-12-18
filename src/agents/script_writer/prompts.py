@@ -19,21 +19,26 @@ def _get_scene_description(scene_type: SceneType) -> str:
     }
     return descriptions.get(scene_type.value if hasattr(scene_type, 'value') else str(scene_type), 'Scene type description')
 
-def create_dynamic_prompt() -> Dict[str, Any]:
-    """Create prompt template with dynamic enum values from Pydantic models"""
-    
-    # Extract enum values dynamically
-    scene_types = get_enum_values(SceneType)
-    image_styles = get_enum_values(ImageStyle)
-    voice_tones = get_enum_values(VoiceTone)
-    transition_types = get_enum_values(TransitionType)
-    hook_techniques = get_enum_values(HookTechnique)
-    
-    # Create PydanticOutputParser for VideoScript
-    parser: PydanticOutputParser = PydanticOutputParser(pydantic_object=VideoScript)
-    
-    # Example content for prompt (escaped for PromptTemplate)
-    example_content = """```json
+
+def _extract_enum_values() -> Dict[str, List[str]]:
+    """Extract all enum values from models."""
+    return {
+        'scene_types': get_enum_values(SceneType),
+        'image_styles': get_enum_values(ImageStyle),
+        'voice_tones': get_enum_values(VoiceTone),
+        'transition_types': get_enum_values(TransitionType),
+        'hook_techniques': get_enum_values(HookTechnique)
+    }
+
+
+def _create_parser() -> PydanticOutputParser:
+    """Create PydanticOutputParser for VideoScript."""
+    return PydanticOutputParser(pydantic_object=VideoScript)
+
+
+def _get_example_content() -> str:
+    """Get example content for prompt template."""
+    return """```json
 "content": [
   {{
     "segment_text": "It was a dark and stormy night...",
@@ -42,8 +47,16 @@ def create_dynamic_prompt() -> Dict[str, Any]:
 ]
 ```"""
 
-    # Base Prompt Structure (Shared)
-    base_prompt_structure = f"""
+
+def _build_base_prompt_structure(enum_values: Dict[str, List[str]], example_content: str) -> str:
+    """Build base prompt template with enum values."""
+    scene_types = enum_values['scene_types']
+    image_styles = enum_values['image_styles']
+    voice_tones = enum_values['voice_tones']
+    transition_types = enum_values['transition_types']
+    hook_techniques = enum_values['hook_techniques']
+
+    return f"""
 # Agent 1: Video Story Generation Master
 
 You are the **Master Story Creator** for an AI video generation system. Your role is equivalent to being a **movie director, screenwriter, and creative director** all in one. You have complete creative control over the entire video experience.
@@ -401,10 +414,11 @@ Always use these exact enum values to ensure compatibility with the video genera
 {{format_instructions}}
 """
 
-    # Define Personas
-    
-    # 1. REAL_STORY_PROMPT (News & Real Story)
-    real_story_persona = """
+
+def _get_persona_definitions() -> Dict[str, str]:
+    """Define the three persona types for different content categories."""
+    return {
+        'real_story': """
 You are a **BBC/Netflix Documentary Director**.
 **Visual Rules**: "Strictly 8K Photorealism. DO NOT use terms like 'cartoon', 'illustration', or 'vector'. Describe camera lenses (35mm), lighting (cinematic), and textures (pores, dust)."
 **Tone**: Serious, Investigative, Dramatic.
@@ -414,10 +428,8 @@ You are a **BBC/Netflix Documentary Director**.
 - **Forbidden**: Cartoons, 3D characters, Anime, Vectors.
 - **Image Prompts Must Include**: "Depth of field", "Film grain", "Natural lighting", "Skin texture".
 - **Example Prompt**: "A hyper-realistic close-up of a bank vault door, rusty metal texture, dim dramatic lighting, cinematic composition, shot on 50mm lens."
-"""
-
-    # 2. EDUCATIONAL_PROMPT (Educational & Explainer)
-    educational_persona = """
+""",
+        'educational': """
 You are a **Lead Animator for a high-end Tech Explainer channel** (like Kurzgesagt or Apple).
 **Visual Rules**: "Use 3D Isometric Renders, Clean Vector Art, or Modern Motion Graphics. White/Clean backgrounds. Focus on clarity."
 **Tone**: Clear, Encouraging, authoritative.
@@ -427,32 +439,51 @@ You are a **Lead Animator for a high-end Tech Explainer channel** (like Kurzgesa
 - **Forbidden**: Gritty realism, messy backgrounds, disturbing imagery.
 - **Image Prompts Must Include**: "Soft studio lighting", "Clean background", "Vibrant colors", "Minimalist".
 - **Example Prompt**: "A clean 3D isometric render of a bank vault, floating coins, soft pastel blue background, soft shadows, high quality Octane render."
-"""
-
-    # 3. CREATIVE_PROMPT (Fiction & Fun)
-    creative_persona = """
+""",
+        'creative': """
 You are a **Movie Director**.
 **Visual Rules**: "Artistic freedom allowed. Cyberpunk, Watercolor, Noir, or Disney-style 3D."
 **Tone**: Entertaining, Emotional.
 """
+    }
 
-    # Combine to create full templates
-    real_story_prompt = base_prompt_structure.replace(
-        "__PERSONA_SECTION__", real_story_persona
-    )
-    
-    educational_prompt = base_prompt_structure.replace(
-        "__PERSONA_SECTION__", educational_persona
-    )
-    
-    creative_prompt = base_prompt_structure.replace(
-        "__PERSONA_SECTION__", creative_persona
-    )
-    
+
+def _build_persona_prompts(base_prompt: str) -> Dict[str, str]:
+    """Build persona-specific prompts from base template."""
+    personas = _get_persona_definitions()
+
     return {
-        "real_story": real_story_prompt,
-        "educational": educational_prompt,
-        "creative": creative_prompt,
+        'real_story': base_prompt.replace("__PERSONA_SECTION__", personas['real_story']),
+        'educational': base_prompt.replace("__PERSONA_SECTION__", personas['educational']),
+        'creative': base_prompt.replace("__PERSONA_SECTION__", personas['creative'])
+    }
+
+
+def create_dynamic_prompt() -> Dict[str, Any]:
+    """Create prompt templates with dynamic enum values from Pydantic models.
+
+    Returns:
+        Dict containing prompt templates for different content types and parser.
+    """
+    # Step 1: Extract all enum values
+    enum_values = _extract_enum_values()
+
+    # Step 2: Create parser for structured output
+    parser = _create_parser()
+
+    # Step 3: Get example content
+    example_content = _get_example_content()
+
+    # Step 4: Build base prompt structure
+    base_prompt = _build_base_prompt_structure(enum_values, example_content)
+
+    # Step 5: Create persona-specific prompts
+    persona_prompts = _build_persona_prompts(base_prompt)
+
+    return {
+        "real_story": persona_prompts['real_story'],
+        "educational": persona_prompts['educational'],
+        "creative": persona_prompts['creative'],
         "parser": parser
     }
 

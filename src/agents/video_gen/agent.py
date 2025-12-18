@@ -23,6 +23,8 @@ from src.models.models import (
 from src.agents.video_gen.providers.base import VideoGenerationProvider
 from src.agents.video_gen.providers.mock import MockVideoProvider
 from src.agents.video_gen.providers.luma import LumaVideoProvider
+from src.agents.video_gen.effects import VideoEffects
+from src.agents.video_gen.text_overlay import TextOverlay
 
 logger = structlog.get_logger()
 
@@ -344,131 +346,25 @@ class VideoGenAgent(BaseAgent):
             return ColorClip(size=self.resolution, color=(0, 0, 0), duration=duration)
     def _create_title_card(self, title: str, duration: float = 3.0) -> VideoClip:
         """Create a title card with transparent background and colorful centered text at the top."""
-        w, h = self.resolution
-        
-        img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        
-        # Start size: configured ratio of height
-        start_font_size = int(h * TEXT_OVERLAY.TITLE_FONT_SIZE_RATIO)
-
-        # Safer margin: configured width ratio
-        max_width = int(w * TEXT_OVERLAY.MAX_WIDTH_RATIO)
-
-        # Get font that fits (configured max height ratio)
-        max_height = int(h * TEXT_OVERLAY.MAX_HEIGHT_RATIO)
-        font = fit_font_to_width(title, max_width, start_font_size, draw, max_height)
-
-        lines = wrap_text(title, font, max_width, draw)
-        
-        # Calculate text block height and position
-        # Recalculate font size if needed based on line height? 
-        # For now, just use the fitted font.
-        
-        # Approximate line height from font size (as ImageFont specific metrics can be tricky)
-        # Using bbox of "Mg" is a common trick
-        bbox = draw.textbbox((0, 0), "Mg", font=font)
-        line_height = int((bbox[3] - bbox[1]) * 1.3)
-        
-        start_y = int(h * 0.10)  # Title starts at 10% from top (more headroom)
-        
-        colors = [
-            (255, 100, 150, 255),  # Pink
-            (255, 150, 100, 255),  # Coral
-            (255, 200, 100, 255),  # Orange-yellow
-        ]
-        
-        for i, line in enumerate(lines):
-            line_w = draw.textlength(line, font=font)
-            x = (w - line_w) // 2
-            y = start_y + (i * line_height)
-            
-            color_idx = i % len(colors)
-            text_color = colors[color_idx]
-            
-            shadow_color = (0, 0, 0, 255)
-            # Thinner shadow for smaller fonts
-            shadow_offset = max(2, int(line_height * 0.05))
-            
-            for adj in range(-shadow_offset, shadow_offset + 1):
-                for adj2 in range(-shadow_offset, shadow_offset + 1):
-                    if adj != 0 or adj2 != 0:
-                        draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
-            
-            draw.text((x, y), line, font=font, fill=text_color)
-        
-        img_np = np.array(img)
-        title_clip = ImageClip(img_np, transparent=True).with_duration(duration)
-        
-        title_clip = title_clip.with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)])
-        
-        return title_clip
+        return TextOverlay.create_title_card(title, self.resolution, duration)
     
     def _apply_ken_burns(self, clip: VideoClip, duration: float) -> VideoClip:
         """Apply Ken Burns effect (slow zoom)."""
-        # Zoom factor: 1.0 to 1.1 over duration
-        return clip.resized(lambda t: 1 + 0.1 * t / duration)
+        return VideoEffects.apply_ken_burns(clip, duration)
     
     def _apply_effect_to_clip(self, clip: VideoClip, effect: str, duration: float) -> VideoClip:
         """
         Apply the specified effect to a video clip.
-        
+
         Args:
             clip: The video clip to apply effect to
             effect: Effect name (ken_burns_zoom_in, pan_left, tilt_up, etc.)
             duration: Duration of the clip
-            
+
         Returns:
             Clip with effect applied
         """
-        if effect == "ken_burns_zoom_in":
-            return clip.resized(lambda t: 1 + 0.2 * t / duration)
-        
-        elif effect == "ken_burns_zoom_out":
-            return clip.resized(lambda t: 1.2 - 0.2 * t / duration)
-        
-        elif effect == "pan_left":
-            return clip.with_position(lambda t: (-100 * t / duration, 0))
-        
-        elif effect == "pan_right":
-            return clip.with_position(lambda t: (100 * t / duration, 0))
-        
-        elif effect == "tilt_up":
-            return clip.with_position(lambda t: (0, -100 * t / duration))
-        
-        elif effect == "tilt_down":
-            return clip.with_position(lambda t: (0, 100 * t / duration))
-        
-        elif effect == "shake":
-            import random
-            def shake_pos(t: float) -> Tuple[int, int]:
-                x = random.randint(-10, 10)
-                y = random.randint(-10, 10)
-                return (x, y)
-            return clip.with_position(shake_pos)
-        
-        elif effect == "dolly_zoom":
-            return clip.resized(lambda t: 1 + 0.3 * t / duration)
-        
-        elif effect == "crane_up":
-            def crane_transform(t: float) -> float:
-                scale = 1.1 - 0.1 * t / duration
-                y_pos = -50 * t / duration
-                return scale
-            return clip.resized(crane_transform).with_position(lambda t: (0, -50 * t / duration))
-        
-        elif effect == "crane_down":
-            return clip.resized(lambda t: 1 + 0.1 * t / duration).with_position(lambda t: (0, 50 * t / duration))
-        
-        elif effect == "orbit":
-            return clip.rotated(lambda t: 5 * t / duration)
-        
-        elif effect == "static" or effect == "none":
-            return clip
-        
-        else:
-            logger.warning(f"Unknown effect '{effect}', using static")
-            return clip
+        return VideoEffects.apply_effect(clip, effect, duration)
 
 
     def _create_text_overlay_pil(
@@ -478,58 +374,7 @@ class VideoGenAgent(BaseAgent):
         resolution: Tuple[int, int]
     ) -> VideoClip:
         """Create text overlay using PIL with text wrapping and better sizing."""
-        w, h = resolution
-        
-        img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        
-        # Start size: configured ratio of height
-        start_font_size = int(h * TEXT_OVERLAY.SUBTITLE_FONT_SIZE_RATIO)
-
-        # Safer margin: configured width ratio
-        max_width = int(w * TEXT_OVERLAY.MAX_WIDTH_RATIO)
-
-        # Get font that fits (configured subtitle max height)
-        max_height = int(h * TEXT_OVERLAY.SUBTITLE_HEIGHT_RATIO)
-        font = fit_font_to_width(text, max_width, start_font_size, draw, max_height)
-
-        lines = wrap_text(text, font, max_width, draw)
-        
-        # Standardize line height
-        bbox = draw.textbbox((0, 0), "Mg", font=font)
-        line_height = int((bbox[3] - bbox[1]) * 1.2)
-        
-        total_text_height = len(lines) * line_height
-        
-        # Position at bottom 20% (more space from bottom edge)
-        start_y = int(h * 0.80) - (total_text_height // 2)
-        
-        shadow_color = (0, 0, 0, 255)
-        text_color = (255, 215, 0, 255)
-        
-        # Dynamic shadow offset
-        shadow_offset = max(1, int(line_height * 0.04))
-        
-        for i, line in enumerate(lines):
-            line_w = draw.textlength(line, font=font)
-            x = (w - line_w) // 2
-            y = start_y + (i * line_height)
-            
-            for adj in range(-shadow_offset, shadow_offset + 1):
-                for adj2 in range(-shadow_offset, shadow_offset + 1):
-                    if adj != 0 or adj2 != 0:
-                        draw.text((x+adj, y+adj2), line, font=font, fill=shadow_color)
-            
-            draw.text((x, y), line, font=font, fill=text_color)
-        
-        img_np = np.array(img)
-        
-        txt_clip = ImageClip(img_np, transparent=True)
-        txt_clip = txt_clip.with_duration(duration)
-        
-        txt_clip = txt_clip.with_effects([vfx.FadeIn(0.5), vfx.FadeOut(0.5)])
-        
-        return txt_clip
+        return TextOverlay.create_text_overlay(text, resolution, duration)
     
     async def generate_from_text(self, prompt: str) -> str:
         """
