@@ -1,10 +1,11 @@
 import os
-from typing import List, Dict, Any
-from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, TextClip, ColorClip
+from typing import List, Dict, Any, Optional, Tuple
+from moviepy import ImageClip, AudioFileClip, concatenate_videoclips, CompositeVideoClip, TextClip, ColorClip, vfx
 from src.models.models import Scene, VideoScript
 from src.agents.director.models import DirectedScript
 from src.agents.director.agent import DirectorAgent
 from src.core.config import settings
+from PIL import Image, ImageDraw, ImageFont
 import structlog
 
 logger = structlog.get_logger()
@@ -22,6 +23,86 @@ class VideoAssemblyAgent(BaseAgent):
         """Agent-specific setup."""
         self.output_dir = os.path.join(settings.GENERATED_ASSETS_DIR, "videos")
         os.makedirs(self.output_dir, exist_ok=True)
+
+    def _load_font(self, font_size: int) -> Any:
+        """Load a font with fallbacks."""
+        try:
+            return ImageFont.truetype("Arial.ttf", font_size)
+        except:
+            try:
+                # Common macOS
+                return ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+            except:
+                try:
+                    # Linux/Docker fallback
+                    return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+                except:
+                    return ImageFont.load_default()
+
+    def _wrap_text(self, text: str, font: Any, max_width: int, draw: Any) -> List[str]:
+        """Wrap text to fit within max_width."""
+        words = text.split()
+        lines = []
+        current_line: List[str] = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            test_width = draw.textlength(test_line, font=font)
+            
+            if test_width <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+        
+        return lines if lines else [text]
+
+    def _fit_font_to_width(
+        self, 
+        text: str, 
+        max_width: int, 
+        start_font_size: int, 
+        draw: Any,
+        max_height: Optional[int] = None
+    ) -> Any:
+        """Reduce font size until text fits within max_width and optionally max_height."""
+        current_size = start_font_size
+        font = self._load_font(current_size)
+        
+        words = text.split()
+        if not words:
+            return font
+            
+        # Minimum legible size
+        min_size = max(20, int(start_font_size * 0.4))
+        
+        while current_size > min_size:
+            max_word_w = 0
+            for word in words:
+                w = draw.textlength(word, font=font)
+                if w > max_word_w:
+                    max_word_w = w
+            
+            # Check height if max_height is specified
+            if max_height:
+                lines = self._wrap_text(text, font, max_width, draw)
+                bbox = draw.textbbox((0, 0), "Mg", font=font)
+                line_height = int((bbox[3] - bbox[1]) * 1.3)
+                total_height = len(lines) * line_height
+                
+                if max_word_w <= max_width and total_height <= max_height:
+                    return font
+            elif max_word_w <= max_width:
+                return font
+                
+            current_size -= 5
+            font = self._load_font(current_size)
+            
+        return font
 
     async def assemble_video(
         self, 
@@ -184,18 +265,26 @@ class VideoAssemblyAgent(BaseAgent):
         """
         w, h = clip.size
         
-        # Map complex/unimplemented effects to simple zoom to avoid static images
-        # and avoid "dizzying" shake effects
-        if effect_name in ["shake", "handheld", "crane_up", "crane_down", "orbit", "dolly_zoom"]:
+        # Map complex effects to simple movements
+        # Avoid static images
+        if effect_name == "shake" or effect_name == "handheld":
+            effect_name = "ken_burns_zoom_out"
+        elif effect_name == "crane_up":
+            effect_name = "tilt_up"
+        elif effect_name == "crane_down":
+            effect_name = "tilt_down"
+        elif effect_name == "orbit":
+            effect_name = "pan_left"
+        elif effect_name == "dolly_zoom":
             effect_name = "ken_burns_zoom_in"
         
         if effect_name == "ken_burns_zoom_in":
 
-            return clip.resized(lambda t: 1 + 0.3 * t / duration).with_position('center')
+            return clip.resized(lambda t: 1 + 0.15 * t / duration).with_position('center')
             
         elif effect_name == "ken_burns_zoom_out":
 
-            return clip.resized(lambda t: 1.3 - 0.3 * t / duration).with_position('center')
+            return clip.resized(lambda t: 1.15 - 0.15 * t / duration).with_position('center')
             
         elif effect_name == "pan_left":
             # Pan from right to left
@@ -290,51 +379,38 @@ class VideoAssemblyAgent(BaseAgent):
             title: Title text to display
             video_width: Width of the video
             video_height: Height of the video
-            video_duration: Duration of the entire video (title persists throughout)
+            video_duration: Duration of the entire video (used for clip limits, but title is shorter)
             
         Returns:
-            TextClip with title overlay
+            ImageClip with title overlay
         """
-        from PIL import Image, ImageDraw, ImageFont
         import numpy as np
         
         # Create image for title with transparency
-        img_width = int(video_width * 0.9)
-        img_height = 200  # Increased for larger font
+        # Use full size overlay to ensure correct positioning logic
+        w = video_width
+        h = video_height
         
-        # Create transparent image
-        img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+        img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Try to load a bold font, fall back to default if needed
-        try:
-            # Try common system fonts - use bold variant
-            font_size = 80  # Increased from 60 to 80
-            font: Any = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-        except:
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except:
-                # Fall back to default font
-                font = ImageFont.load_default()
+        # Start size: 3% of height (reduced/dynamic)
+        start_font_size = int(h * 0.03)
         
-        # Word wrap the title if too long
-        words = title.split()
-        lines = []
-        current_line: List[str] = []
+        # Safer margin: 80% of width
+        max_width = int(w * 0.80)
         
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            if bbox[2] - bbox[0] < img_width - 40:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
+        # Max height: 25% of screen
+        max_height = int(h * 0.25)
         
-        if current_line:
-            lines.append(' '.join(current_line))
+        # Get font that fits
+        font = self._fit_font_to_width(title, max_width, start_font_size, draw, max_height)
+        
+        # Word wrap
+        lines = self._wrap_text(title, font, max_width, draw)
+        
+        # Calculate start position (10% from top)
+        start_y = int(h * 0.10)
         
         # Colorful gradient colors for title
         gradient_colors = [
@@ -346,29 +422,37 @@ class VideoAssemblyAgent(BaseAgent):
         ]
         
         # Draw text with stroke (outline) and gradient effect
-        y_offset = 20
-        for line_idx, line in enumerate(lines):
-            bbox = draw.textbbox((0, 0), line, font=font)
-            text_width = bbox[2] - bbox[0]
-            x = (img_width - text_width) // 2
+        bbox = draw.textbbox((0, 0), "Mg", font=font)
+        line_height = int((bbox[3] - bbox[1]) * 1.3)
+        
+        for i, line in enumerate(lines):
+            line_w = draw.textlength(line, font=font)
+            x = (w - line_w) // 2
+            y = start_y + (i * line_height)
             
             # Draw black outline (thicker for bold effect)
             for adj_x in range(-3, 4):
                 for adj_y in range(-3, 4):
-                    draw.text((x + adj_x, y_offset + adj_y), line, font=font, fill=(0, 0, 0, 255))
+                    draw.text((x + adj_x, y + adj_y), line, font=font, fill=(0, 0, 0, 255))
             
-            # Draw colorful text (cycle through gradient colors)
-            color = gradient_colors[line_idx % len(gradient_colors)]
-            draw.text((x, y_offset), line, font=font, fill=color)
-            y_offset += int(bbox[3] - bbox[1]) + 15  # Increased spacing
+            # Draw colorful text
+            color = gradient_colors[i % len(gradient_colors)]
+            draw.text((x, y), line, font=font, fill=color)
         
         # Convert PIL image to numpy array for MoviePy
         img_array = np.array(img)
         
-        # Create ImageClip from numpy array - persist throughout entire video
-        from moviepy import ImageClip
-        title_clip = ImageClip(img_array, duration=video_duration)
-        title_clip = title_clip.with_position(('center', 50))
+        # Create ImageClip
+        # Duration fixed to 3.0s instead of full video duration
+        # But ensure we don't exceed video duration if short
+        clip_duration = min(3.0, video_duration)
+        
+        title_clip = ImageClip(img_array, duration=clip_duration)
+        # Position is handled in PIL image (full size), so video position is center/top-left (default)
+        # But image is w,h so center is fine.
+        
+        # Add entry/exit effects
+        title_clip = title_clip.with_effects([vfx.CrossFadeIn(0.5), vfx.CrossFadeOut(0.5)])
         
         return title_clip
 
@@ -433,109 +517,72 @@ class VideoAssemblyAgent(BaseAgent):
     def _create_subtitle_clip(self, text: str, video_width: int, video_height: int, start_time: float, duration: float) -> ImageClip:
         """
         Create a single subtitle clip using PIL.
-        
-        Args:
-            text: Subtitle text
-            video_width: Width of the video
-            video_height: Height of the video
-            start_time: When subtitle should appear
-            duration: How long subtitle should display
-            
-        Returns:
-            ImageClip with subtitle
         """
-        from PIL import Image, ImageDraw, ImageFont
         import numpy as np
         import random
         
-        # Create image for subtitle
-        img_width = int(video_width * 0.9)
-        img_height = 150  # Increased for better line spacing
+        # Use full size to simplify positioning
+        w = video_width
+        h = video_height
         
-        img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+        img = Image.new('RGBA', (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Load bold font
-        try:
-            font_size = 52  # Increased from 45 to 52
-            font: Any = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-        except:
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except:
-                font = ImageFont.load_default()
+        # Start size: 2.5% of height (dynamic)
+        start_font_size = int(h * 0.025)
         
-        # Random vibrant colors for subtitles (5-10 colors)
+        # Max width: 65% (aggressively reduced to ensure it stays in middle)
+        max_width = int(w * 0.65)
+        
+        # Max height: 20%
+        max_height = int(h * 0.20)
+        
+        # Get font
+        font = self._fit_font_to_width(text, max_width, start_font_size, draw, max_height)
+        
+        # Colors
         subtitle_colors = [
             (255, 100, 100, 255),  # Bright Red
             (100, 200, 255, 255),  # Bright Blue
             (255, 220, 100, 255),  # Bright Yellow
             (255, 150, 255, 255),  # Bright Pink
             (100, 255, 150, 255),  # Bright Green
-            (255, 180, 100, 255),  # Bright Orange
-            (200, 150, 255, 255),  # Bright Purple
-            (100, 255, 255, 255),  # Bright Cyan
-            (255, 255, 150, 255),  # Light Yellow
-            (255, 150, 200, 255),  # Light Pink
         ]
-        
-        # Pick a random color for this dialogue
         text_color = random.choice(subtitle_colors)
         
-        # Word wrap
-        words = text.split()
-        lines = []
-        current_line: List[str] = []
+        # Wrap
+        lines = self._wrap_text(text, font, max_width, draw)
+        lines = lines[:2] # Limit to 2 lines
         
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            bbox = draw.textbbox((0, 0), test_line, font=font)
-            if bbox[2] - bbox[0] < img_width - 40:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
+        # Calculate text block height
+        bbox = draw.textbbox((0, 0), "Mg", font=font)
+        # Increase line height factor to 2.0 to prevent overwrapping
+        line_height = int((bbox[3] - bbox[1]) * 2.0)
+        total_text_height = len(lines) * line_height
         
-        if current_line:
-            lines.append(' '.join(current_line))
+        # Position at bottom 80% (20% margin from bottom)
+        start_y = int(h * 0.80) - (total_text_height // 2)
         
-        # Limit to 2 lines
-        lines = lines[:2]
-        
-        # Draw text with background and better spacing
-        y_offset = 10
-        for line in lines:
-            bbox = draw.textbbox((0, 0), line, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
-            x = (img_width - text_width) // 2
+        for i, line in enumerate(lines):
+            line_w = draw.textlength(line, font=font)
+            x = (w - line_w) // 2
+            y = start_y + (i * line_height)
             
-            # Draw semi-transparent black background
-            padding = 12
+            # Background
+            padding_x = 20
+            padding_y = 10
+            # Use line_height for background to ensure consistent box
             draw.rectangle(
-                [x - padding, y_offset - padding, x + text_width + padding, y_offset + text_height + padding],
-                fill=(0, 0, 0, 200)  # Slightly more opaque
+                [x - padding_x, y - padding_y, x + line_w + padding_x, y + (bbox[3] - bbox[1]) + padding_y],
+                fill=(0, 0, 0, 180)
             )
             
-            # Draw black outline for bold effect
-            for adj_x in range(-2, 3):
-                for adj_y in range(-2, 3):
-                    if adj_x != 0 or adj_y != 0:
-                        draw.text((x + adj_x, y_offset + adj_y), line, font=font, fill=(0, 0, 0, 255))
+            # Text
+            draw.text((x, y), line, font=font, fill=text_color)
             
-            # Draw colorful text
-            draw.text((x, y_offset), line, font=font, fill=text_color)
-            y_offset += int(text_height) + 15  # Increased from 5 to 15 for better line spacing
-        
-        # Convert to numpy array
         img_array = np.array(img)
         
-        # Create ImageClip
-        from moviepy import ImageClip
         subtitle_clip = ImageClip(img_array, duration=duration)
-        # Position higher - moved from 150 to 120 from bottom
-        subtitle_clip = subtitle_clip.with_position(('center', video_height - 120))
         subtitle_clip = subtitle_clip.with_start(start_time)
         
         return subtitle_clip

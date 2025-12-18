@@ -240,7 +240,7 @@ class ImageGenAgent(BaseAgent):
         
         # Add vertical composition emphasis for 9:16 aspect ratio
         vertical_composition = (
-            "vertical 9:16 portrait aspect ratio, CRITICAL: subject MUST be fully visible with complete head/face/body, "
+            "vertical 9:16 portrait aspect ratio (1080x1920), CRITICAL: subject MUST be fully visible with complete head/face/body, "
             "centered in frame with significant headroom above subject (at least 20% empty space above head), "
             "wide margins on all sides, zoomed out composition, wide angle shot, "
             "NEVER crop the top of head or face, full body visible from head to toe"
@@ -338,7 +338,14 @@ class ImageGenAgent(BaseAgent):
                 new_width = current_width
                 new_height = int(current_width / target_aspect_value)
                 left = 0
-                top = (current_height - new_height) // 2
+                
+                # Smart Crop for Portraits (keep top)
+                # If target is vertical (e.g. 9:16), bias crop to top to keep heads visible
+                if target_aspect_value < 0.8:
+                    top = 0
+                else:
+                    top = (current_height - new_height) // 2
+                    
                 right = current_width
                 bottom = top + new_height
             

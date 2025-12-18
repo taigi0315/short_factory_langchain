@@ -79,9 +79,9 @@ class GeminiImageClient:
                 # The width/height params are kept for API compatibility but not used in prompt
                 aspect_hint = f"Create an image in {aspect_ratio} aspect ratio"
                 if aspect_ratio == "9:16":
-                    aspect_hint += " (vertical/portrait orientation)"
+                    aspect_hint += " (vertical/portrait orientation, 1080x1920)"
                 elif aspect_ratio == "16:9":
-                    aspect_hint += " (horizontal/landscape orientation)"
+                    aspect_hint += " (horizontal/landscape orientation, 1920x1080)"
                 
                 full_prompt = f"{aspect_hint}. {prompt}"
                 
