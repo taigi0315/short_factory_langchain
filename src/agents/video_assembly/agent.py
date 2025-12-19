@@ -129,6 +129,7 @@ class VideoAssemblyAgent(BaseAgent):
         final_video.write_videofile(output_path, fps=24, codec='libx264', audio_codec='aac')
         return output_path
 
+    @log_performance("video assembly")
     async def assemble_video_from_directed_script(
         self,
         directed_script: DirectedScript,

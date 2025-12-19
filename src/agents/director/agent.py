@@ -23,6 +23,7 @@ from src.agents.director.cinematic_language import (
     ShotType, CameraMovement, CameraAngle, LightingMood, CompositionRule,
     SHOT_TYPE_GUIDE, CAMERA_MOVEMENT_GUIDE, EMOTION_TO_VISUAL
 )
+from src.core.performance import log_performance
 
 logger = structlog.get_logger()
 
@@ -71,7 +72,8 @@ class DirectorAgent(BaseAgent):
     def _setup(self) -> None:
         """Agent-specific setup."""
         pass
-    
+
+    @log_performance("script analysis")
     async def analyze_script(self, script: VideoScript) -> DirectedScript:
         """
         Analyze script and create cinematic direction.

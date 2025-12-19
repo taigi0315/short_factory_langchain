@@ -12,6 +12,7 @@ from src.models.models import Scene, ImageStyle
 from src.agents.director.models import DirectedScript, DirectedScene
 from src.core.config import settings
 from src.core.exceptions import ImageGenerationError
+from src.core.performance import log_performance
 from src.agents.image_gen.gemini_image_client import GeminiImageClient
 
 logger = structlog.get_logger()
@@ -49,8 +50,9 @@ class ImageGenAgent(BaseAgent):
             mode="REAL" if not self.mock_mode else "MOCK"
         )
 
+    @log_performance("image generation")
     async def generate_images(
-        self, 
+        self,
         scenes: List[Scene],
         workflow_id: Optional[str] = None
     ) -> Dict[int, List[str]]:
@@ -125,6 +127,7 @@ class ImageGenAgent(BaseAgent):
         
         return image_paths
 
+    @log_performance("directed image generation")
     async def generate_images_from_directed_script(
         self,
         directed_script: DirectedScript,

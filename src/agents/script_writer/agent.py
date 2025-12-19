@@ -14,6 +14,7 @@ from src.agents.script_writer.prompts import (
 from src.models.models import VideoScript, VoiceTone, SceneType, ImageStyle
 from src.core.config import settings
 from src.core.retry import retry_with_backoff
+from src.core.performance import log_performance
 
 logger = structlog.get_logger()
 
@@ -103,7 +104,8 @@ class ScriptWriterAgent(BaseAgent):
         # Note: Enum validation is now handled by Pydantic validators
         # in the Scene model, so no manual fixing needed here
         return script
-    
+
+    @log_performance("script generation")
     async def generate_script(
         self,
         subject: str,

@@ -29,6 +29,7 @@ from src.agents.video_gen.text_overlay import TextOverlay
 logger = structlog.get_logger()
 
 from src.core.retry import retry_with_backoff
+from src.core.performance import log_performance
 from src.agents.base_agent import BaseAgent
 
 # ... imports ...
@@ -81,6 +82,7 @@ class VideoGenAgent(BaseAgent):
             if scene.needs_animation or scene.video_prompt
         ]
 
+    @log_performance("video generation")
     async def generate_video(
         self,
         script: VideoScript,
@@ -501,6 +503,7 @@ class VideoGenAgent(BaseAgent):
             logger.error("Failed to generate image video", exc_info=True)
             raise
 
+    @log_performance("video assembly from configs")
     async def build_from_scene_configs(
         self,
         script: VideoScript,

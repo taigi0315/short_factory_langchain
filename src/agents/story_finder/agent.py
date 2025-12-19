@@ -14,6 +14,7 @@ from src.agents.story_finder.prompts import (
 )
 from src.agents.story_finder.models import StoryList, StoryIdea
 from src.core.config import settings
+from src.core.performance import log_performance
 from src.agents.base_agent import BaseAgent
 
 logger = structlog.get_logger()
@@ -165,9 +166,10 @@ class StoryFinderAgent(BaseAgent):
             RunnablePassthrough.assign(search_context=search_step)
             | branch
         )
-        
+
         return full_chain
 
+    @log_performance("story generation")
     def find_stories(self, subject: str, num_stories: int = 5, category: str = "default", mood: str = "neutral") -> StoryList:
         """
         Generate story ideas for a given subject with dynamic routing.

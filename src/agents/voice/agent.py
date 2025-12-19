@@ -30,6 +30,7 @@ VOICE_MAPPING = {
 }
 
 from src.core.retry import retry_with_backoff
+from src.core.performance import log_performance
 from src.agents.base_agent import BaseAgent
 
 # ... imports ...
@@ -62,6 +63,7 @@ class VoiceAgent(BaseAgent):
         if not self.use_real_voice:
             logger.info("VoiceAgent initialized with Mock gTTS")
 
+    @log_performance("voice generation")
     async def generate_voiceovers(self, scenes: List[Scene]) -> Dict[int, str]:
         """
         Generates audio files for a list of scenes.
